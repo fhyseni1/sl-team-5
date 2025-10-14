@@ -1,0 +1,51 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{69DA3647-E38B-4DE3-A067-07DE44DCB48C}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "MedicationService", "MedicationService", "{4E8DFDB7-6441-47E9-BBC8-F0E092C1A856}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MedicationService.Domain", "src\MedicationService\MedicationService.Domain\MedicationService.Domain.csproj", "{819B80E6-FFA2-4B79-8FEC-F2E6FD99FCAE}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MedicationService.Application", "src\MedicationService\MedicationService.Application\MedicationService.Application.csproj", "{EE6A8C48-2334-4260-8E9C-7A61F93E4347}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MedicationService.Infrastructure", "src\MedicationService\MedicationService.Infrastructure\MedicationService.Infrastructure.csproj", "{BD3B4D66-4615-4C73-8762-EB5E9D6CA9E4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MedicationService.API", "src\MedicationService\MedicationService.API\MedicationService.API.csproj", "{8E3EF1AB-8967-47EB-AC5A-A3A3309A771E}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{819B80E6-FFA2-4B79-8FEC-F2E6FD99FCAE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{819B80E6-FFA2-4B79-8FEC-F2E6FD99FCAE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{819B80E6-FFA2-4B79-8FEC-F2E6FD99FCAE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{819B80E6-FFA2-4B79-8FEC-F2E6FD99FCAE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EE6A8C48-2334-4260-8E9C-7A61F93E4347}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EE6A8C48-2334-4260-8E9C-7A61F93E4347}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EE6A8C48-2334-4260-8E9C-7A61F93E4347}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EE6A8C48-2334-4260-8E9C-7A61F93E4347}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BD3B4D66-4615-4C73-8762-EB5E9D6CA9E4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BD3B4D66-4615-4C73-8762-EB5E9D6CA9E4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BD3B4D66-4615-4C73-8762-EB5E9D6CA9E4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BD3B4D66-4615-4C73-8762-EB5E9D6CA9E4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8E3EF1AB-8967-47EB-AC5A-A3A3309A771E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8E3EF1AB-8967-47EB-AC5A-A3A3309A771E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8E3EF1AB-8967-47EB-AC5A-A3A3309A771E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8E3EF1AB-8967-47EB-AC5A-A3A3309A771E}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{4E8DFDB7-6441-47E9-BBC8-F0E092C1A856} = {69DA3647-E38B-4DE3-A067-07DE44DCB48C}
+		{819B80E6-FFA2-4B79-8FEC-F2E6FD99FCAE} = {4E8DFDB7-6441-47E9-BBC8-F0E092C1A856}
+		{EE6A8C48-2334-4260-8E9C-7A61F93E4347} = {4E8DFDB7-6441-47E9-BBC8-F0E092C1A856}
+		{BD3B4D66-4615-4C73-8762-EB5E9D6CA9E4} = {4E8DFDB7-6441-47E9-BBC8-F0E092C1A856}
+		{8E3EF1AB-8967-47EB-AC5A-A3A3309A771E} = {4E8DFDB7-6441-47E9-BBC8-F0E092C1A856}
+	EndGlobalSection
+EndGlobal
