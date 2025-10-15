@@ -1,0 +1,16 @@
+syntax = "proto3";
+option csharp_namespace = "MedicationService.Protos";
+
+service Medication {
+  rpc GetMedicationInfo (MedicationRequest) returns (MedicationResponse);
+}
+
+message MedicationRequest {
+  int32 id = 1;
+}
+
+message MedicationResponse {
+  int32 id = 1;
+  string name = 2;
+  string dosage = 3;
+}
