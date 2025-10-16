@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace MedicationService.Domain.DTOs.Prescriptions
+namespace MedicationService.Application.DTOs.Prescriptions
 {
     public class PrescriptionResponseDto
     {

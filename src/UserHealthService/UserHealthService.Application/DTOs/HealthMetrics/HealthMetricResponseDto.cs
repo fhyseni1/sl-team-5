@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace UserHealthService.Domain.DTOs.HealthMetrics
+namespace UserHealthService.Application.DTOs.HealthMetrics
 {
     public class HealthMetricResponseDto
     {

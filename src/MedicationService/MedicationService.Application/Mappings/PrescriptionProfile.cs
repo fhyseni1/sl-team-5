@@ -1,5 +1,5 @@
 ﻿using AutoMapper;
-using MedicationService.Domain.DTOs.Prescriptions;
+using MedicationService.Application.DTOs.Prescriptions;
 using MedicationService.Domain.Entities;
 using MedicationService.Domain.Enums;
 using System;

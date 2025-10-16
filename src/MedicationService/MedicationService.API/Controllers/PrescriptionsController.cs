@@ -1,7 +1,5 @@
-﻿
-using MedicationService.Application.DTOs.Prescriptions;
+﻿using MedicationService.Application.DTOs.Prescriptions;
 using MedicationService.Application.Interfaces;
-using MedicationService.Application.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
@@ -13,15 +11,16 @@ namespace MedicationService.API.Controllers
     {
         private readonly IPrescriptionService _prescriptionService;
         private readonly ILogger<PrescriptionsController> _logger;
-        public PrescriptionsController( IPrescriptionService prescriptionService,ILogger<PrescriptionsController> logger)
+
+        public PrescriptionsController(IPrescriptionService prescriptionService, ILogger<PrescriptionsController> logger)
         {
             _prescriptionService = prescriptionService;
             _logger = logger;
         }
+
         [HttpGet]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-
         public async Task<ActionResult<IEnumerable<PrescriptionResponseDto>>> GetAll()
         {
             try
@@ -35,10 +34,12 @@ namespace MedicationService.API.Controllers
                 return StatusCode(500, "Internal server error");
             }
         }
+
         [HttpGet("{id}")]
         [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<IEnumerable<PrescriptionResponseDto>>> GetById(Guid id)
+        public async Task<ActionResult<PrescriptionResponseDto>> GetById(Guid id)
         {
             try
             {
@@ -54,6 +55,7 @@ namespace MedicationService.API.Controllers
                 return StatusCode(500, "Internal server error");
             }
         }
+
         [HttpGet("medication/{medicationId}")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
@@ -66,14 +68,16 @@ namespace MedicationService.API.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting prescriptions for the medicine Id  {medicationId}", medicationId);
+                _logger.LogError(ex, "Error getting prescriptions for medication {medicationId}", medicationId);
                 return StatusCode(500, "Internal server error");
             }
         }
+
         [HttpPost]
-        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<IEnumerable<PrescriptionResponseDto>>> Create([FromBody]PrescriptionCreateDto createDto)
+        public async Task<ActionResult<PrescriptionResponseDto>> Create([FromBody] PrescriptionCreateDto createDto)
         {
             try
             {
@@ -85,15 +89,17 @@ namespace MedicationService.API.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error creating medication");
+                _logger.LogError(ex, "Error creating prescription");
                 return StatusCode(500, "Internal server error");
             }
         }
 
         [HttpPut("{id}")]
         [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<IEnumerable<PrescriptionResponseDto>>> Update(Guid id, [FromBody]PrescriptionUpdateDto updateDto)
+        public async Task<ActionResult<PrescriptionResponseDto>> Update(Guid id, [FromBody] PrescriptionUpdateDto updateDto)
         {
             try
             {
@@ -108,23 +114,23 @@ namespace MedicationService.API.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error updating prescreptions  {Id}", id);
+                _logger.LogError(ex, "Error updating prescription {Id}", id);
                 return StatusCode(500, "Internal server error");
             }
         }
 
-        [HttpPut("{id}")]
+        [HttpDelete("{id}")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<IEnumerable<PrescriptionResponseDto>>> Delete(Guid id, [FromBody] PrescriptionUpdateDto updateDto)
+        public async Task<IActionResult> Delete(Guid id)
         {
             try
             {
                 var result = await _prescriptionService.DeleteAsync(id);
                 if (!result)
                     return NotFound($"Prescription with ID {id} not found");
-                
+
                 return NoContent();
             }
             catch (Exception ex)
@@ -133,6 +139,7 @@ namespace MedicationService.API.Controllers
                 return StatusCode(500, "Internal server error");
             }
         }
+
         [HttpGet("expiring")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
@@ -140,9 +147,7 @@ namespace MedicationService.API.Controllers
         {
             try
             {
-                // Use today as default if no date is provided
                 var date = beforeDate ?? DateTime.UtcNow;
-
                 var prescriptions = await _prescriptionService.GetExpiringPrescriptionsAsync(date);
                 return Ok(prescriptions);
             }
@@ -152,6 +157,7 @@ namespace MedicationService.API.Controllers
                 return StatusCode(500, "Internal server error");
             }
         }
+
         [HttpGet("low-refills")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
@@ -168,7 +174,5 @@ namespace MedicationService.API.Controllers
                 return StatusCode(500, "Internal server error");
             }
         }
-
-
     }
 }
