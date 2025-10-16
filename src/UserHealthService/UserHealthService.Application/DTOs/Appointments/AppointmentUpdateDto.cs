@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace UserHealthService.Domain.DTOs.Appointments
+namespace UserHealthService.Application.DTOs.Appointments
 {
     public class AppointmentUpdateDto
     {
