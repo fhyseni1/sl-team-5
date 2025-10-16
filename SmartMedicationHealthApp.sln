@@ -36,9 +36,6 @@ Global
 		Debug|Any CPU = Debug|Any CPU
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
-	GlobalSection(SolutionProperties) = preSolution
-		HideSolutionNode = FALSE
-	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{819B80E6-FFA2-4B79-8FEC-F2E6FD99FCAE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{819B80E6-FFA2-4B79-8FEC-F2E6FD99FCAE}.Debug|Any CPU.Build.0 = Debug|Any CPU
@@ -81,6 +78,9 @@ Global
 		{BA48DBDC-26E7-4FE0-BCA0-A014F99241DF}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{BA48DBDC-26E7-4FE0-BCA0-A014F99241DF}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{4E8DFDB7-6441-47E9-BBC8-F0E092C1A856} = {69DA3647-E38B-4DE3-A067-07DE44DCB48C}
 		{819B80E6-FFA2-4B79-8FEC-F2E6FD99FCAE} = {4E8DFDB7-6441-47E9-BBC8-F0E092C1A856}
@@ -94,5 +94,8 @@ Global
 		{27BF7815-389B-4BD8-B3FC-C4571F692377} = {53D9F43E-9CE9-40D9-9AB3-5DE71326F009}
 		{9012CC4C-7948-4475-BF25-FB938473AE53} = {7AD5EFB8-4075-4B1B-951E-B7AFB52F5F8C}
 		{BA48DBDC-26E7-4FE0-BCA0-A014F99241DF} = {7AD5EFB8-4075-4B1B-951E-B7AFB52F5F8C}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {86D98468-3A0E-4AA6-8B18-8EA1342AEE89}
 	EndGlobalSection
 EndGlobal
