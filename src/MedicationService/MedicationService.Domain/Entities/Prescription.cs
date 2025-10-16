@@ -15,6 +15,8 @@ namespace MedicationService.Domain.Entities
         public DateTime? ExpiryDate { get; set; }
         public PrescriptionStatus Status { get; set; }
         public string Notes { get; set; } = string.Empty;
+        public int RemainingRefills { get; set; }
+
         public virtual Medication Medication { get; set; } = null!;
     }
 }

@@ -4,7 +4,7 @@ using MedicationService.Application.Interfaces;
 using MedicationService.Domain.Entities;
 using MedicationService.Domain.Enums;
 
-namespace MedicationService.Application.Services
+namespace Application.Services.MedicationService
 {
     public class MedicationService : IMedicationService
     {

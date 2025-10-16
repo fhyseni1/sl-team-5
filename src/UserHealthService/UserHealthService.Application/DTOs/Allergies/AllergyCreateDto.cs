@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace UserHealthService.Domain.DTOs.Allergies
+namespace UserHealthService.Application.DTOs.Allergies
 {
     public class AllergyCreateDto
     {

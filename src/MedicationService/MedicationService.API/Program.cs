@@ -1,9 +1,12 @@
-﻿using Microsoft.EntityFrameworkCore;
-using MedicationService.Infrastructure.Data;
+﻿using AutoMapper;
 using MedicationService.API.Services;
 using MedicationService.Application.Interfaces;
-using MedicationService.Infrastructure.Repositories;
 using MedicationService.Application.Mappings;
+using MedicationService.Infrastructure.Data;
+using MedicationService.Infrastructure.Repositories;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using static System.Net.Mime.MediaTypeNames;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,9 +15,15 @@ builder.Services.AddDbContext<MedicationDbContext>(options =>
 );
 
 builder.Services.AddScoped<IMedicationRepository, MedicationRepository>();
-builder.Services.AddScoped<IMedicationService, Application.Services.MedicationService>();
+builder.Services.AddScoped<IPrescriptionRepository, PrescriptionRepository>();
+
+builder.Services.AddScoped<IMedicationService,Application.Services.MedicationService>();
+builder.Services.AddScoped<IPrescriptionService,Application.Services.MedicationService>();
+
 
 builder.Services.AddAutoMapper(typeof(MedicationProfile));
+builder.Services.AddAutoMapper(typeof(PrescriptionProfile));
+
 
 builder.Services.AddGrpc();
 builder.Services.AddControllers();
