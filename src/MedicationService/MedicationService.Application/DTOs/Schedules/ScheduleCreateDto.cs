@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace MedicationService.Domain.DTOs.Schedules
+namespace MedicationService.Application.DTOs.Schedules
 {
     public class ScheduleCreateDto
     {

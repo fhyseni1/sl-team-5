@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace MedicationService.Domain.DTOs.Interactions
+namespace MedicationService.Application.DTOs.Interactions
 {
     public class InteractionCreateDto
     {

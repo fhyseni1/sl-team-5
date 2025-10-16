@@ -1,5 +1,5 @@
 ﻿using System;
-namespace UserHealthService.Domain.DTOs.Relationships
+namespace UserHealthService.Application.DTOs.Relationships
 {
     public class UserRelationshipCreateDto
     {

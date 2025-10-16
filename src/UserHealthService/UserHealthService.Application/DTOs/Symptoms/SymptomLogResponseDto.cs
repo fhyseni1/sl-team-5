@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace UserHealthService.Domain.DTOs.Symptoms
+namespace UserHealthService.Application.DTOs.Symptoms
 {
     public class SymptomLogResponseDto
     {

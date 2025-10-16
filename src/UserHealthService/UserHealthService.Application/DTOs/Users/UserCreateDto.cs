@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace UserHealthService.Domain.DTOs.Users
+namespace UserHealthService.Application.DTOs.Users
 {
     public class UserCreateDto
     {

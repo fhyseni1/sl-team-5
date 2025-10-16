@@ -5,34 +5,39 @@ using MedicationService.Application.Mappings;
 using MedicationService.Infrastructure.Data;
 using MedicationService.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
-using static System.Net.Mime.MediaTypeNames;
+using MedicationService.Application.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// DbContext
 builder.Services.AddDbContext<MedicationDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
 );
 
+// Repositories
 builder.Services.AddScoped<IMedicationRepository, MedicationRepository>();
 builder.Services.AddScoped<IPrescriptionRepository, PrescriptionRepository>();
+builder.Services.AddScoped<IMedicationDoseRepository, MedicationDoseRepository>();
 
-builder.Services.AddScoped<IMedicationService,Application.Services.MedicationService>();
-builder.Services.AddScoped<IPrescriptionService,Application.Services.MedicationService>();
-
-
-builder.Services.AddAutoMapper(typeof(MedicationProfile));
-builder.Services.AddAutoMapper(typeof(PrescriptionProfile));
+// Services
+builder.Services.AddScoped<IMedicationDoseService, MedicationDoseService>();
 
 
+// AutoMapper
+builder.Services.AddAutoMapper(typeof(MedicationProfile)); 
+builder.Services.AddAutoMapper(typeof(MedicationDoseProfile));
+
+// gRPC & Controllers
 builder.Services.AddGrpc();
 builder.Services.AddControllers();
 
+// Swagger
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
+// Pipeline
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();

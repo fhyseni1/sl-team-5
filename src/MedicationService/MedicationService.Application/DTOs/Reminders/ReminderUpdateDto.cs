@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace MedicationService.Domain.DTOs.Reminders
+namespace MedicationService.Application.DTOs.Reminders
 {
     public class ReminderUpdateDto
     {

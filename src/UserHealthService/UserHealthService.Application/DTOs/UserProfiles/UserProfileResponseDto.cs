@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace UserHealthService.Domain.DTOs.UserProfiles
+namespace UserHealthService.Application.DTOs.UserProfiles
 {
     public class UserProfileResponseDto
     {
