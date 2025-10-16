@@ -1,5 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
-
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
@@ -13,11 +12,16 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Google.Protobuf" Version="3.32.1" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.10" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.10">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.8" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Client-side gRPC generated from MedicationService proto -->
     <Protobuf Include="..\..\MedicationService\MedicationService.API\Protos\medication.proto" GrpcServices="Client" />
   </ItemGroup>
 
@@ -26,5 +30,4 @@
     <ProjectReference Include="..\UserHealthService.Infrastructure\UserHealthService.Infrastructure.csproj" />
     <ProjectReference Include="..\UserHealthService.Domain\UserHealthService.Domain.csproj" />
   </ItemGroup>
-
 </Project>
