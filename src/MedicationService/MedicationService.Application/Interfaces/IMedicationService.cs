@@ -1,4 +1,4 @@
-using MedicationService.Domain.DTOs.Medications;
+using MedicationService.Application.DTOs.Medications;
 
 namespace MedicationService.Application.Interfaces
 {

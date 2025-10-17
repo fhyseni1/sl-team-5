@@ -24,7 +24,7 @@ builder.Services.AddScoped<IDrugInteractionRepository, DrugInteractionRepository
 builder.Services.AddScoped<IMedicationService, MedicationService.Application.Services.MedicationService>();
 builder.Services.AddScoped<IPrescriptionService, PrescriptionService>();
 builder.Services.AddScoped<IMedicationDoseService, MedicationDoseService>();
-builder.Services.AddScoped<IDrugInteractionService, MedicationService.Application.Services.DrugInteractionService>();
+builder.Services.AddScoped<IDrugInteractionService, DrugInteractionService>();
 
 // AutoMapper
 builder.Services.AddAutoMapper(typeof(MedicationProfile).Assembly);

@@ -1,4 +1,4 @@
-using MedicationService.Domain.DTOs.Interactions;
+using MedicationService.Application.DTOs.Interactions;
 using MedicationService.Domain.Enums;
 
 namespace MedicationService.Application.Interfaces
