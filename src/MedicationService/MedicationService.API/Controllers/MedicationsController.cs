@@ -1,4 +1,4 @@
-using MedicationService.Application.DTOs.Medications;
+using MedicationService.Domain.DTOs.Medications;
 using MedicationService.Application.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
