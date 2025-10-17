@@ -1,4 +1,5 @@
 ﻿using System;
+using UserHealthService.Domain.Enums; // Shto këtë using
 
 namespace UserHealthService.Application.DTOs.Appointments
 {

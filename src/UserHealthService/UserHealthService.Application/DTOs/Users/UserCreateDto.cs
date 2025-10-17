@@ -1,5 +1,5 @@
 ﻿using System;
-
+using UserHealthService.Domain.Enums;
 namespace UserHealthService.Application.DTOs.Users
 {
     public class UserCreateDto

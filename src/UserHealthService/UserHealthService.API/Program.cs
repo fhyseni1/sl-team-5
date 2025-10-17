@@ -1,16 +1,27 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using UserHealthService.Infrastructure.Data; 
-using MedicationService.Protos;
+using UserHealthService.Infrastructure.Data;
+using UserHealthService.Application.Interfaces;
+using UserHealthService.Infrastructure.Repositories;
+using UserHealthService.Application.Services;
+using UserHealthService.Application.Mappings;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Database
 builder.Services.AddDbContext<UserHealthDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-builder.Services.AddGrpcClient<Medication.MedicationClient>(o =>
-{
-    o.Address = new Uri("https://localhost:7175");
-});
 
+
+// Dependency Injection
+builder.Services.AddScoped<IAllergyRepository, AllergyRepository>();
+builder.Services.AddScoped<IAllergyService, AllergyService>();
+
+
+// AutoMapper
+builder.Services.AddAutoMapper(typeof(AllergyProfile));
+
+// Controllers
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -25,7 +36,6 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseAuthorization();
-
 app.MapControllers();
 
 app.Run();

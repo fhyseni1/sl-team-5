@@ -1,5 +1,12 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-  <ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+   <ItemGroup>
     <ProjectReference Include="..\UserHealthService.Application\UserHealthService.Application.csproj" />
     <ProjectReference Include="..\UserHealthService.Domain\UserHealthService.Domain.csproj" />
     <ProjectReference Include="..\..\MedicationService\MedicationService.Domain\MedicationService.Domain.csproj" />
@@ -12,9 +19,5 @@
     </PackageReference>
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.8" />
   </ItemGroup>
-  <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-  </PropertyGroup>
+
 </Project>
