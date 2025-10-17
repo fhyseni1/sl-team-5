@@ -6,9 +6,9 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
-namespace Application.Services.PrescriptionService
+namespace MedicationService.Application.Services
 {
-    internal class PrescriptionService : IPrescriptionService
+    public class PrescriptionService : IPrescriptionService
     {
         private readonly IPrescriptionRepository _repository;
         private readonly IMapper _mapper;
