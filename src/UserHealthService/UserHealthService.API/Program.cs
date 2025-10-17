@@ -22,6 +22,10 @@ builder.Services.AddScoped<IAppointmentService, AppointmentService>();
 // AutoMapper
 builder.Services.AddAutoMapper(typeof(AllergyProfile), typeof(AppointmentProfile));
 
+
+// AutoMapper
+builder.Services.AddAutoMapper(typeof(AllergyProfile));
+
 // Controllers
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
