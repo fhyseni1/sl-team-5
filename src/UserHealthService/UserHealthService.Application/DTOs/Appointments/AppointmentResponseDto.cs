@@ -1,4 +1,5 @@
 ﻿using System;
+using UserHealthService.Domain.Enums;
 
 namespace UserHealthService.Application.DTOs.Appointments
 {

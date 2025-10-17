@@ -20,7 +20,6 @@ builder.Services.AddGrpcClient<Medication.MedicationClient>(o =>
 {
     o.Address = new Uri("https://localhost:7175");
 });
-builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
