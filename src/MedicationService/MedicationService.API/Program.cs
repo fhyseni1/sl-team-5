@@ -18,14 +18,16 @@ builder.Services.AddDbContext<MedicationDbContext>(options =>
 builder.Services.AddScoped<IMedicationRepository, MedicationRepository>();
 builder.Services.AddScoped<IPrescriptionRepository, PrescriptionRepository>();
 builder.Services.AddScoped<IMedicationDoseRepository, MedicationDoseRepository>();
+builder.Services.AddScoped<IDrugInteractionRepository, DrugInteractionRepository>();
 
 // Services
+builder.Services.AddScoped<IMedicationService, MedicationService.Application.Services.MedicationService>();
+builder.Services.AddScoped<IPrescriptionService, PrescriptionService>();
 builder.Services.AddScoped<IMedicationDoseService, MedicationDoseService>();
-
+builder.Services.AddScoped<IDrugInteractionService, MedicationService.Application.Services.DrugInteractionService>();
 
 // AutoMapper
-builder.Services.AddAutoMapper(typeof(MedicationProfile)); 
-builder.Services.AddAutoMapper(typeof(MedicationDoseProfile));
+builder.Services.AddAutoMapper(typeof(MedicationProfile).Assembly);
 
 // gRPC & Controllers
 builder.Services.AddGrpc();
