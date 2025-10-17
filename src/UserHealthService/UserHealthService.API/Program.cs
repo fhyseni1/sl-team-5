@@ -16,10 +16,11 @@ builder.Services.AddDbContext<UserHealthDbContext>(options =>
 // Dependency Injection
 builder.Services.AddScoped<IAllergyRepository, AllergyRepository>();
 builder.Services.AddScoped<IAllergyService, AllergyService>();
-
+builder.Services.AddScoped<IAppointmentRepository, AppointmentRepository>();
+builder.Services.AddScoped<IAppointmentService, AppointmentService>();
 
 // AutoMapper
-builder.Services.AddAutoMapper(typeof(AllergyProfile));
+builder.Services.AddAutoMapper(typeof(AllergyProfile), typeof(AppointmentProfile));
 
 // Controllers
 builder.Services.AddControllers();
