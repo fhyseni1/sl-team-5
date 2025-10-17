@@ -9,7 +9,16 @@ using MedicationService.Application.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// DbContext
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowNextJs", policy =>
+    {
+        policy.WithOrigins("http://localhost:3000")
+              .AllowAnyHeader()
+              .AllowAnyMethod();
+    });
+});
 builder.Services.AddDbContext<MedicationDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
 );
@@ -48,6 +57,7 @@ app.MapGrpcService<MedicationGrpcService>();
 app.MapGet("/", () => "MedicationService gRPC Server is running.");
 
 app.UseHttpsRedirection();
+app.UseCors("AllowNextJs");
 app.UseAuthorization();
 
 app.MapControllers();
