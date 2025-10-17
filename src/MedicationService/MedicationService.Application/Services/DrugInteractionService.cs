@@ -1,6 +1,6 @@
 using AutoMapper;
 using MedicationService.Application.Interfaces;
-using MedicationService.Domain.DTOs.Interactions;
+using MedicationService.Application.DTOs.Interactions;
 using MedicationService.Domain.Entities;
 using MedicationService.Domain.Enums;
 

@@ -1,5 +1,5 @@
 using MedicationService.Application.Interfaces;
-using MedicationService.Domain.DTOs.Interactions;
+using MedicationService.Application.DTOs.Interactions;
 using MedicationService.Domain.Enums;
 using Microsoft.AspNetCore.Mvc;
 
