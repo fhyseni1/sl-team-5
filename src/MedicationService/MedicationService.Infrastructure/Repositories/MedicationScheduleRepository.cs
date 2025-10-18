@@ -98,6 +98,7 @@ namespace MedicationService.Infrastructure.Repositories
         public async Task<IEnumerable<MedicationSchedule>> GetUpcomingSchedulesAsync(DateTime startTime, DateTime endTime)
         {
             var schedules = await _dbContext.MedicationSchedules
+        .Include(s => s.Medication)
         .Where(s => s.IsActive)
         .ToListAsync();
             var upcoming = schedules.Where(s =>
