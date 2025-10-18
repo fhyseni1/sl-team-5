@@ -19,15 +19,23 @@ builder.Services.AddScoped<IMedicationRepository, MedicationRepository>();
 builder.Services.AddScoped<IPrescriptionRepository, PrescriptionRepository>();
 builder.Services.AddScoped<IMedicationDoseRepository, MedicationDoseRepository>();
 builder.Services.AddScoped<IDrugInteractionRepository, DrugInteractionRepository>();
+builder.Services.AddScoped<IMedicationScheduleRepository, MedicationScheduleRepository>();
 
 // Services
 builder.Services.AddScoped<IMedicationService, MedicationService.Application.Services.MedicationService>();
 builder.Services.AddScoped<IPrescriptionService, PrescriptionService>();
 builder.Services.AddScoped<IMedicationDoseService, MedicationDoseService>();
 builder.Services.AddScoped<IDrugInteractionService, DrugInteractionService>();
+builder.Services.AddScoped<IMedicationScheduleService, MedicationScheduleService>();
 
 // AutoMapper
 builder.Services.AddAutoMapper(typeof(MedicationProfile).Assembly);
+builder.Services.AddAutoMapper(typeof(MedicationScheduleProfile).Assembly);
+builder.Services.AddAutoMapper(typeof(PrescriptionProfile).Assembly);
+builder.Services.AddAutoMapper(typeof(MedicationDoseProfile).Assembly);
+builder.Services.AddAutoMapper(typeof(DrugInteractionProfile).Assembly);
+
+
 
 // gRPC & Controllers
 builder.Services.AddGrpc();
