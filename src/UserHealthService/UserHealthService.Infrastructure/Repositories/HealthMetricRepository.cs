@@ -4,7 +4,6 @@ using UserHealthService.Domain.Entities;
 using UserHealthService.Domain.Enums;
 using UserHealthService.Infrastructure.Data;
 
-
 namespace UserHealthService.Infrastructure.Repositories
 {
     public class HealthMetricRepository : IHealthMetricRepository
