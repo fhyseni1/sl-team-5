@@ -58,19 +58,22 @@ namespace MedicationService.Infrastructure.Repositories
 
         public async Task<IEnumerable<MedicationSchedule>> FindAsync(Expression<Func<MedicationSchedule, bool>> predicate)
         {
-            return await _dbContext.MedicationSchedules.Where(predicate).ToListAsync();
+            return await _dbContext.MedicationSchedules.Include(e=>e.Reminders).Include(e=>e.Medication).Where(predicate).ToListAsync();
         }
 
         public async Task<IEnumerable<MedicationSchedule>> GetActiveSchedulesAsync()
         {
             return await _dbContext.MedicationSchedules
+                .Include(e => e.Medication)
+                .Include(e => e.Reminders)
          .Where(e => e.IsActive) 
          .ToListAsync();
         }
 
         public async Task<IEnumerable<MedicationSchedule>> GetAllAsync()
         {
-            return await _dbContext.MedicationSchedules.ToListAsync();
+            return await _dbContext.MedicationSchedules.Include(s => s.Medication)
+        .Include(s => s.Reminders).ToListAsync();
         }
 
         public async Task<MedicationSchedule?> GetByIdAsync(Guid id)
@@ -82,6 +85,7 @@ namespace MedicationService.Infrastructure.Repositories
         {
             return await _dbContext.MedicationSchedules
                  .Include(e => e.Medication)
+                 .Include(s => s.Reminders)
                .Where(m => m.MedicationId == medicationId)
                .OrderByDescending(m => m.CreatedAt)
                .ToListAsync();
@@ -90,6 +94,8 @@ namespace MedicationService.Infrastructure.Repositories
         public async Task<IEnumerable<MedicationSchedule>> GetSchedulesByFrequencyAsync(FrequencyType frequency)
         {
             return await _dbContext.MedicationSchedules
+                .Include(e => e.Medication)
+                .Include(e => e.Reminders)
                .Where(m => m.Frequency == frequency)
                .OrderByDescending(m => m.CreatedAt)
                .ToListAsync();
@@ -99,6 +105,7 @@ namespace MedicationService.Infrastructure.Repositories
         {
             var schedules = await _dbContext.MedicationSchedules
         .Include(s => s.Medication)
+        .Include(s => s.Reminders)
         .Where(s => s.IsActive)
         .ToListAsync();
             var upcoming = schedules.Where(s =>
