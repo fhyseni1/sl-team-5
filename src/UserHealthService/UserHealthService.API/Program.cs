@@ -18,13 +18,18 @@ builder.Services.AddScoped<IAllergyRepository, AllergyRepository>();
 builder.Services.AddScoped<IAllergyService, AllergyService>();
 builder.Services.AddScoped<IAppointmentRepository, AppointmentRepository>();
 builder.Services.AddScoped<IAppointmentService, AppointmentService>();
+builder.Services.AddScoped<IHealthMetricRepository, HealthMetricRepository>();
+builder.Services.AddScoped<IHealthMetricService, HealthMetricService>();
 
 // AutoMapper
 builder.Services.AddAutoMapper(typeof(AllergyProfile), typeof(AppointmentProfile));
 
+builder.Services.AddAutoMapper(typeof(HealthMetricProfile));
+
 
 // AutoMapper
 builder.Services.AddAutoMapper(typeof(AllergyProfile));
+
 
 // Controllers
 builder.Services.AddControllers();
