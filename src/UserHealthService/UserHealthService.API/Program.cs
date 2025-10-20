@@ -14,22 +14,14 @@ using UserHealthService.Infrastructure.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ========================================
 // DATABASE
-// ========================================
 builder.Services.AddDbContext<UserHealthDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
-
-// ========================================
 // JWT CONFIGURATION
-// ========================================
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
-
-// ========================================
 // REPOSITORIES
-// ========================================
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 // Dependency Injection
 builder.Services.AddScoped<IUserRepository, UserRepository>();
@@ -38,10 +30,7 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IAllergyRepository, AllergyRepository>();
 builder.Services.AddScoped<IAppointmentRepository, AppointmentRepository>();
 builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
-
-// ========================================
 // SERVICES
-// ========================================
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IAllergyService, AllergyService>();
 builder.Services.AddScoped<IAppointmentService, AppointmentService>();
@@ -49,13 +38,13 @@ builder.Services.AddScoped<IHealthMetricRepository, HealthMetricRepository>();
 builder.Services.AddScoped<IHealthMetricService, HealthMetricService>();
 builder.Services.AddScoped<ISymptomLogRepository, SymptomLogRepository>();
 builder.Services.AddScoped<ISymptomLogService, SymptomLogService>();
-
+builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
 // AutoMapper
 builder.Services.AddAutoMapper(typeof(UserProfile), typeof(AllergyProfile), typeof(AppointmentProfile), typeof(HealthMetricProfile), typeof(SymptomLogProfile));
+builder.Services.AddAutoMapper(typeof(NotificationProfile));
 
-// ========================================
 // API CONTROLLERS & SWAGGER
-// ========================================
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
@@ -94,10 +83,7 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 var app = builder.Build();
-
-// ========================================
 // CRITICAL MIDDLEWARE ORDER - FIXED
-// ========================================
 if (app.Environment.IsDevelopment())
 {
     // ✅ SWAGGER FIRST
