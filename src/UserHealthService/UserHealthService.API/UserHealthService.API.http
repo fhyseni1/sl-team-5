@@ -1,6 +1,68 @@
-@UserHealthService.API_HostAddress = http://localhost:5029
+### UserHealthService API Tests
 
-GET {{UserHealthService.API_HostAddress}}/weatherforecast/
+@baseUrl = https://localhost:7108
+@baseUrlHttp = http://localhost:5029
+
+### Health Check / Get All Users
+GET {{baseUrl}}/api/users
 Accept: application/json
 
-###
+### Get User by ID
+GET {{baseUrl}}/api/users/3fa85f64-5717-4562-b3fc-2c963f66afa6
+Accept: application/json
+
+### Get User by Email
+GET {{baseUrl}}/api/users/email/john.doe@example.com
+Accept: application/json
+
+### Get Active Users
+GET {{baseUrl}}/api/users/active
+Accept: application/json
+
+### Create New User
+POST {{baseUrl}}/api/users
+Content-Type: application/json
+
+{
+  "email": "john.doe@example.com",
+  "firstName": "John",
+  "lastName": "Doe",
+  "dateOfBirth": "1990-01-15",
+  "phoneNumber": "+1234567890",
+  "type": "Patient"
+}
+
+### Update User
+PUT {{baseUrl}}/api/users/3fa85f64-5717-4562-b3fc-2c963f66afa6
+Content-Type: application/json
+
+{
+  "firstName": "John",
+  "lastName": "Smith",
+  "dateOfBirth": "1990-01-15",
+  "phoneNumber": "+1234567890",
+  "isActive": true
+}
+
+### Update User Profile
+PUT {{baseUrl}}/api/users/3fa85f64-5717-4562-b3fc-2c963f66afa6/profile
+Content-Type: application/json
+
+{
+  "gender": "Male",
+  "height": 175.5,
+  "weight": 75.0,
+  "bloodType": "A+",
+  "medicalHistory": "No significant medical history",
+  "emergencyContactName": "Jane Doe",
+  "emergencyContactPhone": "+1234567891",
+  "emergencyContactRelation": "Spouse",
+  "address": "123 Main St",
+  "city": "New York",
+  "state": "NY",
+  "zipCode": "10001",
+  "country": "USA"
+}
+
+### Delete User
+DELETE {{baseUrl}}/api/users/3fa85f64-5717-4562-b3fc-2c963f66afa6

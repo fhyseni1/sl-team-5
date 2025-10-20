@@ -41,15 +41,9 @@ namespace UserHealthService.API.Controllers
         }
 
         [HttpPost("logout")]
-        public async Task<IActionResult> Logout(CancellationToken ct)
+        public async Task<IActionResult> Logout([FromBody] RefreshTokenRequest request, CancellationToken ct)
         {
-            var refreshToken = Request.Cookies["refresh_token"];
-
-            if (!string.IsNullOrEmpty(refreshToken))
-            {
-                await _authService.LogoutAsync(refreshToken, ct);
-            }
-
+            await _authService.LogoutAsync(request.RefreshToken, ct);
             ClearAuthCookies();
             return Ok(new { message = "Logout successful" });
         }
@@ -75,19 +69,17 @@ namespace UserHealthService.API.Controllers
             Response.Cookies.Append("access_token", tokens.AccessToken, new CookieOptions
             {
                 HttpOnly = true,
-                Secure = false,  
-                SameSite = SameSiteMode.Lax, 
-                Expires = DateTime.UtcNow.AddMinutes(15),
-                Path = "/"  
+                Secure = true,
+                SameSite = SameSiteMode.Strict,
+                Expires = DateTime.UtcNow.AddMinutes(15)
             });
 
             Response.Cookies.Append("refresh_token", tokens.RefreshToken, new CookieOptions
             {
                 HttpOnly = true,
-                Secure = false,
-                SameSite = SameSiteMode.Lax,  
-                Expires = DateTime.UtcNow.AddDays(7),
-                Path = "/"  
+                Secure = true,
+                SameSite = SameSiteMode.Strict,
+                Expires = DateTime.UtcNow.AddDays(7)
             });
         }
 
