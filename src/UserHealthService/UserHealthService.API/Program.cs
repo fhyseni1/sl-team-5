@@ -11,6 +11,8 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<UserHealthDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 // Dependency Injection
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IAllergyRepository, AllergyRepository>();
 builder.Services.AddScoped<IAllergyService, AllergyService>();
 builder.Services.AddScoped<IAppointmentRepository, AppointmentRepository>();
@@ -19,9 +21,9 @@ builder.Services.AddScoped<IHealthMetricRepository, HealthMetricRepository>();
 builder.Services.AddScoped<IHealthMetricService, HealthMetricService>();
 builder.Services.AddScoped<ISymptomLogRepository, SymptomLogRepository>();
 builder.Services.AddScoped<ISymptomLogService, SymptomLogService>();
+
 // AutoMapper
-builder.Services.AddAutoMapper(typeof(AllergyProfile), typeof(AppointmentProfile), typeof(SymptomLogProfile));
-builder.Services.AddAutoMapper(typeof(HealthMetricProfile));
+builder.Services.AddAutoMapper(typeof(UserProfile), typeof(AllergyProfile), typeof(AppointmentProfile), typeof(HealthMetricProfile), typeof(SymptomLogProfile));
 
 // Controllers
 builder.Services.AddControllers();
