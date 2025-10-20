@@ -21,8 +21,9 @@ builder.Services.AddDbContext<UserHealthDbContext>(options =>
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
 // JWT CONFIGURATION
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
+feat(user-health)--implement-notifications-endpoint-some-changes
 builder.Services.AddHttpContextAccessor();
-
+main
 // REPOSITORIES
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 // Dependency Injection
@@ -88,13 +89,12 @@ var app = builder.Build();
 // CRITICAL MIDDLEWARE ORDER - FIXED
 if (app.Environment.IsDevelopment())
 {
-    // ✅ SWAGGER FIRST
     app.UseSwagger();
     app.UseSwaggerUI(options =>
     {
         options.SwaggerEndpoint("/swagger/v1/swagger.json", "UserHealthService API v1");
         options.RoutePrefix = "swagger"; // Swagger at root: https://localhost:7108/
-        // ✅ FIXED: DisplayRequestDuration is a METHOD
+       
         options.DisplayRequestDuration();
     });
 }
@@ -106,3 +106,4 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
