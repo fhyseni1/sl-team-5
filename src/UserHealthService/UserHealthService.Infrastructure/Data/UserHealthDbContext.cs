@@ -22,8 +22,7 @@ namespace UserHealthService.Infrastructure.Data
         public DbSet<HealthMetric> HealthMetrics { get; set; }
         public DbSet<Notification> Notifications { get; set; }
         public DbSet<UserRelationship> UserRelationships { get; set; }
-        public DbSet<RefreshToken> RefreshTokens { get; set; } = null!;
-
+        public DbSet<SymptomLog> SymptomLogs { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
