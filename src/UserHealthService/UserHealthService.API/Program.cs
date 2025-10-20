@@ -17,11 +17,12 @@ builder.Services.AddScoped<IAppointmentRepository, AppointmentRepository>();
 builder.Services.AddScoped<IAppointmentService, AppointmentService>();
 builder.Services.AddScoped<IHealthMetricRepository, HealthMetricRepository>();
 builder.Services.AddScoped<IHealthMetricService, HealthMetricService>();
+builder.Services.AddScoped<ISymptomLogRepository, SymptomLogRepository>();
+builder.Services.AddScoped<ISymptomLogService, SymptomLogService>();
 // AutoMapper
-builder.Services.AddAutoMapper(typeof(AllergyProfile), typeof(AppointmentProfile));
+builder.Services.AddAutoMapper(typeof(AllergyProfile), typeof(AppointmentProfile), typeof(SymptomLogProfile));
 builder.Services.AddAutoMapper(typeof(HealthMetricProfile));
-// AutoMapper
-builder.Services.AddAutoMapper(typeof(AllergyProfile));
+
 // Controllers
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
