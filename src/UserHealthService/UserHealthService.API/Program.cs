@@ -21,6 +21,8 @@ builder.Services.AddDbContext<UserHealthDbContext>(options =>
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
 // JWT CONFIGURATION
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
+builder.Services.AddHttpContextAccessor();
+
 // REPOSITORIES
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 // Dependency Injection
