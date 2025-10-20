@@ -38,7 +38,6 @@ builder.Services.AddAutoMapper(typeof(MedicationDoseProfile).Assembly);
 builder.Services.AddAutoMapper(typeof(DrugInteractionProfile).Assembly);
 builder.Services.AddAutoMapper(typeof(MedicationReminderProfile).Assembly);
 
-
 // gRPC & Controllers
 builder.Services.AddGrpc();
 builder.Services.AddControllers();
