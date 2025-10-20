@@ -21,6 +21,7 @@ namespace UserHealthService.Infrastructure.Migrations
                     LastName = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
                     DateOfBirth = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     PhoneNumber = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: true),
+                    PasswordHash = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
                     Type = table.Column<string>(type: "varchar", nullable: false),
                     IsActive = table.Column<bool>(type: "boolean", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
@@ -173,6 +174,27 @@ namespace UserHealthService.Infrastructure.Migrations
                     table.PrimaryKey("PK_Notifications", x => x.Id);
                     table.ForeignKey(
                         name: "FK_Notifications_Users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "Users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "RefreshTokens",
+                columns: table => new
+                {
+                    Token = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
+                    UserId = table.Column<Guid>(type: "uuid", nullable: false),
+                    IsRevoked = table.Column<bool>(type: "boolean", nullable: false),
+                    ExpiresAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_RefreshTokens", x => x.Token);
+                    table.ForeignKey(
+                        name: "FK_RefreshTokens_Users_UserId",
                         column: x => x.UserId,
                         principalTable: "Users",
                         principalColumn: "Id",
@@ -366,7 +388,8 @@ namespace UserHealthService.Infrastructure.Migrations
                     IssueDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     ExpiryDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     Status = table.Column<int>(type: "integer", nullable: false),
-                    Notes = table.Column<string>(type: "text", nullable: false)
+                    Notes = table.Column<string>(type: "text", nullable: false),
+                    RemainingRefills = table.Column<int>(type: "integer", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -468,6 +491,11 @@ namespace UserHealthService.Infrastructure.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
+                name: "IX_RefreshTokens_UserId",
+                table: "RefreshTokens",
+                column: "UserId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_SymptomLog_UserId",
                 table: "SymptomLog",
                 column: "UserId");
@@ -515,6 +543,9 @@ namespace UserHealthService.Infrastructure.Migrations
 
             migrationBuilder.DropTable(
                 name: "Prescription");
+
+            migrationBuilder.DropTable(
+                name: "RefreshTokens");
 
             migrationBuilder.DropTable(
                 name: "SymptomLog");
