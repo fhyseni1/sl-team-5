@@ -20,6 +20,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<UserHealthDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
 
 // ========================================
 // JWT CONFIGURATION
@@ -30,7 +31,6 @@ builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
 // REPOSITORIES
 // ========================================
 builder.Services.AddScoped<IUserRepository, UserRepository>();
-=======
 // Dependency Injection
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IUserService, UserService>();
