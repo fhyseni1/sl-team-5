@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 
 namespace MedicationService.Infrastructure.Repositories
 {
-    internal class MedicationReminderRepository : IMedicationReminderRepository
+    public class MedicationReminderRepository : IMedicationReminderRepository
     {
         private readonly MedicationDbContext _context;
 

@@ -1,4 +1,5 @@
-﻿using MedicationService.Domain.Entities;
+﻿using MedicationService.Application.DTOs.Reminders;
+using MedicationService.Domain.Entities;
 using MedicationService.Domain.Enums;
 using System;
 using System.Collections.Generic;
@@ -20,7 +21,7 @@ namespace MedicationService.Application.Interfaces
         Task<IEnumerable<ReminderResponseDto>> GetMissedRemindersAsync();
         Task<IEnumerable<ReminderResponseDto>> GetPendingRemindersAsync();
         Task<IEnumerable<ReminderResponseDto>> GetUpcomingRemindersAsync(DateTime beforeTime);
-        Task<int> GetTotalCountAsync();
+        Task<ReminderResponseDto?> SnoozeReminder(Guid id, ReminderUpdateDto dto);
         Task<bool> ExistsAsync(Guid id);
     }
 }

@@ -13,8 +13,7 @@ using System.Threading.Tasks;
 
 namespace MedicationService.Application.Services
 {
-   
-       
+     
         public class MedicationReminderService : IMedicationReminderService
         {
             private readonly IMedicationReminderRepository _repository;
@@ -68,13 +67,32 @@ namespace MedicationService.Application.Services
             public async Task<IEnumerable<ReminderResponseDto>> GetPendingRemindersAsync()
                 => _mapper.Map<IEnumerable<ReminderResponseDto>>(await _repository.GetPendingRemindersAsync());
 
-            public async Task<int> GetTotalCountAsync()
-                => await _repository.CountAsync();
 
             public async Task<IEnumerable<ReminderResponseDto>> GetUpcomingRemindersAsync(DateTime beforeTime)
                 => _mapper.Map<IEnumerable<ReminderResponseDto>>(await _repository.GetUpcomingRemindersAsync(beforeTime));
 
-            public async Task<ReminderResponseDto?> UpdateAsync(Guid id, ReminderUpdateDto dto)
+        public async Task<ReminderResponseDto?> SnoozeReminder(Guid id, ReminderUpdateDto dto)
+        {
+            var existingReminder = await _repository.GetByIdAsync(id);
+            if (existingReminder == null)
+                return null;
+
+         
+            var newReminderTime = DateTime.UtcNow.AddMinutes(10);
+
+       
+            existingReminder.ScheduledTime = newReminderTime;
+            existingReminder.Status = ReminderStatus.Snoozed;
+            existingReminder.SnoozeCount += 1;
+
+      
+            await _repository.UpdateAsync(existingReminder);
+
+            return _mapper.Map<ReminderResponseDto>(existingReminder);
+        }
+
+        public async Task<ReminderResponseDto?> UpdateAsync(Guid id, ReminderUpdateDto dto)
+
             {
                 var existing = await _repository.GetByIdAsync(id);
                 if (existing == null) return null;
