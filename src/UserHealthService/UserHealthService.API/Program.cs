@@ -14,45 +14,25 @@ using UserHealthService.Infrastructure.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ========================================
-// DATABASE
-// ========================================
 builder.Services.AddDbContext<UserHealthDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// ========================================
-// JWT CONFIGURATION
-// ========================================
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
 
-// ========================================
-// REPOSITORIES
-// ========================================
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IAllergyRepository, AllergyRepository>();
 builder.Services.AddScoped<IAppointmentRepository, AppointmentRepository>();
 builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 
-// ========================================
-// SERVICES
-// ========================================
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IAllergyService, AllergyService>();
 builder.Services.AddScoped<IAppointmentService, AppointmentService>();
 
-// ========================================
-// HTTP CONTEXT ACCESSOR
-// ========================================
+
 builder.Services.AddHttpContextAccessor();
 
-// ========================================
-// AUTOMAPPER
-// ========================================
 builder.Services.AddAutoMapper(typeof(AllergyProfile), typeof(AppointmentProfile));
 
-// ========================================
-// AUTHENTICATION & JWT
-// ========================================
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -80,11 +60,21 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
-// ========================================
-// CORS - FIXED
-// ========================================
 builder.Services.AddCors(options =>
 {
+    options.AddPolicy("AllowFrontend", policy =>
+        policy
+            .WithOrigins(
+                "http://localhost:3000",     
+                "https://localhost:3000",
+                "http://localhost:5029",
+                "http://localhost:7108",     
+                "https://localhost:7108")    
+            .AllowAnyMethod()
+            .AllowAnyHeader()
+            .AllowCredentials()         
+            .SetIsOriginAllowedToAllowWildcardSubdomains()); 
+
     options.AddPolicy("AllowAllDev", policy =>
         policy
             .SetIsOriginAllowed(_ => true)
@@ -93,9 +83,6 @@ builder.Services.AddCors(options =>
             .AllowCredentials());
 });
 
-// ========================================
-// API CONTROLLERS & SWAGGER
-// ========================================
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
@@ -135,24 +122,18 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
-// ========================================
-// CRITICAL MIDDLEWARE ORDER - FIXED
-// ========================================
 if (app.Environment.IsDevelopment())
 {
-    // ✅ SWAGGER FIRST
     app.UseSwagger();
     app.UseSwaggerUI(options =>
     {
         options.SwaggerEndpoint("/swagger/v1/swagger.json", "UserHealthService API v1");
         options.RoutePrefix = "swagger"; // Swagger at root: https://localhost:7108/
-        // ✅ FIXED: DisplayRequestDuration is a METHOD
         options.DisplayRequestDuration();
     });
 }
 
-app.UseHttpsRedirection();
-app.UseCors("AllowAllDev");
+app.UseCors("AllowFrontend");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
