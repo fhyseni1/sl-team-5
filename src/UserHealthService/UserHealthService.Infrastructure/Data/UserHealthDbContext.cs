@@ -36,6 +36,10 @@ namespace UserHealthService.Infrastructure.Data
                 entity.Property(e => e.FirstName).IsRequired().HasMaxLength(50);
                 entity.Property(e => e.LastName).IsRequired().HasMaxLength(50);
                 entity.Property(e => e.PhoneNumber).HasMaxLength(20);
+
+                // ✅ CRITICAL: ADD THIS LINE
+                entity.Property(e => e.PasswordHash).IsRequired().HasMaxLength(500);
+
                 entity.Property(e => e.Type)
                     .HasConversion(new EnumToStringConverter<UserType>())
                     .HasColumnType("varchar");
@@ -170,6 +174,18 @@ namespace UserHealthService.Infrastructure.Data
                     .HasForeignKey(e => e.RelatedUserId)
                     .OnDelete(DeleteBehavior.Restrict);
             });
+            modelBuilder.Entity<RefreshToken>(entity =>
+            {
+                entity.HasKey(e => e.Token);
+                entity.Property(e => e.Token).HasMaxLength(500);
+                entity.HasOne(e => e.User)
+                      .WithMany()
+                      .HasForeignKey(e => e.UserId)
+                      .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            base.OnModelCreating(modelBuilder);
+
         }
     }
 }
