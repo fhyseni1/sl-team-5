@@ -33,6 +33,12 @@ namespace UserHealthService.Infrastructure.Repositories
                 .ToListAsync();
         }
 
+        public async Task<int> CountByUserIdAsync(Guid userId)
+        {
+            return await _context.Allergies
+                .CountAsync(a => a.UserId == userId && a.IsActive);
+        }
+
         public async Task<Allergy> AddAsync(Allergy allergy)
         {
             allergy.CreatedAt = DateTime.UtcNow;

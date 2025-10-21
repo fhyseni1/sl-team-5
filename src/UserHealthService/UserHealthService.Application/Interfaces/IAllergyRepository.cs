@@ -7,6 +7,7 @@ namespace UserHealthService.Application.Interfaces
         Task<Allergy?> GetByIdAsync(Guid id); 
         Task<IEnumerable<Allergy>> GetAllAsync();
         Task<IEnumerable<Allergy>> GetByUserIdAsync(Guid userId);
+        Task<int> CountByUserIdAsync(Guid userId);
         Task<Allergy> AddAsync(Allergy allergy);
         Task<Allergy> UpdateAsync(Allergy allergy);
         Task<bool> DeleteAsync(Guid id);
