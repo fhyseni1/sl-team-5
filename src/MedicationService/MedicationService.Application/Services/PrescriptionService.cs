@@ -91,5 +91,20 @@ namespace MedicationService.Application.Services
             await _repository.UpdateAsync(existing);
             return _mapper.Map<PrescriptionResponseDto>(existing);
         }
+        public async Task<IEnumerable<PrescriptionResponseDto>> GetExpiringSoonAsync(int days = 30)
+        {
+            var prescriptions = await _repository.GetExpiringSoonAsync(days);
+
+           return prescriptions.Select(p => new PrescriptionResponseDto
+            {
+                Id = p.Id,
+                ExpiryDate = p.ExpiryDate,
+                MedicationName = p.Medication.Name,  
+                PrescriberName = p.PrescriberName,
+                PharmacyName = p.PharmacyName,
+            });
+
+        }
+
     }
 }

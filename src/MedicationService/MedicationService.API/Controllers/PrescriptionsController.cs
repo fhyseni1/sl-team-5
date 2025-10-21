@@ -139,16 +139,14 @@ namespace MedicationService.API.Controllers
                 return StatusCode(500, "Internal server error");
             }
         }
-
         [HttpGet("expiring")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<IEnumerable<PrescriptionResponseDto>>> GetExpiringPrescriptions([FromQuery] DateTime? beforeDate)
+        public async Task<ActionResult<IEnumerable<PrescriptionResponseDto>>> GetExpiringPrescriptions([FromQuery] int days = 30)
         {
             try
             {
-                var date = beforeDate ?? DateTime.UtcNow;
-                var prescriptions = await _prescriptionService.GetExpiringPrescriptionsAsync(date);
+                var prescriptions = await _prescriptionService.GetExpiringSoonAsync(days);
                 return Ok(prescriptions);
             }
             catch (Exception ex)
