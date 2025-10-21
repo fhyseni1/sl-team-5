@@ -8,6 +8,7 @@ namespace UserHealthService.Application.Interfaces
         Task<IEnumerable<AppointmentResponseDto>> GetAllAsync();
         Task<IEnumerable<AppointmentResponseDto>> GetByUserIdAsync(Guid userId);
         Task<IEnumerable<AppointmentResponseDto>> GetUpcomingAsync();
+        Task<IEnumerable<AppointmentResponseDto>> GetAppointmentsByDateRangeAsync(DateTime? fromDate, DateTime? toDate);
         Task<AppointmentResponseDto> CreateAsync(AppointmentCreateDto createDto);
         Task<AppointmentResponseDto?> UpdateAsync(Guid id, AppointmentUpdateDto updateDto);
         Task<bool> CancelAsync(Guid id);

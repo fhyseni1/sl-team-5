@@ -44,6 +44,15 @@ namespace UserHealthService.API.Controllers
             return Ok(appointments);
         }
 
+        [HttpGet("filter")]
+        public async Task<ActionResult<IEnumerable<AppointmentResponseDto>>> GetByDateRange(
+            [FromQuery] DateTime? fromDate, 
+            [FromQuery] DateTime? toDate)
+        {
+            var appointments = await _appointmentService.GetAppointmentsByDateRangeAsync(fromDate, toDate);
+            return Ok(appointments);
+        }
+
         [HttpPost]
         public async Task<ActionResult<AppointmentResponseDto>> Create(AppointmentCreateDto createDto)
         {
