@@ -14,6 +14,7 @@ namespace MedicationService.Application.Interfaces
         Task<MedicationResponseDto?> UpdateAsync(Guid id, MedicationUpdateDto updateDto);
         Task<bool> DeleteAsync(Guid id);
         Task<bool> ExistsAsync(Guid id);
+        Task<IEnumerable<MedicationResponseDto>> SearchMedicationsAsync(string searchTerm);
     }
 }
 

@@ -9,6 +9,6 @@ namespace MedicationService.Application.Interfaces
         Task<Medication?> GetByIdWithDetailsAsync(Guid id);
         Task<IEnumerable<Medication>> GetByStatusAsync(Domain.Enums.MedicationStatus status);
         Task<IEnumerable<Medication>> SearchByNameAsync(string name);
-    }
+   }
 }
 
