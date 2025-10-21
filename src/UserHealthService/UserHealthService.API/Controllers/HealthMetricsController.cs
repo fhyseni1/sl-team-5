@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using UserHealthService.Application.DTOs.HealthMetrics;
 using UserHealthService.Application.Interfaces;
+using UserHealthService.Domain.Enums; 
 
 namespace UserHealthService.API.Controllers
 {
@@ -9,10 +10,12 @@ namespace UserHealthService.API.Controllers
     public class HealthMetricsController : ControllerBase
     {
         private readonly IHealthMetricService _service;
+        private readonly IHealthMetricService _healthMetricService;
 
-        public HealthMetricsController(IHealthMetricService service)
+        public HealthMetricsController(IHealthMetricService service,IHealthMetricService healthMetricService)
         {
             _service = service;
+             _healthMetricService = healthMetricService;
         }
 
         [HttpGet]
@@ -66,6 +69,16 @@ namespace UserHealthService.API.Controllers
         {
             var success = await _service.DeleteAsync(id);
             return success ? NoContent() : NotFound();
+        }
+
+        [HttpGet("user/{userId}/latest")]
+        public async Task<IActionResult> GetLatestMetric(Guid userId, [FromQuery] HealthMetricType type)
+        {
+            var result = await _healthMetricService.GetLatestMetricAsync(userId, type);
+            if (result == null)
+                return NotFound();
+
+            return Ok(result);
         }
     }
 }
