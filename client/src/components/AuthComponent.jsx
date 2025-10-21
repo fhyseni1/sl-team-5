@@ -54,7 +54,6 @@ const AuthComponent = () => {
 
       const userData = await authService.getMe();
       setUser(userData);
-      console.log("Auth success:", response);
     } catch (err) {
       setError(err.response?.data?.message || "Authentication failed");
     } finally {
@@ -67,7 +66,6 @@ const AuthComponent = () => {
       setLoading(true);
       await authService.logout();
       setUser(null);
-      console.log("Logged out successfully");
     } catch (err) {
       console.error("Logout error:", err);
       setUser(null);

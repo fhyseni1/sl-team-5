@@ -23,6 +23,8 @@ namespace UserHealthService.Infrastructure.Data
         public DbSet<Notification> Notifications { get; set; }
         public DbSet<UserRelationship> UserRelationships { get; set; }
         public DbSet<SymptomLog> SymptomLogs { get; set; }
+
+        public DbSet<RefreshToken> RefreshTokens { get; set; } = null!;
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);

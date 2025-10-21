@@ -39,11 +39,16 @@ namespace UserHealthService.API.Controllers
             SetAuthCookies(tokens);
             return Ok(new { message = "Token refreshed", tokens });
         }
-
         [HttpPost("logout")]
-        public async Task<IActionResult> Logout([FromBody] RefreshTokenRequest request, CancellationToken ct)
+        public async Task<IActionResult> Logout(CancellationToken ct)
         {
-            await _authService.LogoutAsync(request.RefreshToken, ct);
+            var refreshToken = Request.Cookies["refresh_token"];
+
+            if (!string.IsNullOrEmpty(refreshToken))
+            {
+                await _authService.LogoutAsync(refreshToken, ct);
+            }
+
             ClearAuthCookies();
             return Ok(new { message = "Logout successful" });
         }
