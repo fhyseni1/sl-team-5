@@ -31,6 +31,8 @@ namespace MedicationService.Application.Interfaces
 
         // Update an existing prescription
         Task<PrescriptionResponseDto?> UpdateAsync(Guid id, PrescriptionUpdateDto updateDto);
+        
+        Task<IEnumerable<PrescriptionResponseDto>> GetExpiringSoonAsync(int days = 30);
 
         // Delete a prescription
         Task<bool> DeleteAsync(Guid id);

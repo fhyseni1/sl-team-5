@@ -92,5 +92,16 @@ namespace MedicationService.Infrastructure.Repositories
             _context.Prescriptions.Update(entity);
             await _context.SaveChangesAsync();
         }
+        public async Task<IEnumerable<Prescription>> GetExpiringSoonAsync(int days)
+        {
+            var now = DateTime.UtcNow;
+            var targetDate = now.AddDays(days);
+
+            return await _context.Prescriptions
+                .Where(p => p.ExpiryDate.HasValue && p.ExpiryDate.Value >= now && p.ExpiryDate.Value <= targetDate)
+                .Include(p => p.Medication)
+                .ToListAsync();
+        }
+
     }
 }

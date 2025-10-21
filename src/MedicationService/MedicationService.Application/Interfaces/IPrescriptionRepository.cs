@@ -8,6 +8,8 @@ namespace MedicationService.Application.Interfaces
         Task<IEnumerable<Prescription>> GetExpiringPrescriptionsAsync(DateTime beforeDate);
         Task<IEnumerable<Prescription>> GetLowRefillPrescriptionsAsync(int maxRefills);
         Task<Prescription?> GetByPrescriptionNumberAsync(string prescriptionNumber);
+        Task<IEnumerable<Prescription>> GetExpiringSoonAsync(int days);
+
     }
 }
 
