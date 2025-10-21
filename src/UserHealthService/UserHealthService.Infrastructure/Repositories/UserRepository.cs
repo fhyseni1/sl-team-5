@@ -1,55 +1,63 @@
 using Microsoft.EntityFrameworkCore;
+using System.Linq.Expressions;
 using UserHealthService.Application.Interfaces;
 using UserHealthService.Domain.Entities;
 using UserHealthService.Infrastructure.Data;
 
 namespace UserHealthService.Infrastructure.Repositories
 {
-    public class UserRepository : Repository<User>, IUserRepository
+    public class UserRepository : IUserRepository
     {
-        public UserRepository(UserHealthDbContext context) : base(context)
+        private readonly UserHealthDbContext _context;
+        public UserRepository(UserHealthDbContext context) => _context = context;
+
+        public async Task<IEnumerable<User>> GetAllAsync(CancellationToken ct = default)
+            => await _context.Users.Include(u => u.Profile).ToListAsync(ct);
+
+        public async Task<User?> GetByIdAsync(Guid id, CancellationToken ct = default)
+            => await _context.Users.Include(u => u.Profile).FirstOrDefaultAsync(u => u.Id == id, ct);
+
+        public async Task<User?> GetByEmailAsync(string email, CancellationToken ct = default)
+            => await _context.Users.Include(u => u.Profile).FirstOrDefaultAsync(u => u.Email == email, ct);
+
+        public async Task<User?> GetWithProfileAsync(Guid id, CancellationToken ct = default)
+            => await _context.Users.Include(u => u.Profile).FirstOrDefaultAsync(u => u.Id == id, ct);
+
+        public async Task<IEnumerable<User>> GetActiveUsersAsync(CancellationToken ct = default)
+            => await _context.Users.Include(u => u.Profile).Where(u => u.IsActive).ToListAsync(ct);
+
+        public async Task<bool> EmailExistsAsync(string email, CancellationToken ct = default)
+            => await _context.Users.AnyAsync(u => u.Email == email, ct);
+
+        public async Task<User> AddAsync(User entity, CancellationToken ct = default)
         {
+            await _context.Users.AddAsync(entity, ct);
+            await _context.SaveChangesAsync(ct);
+            return entity;
         }
 
-        public async Task<User?> GetByEmailAsync(string email)
+        public async Task UpdateAsync(User entity, CancellationToken ct = default)
         {
-            return await _dbSet
-                .FirstOrDefaultAsync(u => u.Email.ToLower() == email.ToLower());
+            _context.Users.Update(entity);
+            await _context.SaveChangesAsync(ct);
         }
 
-        public async Task<bool> EmailExistsAsync(string email)
+        public async Task DeleteAsync(User entity, CancellationToken ct = default)
         {
-            return await _dbSet
-                .AnyAsync(u => u.Email.ToLower() == email.ToLower());
+            _context.Users.Remove(entity);
+            await _context.SaveChangesAsync(ct);
         }
 
-        public async Task<User?> GetWithProfileAsync(Guid userId)
-        {
-            return await _dbSet
-                .Include(u => u.Profile)
-                .FirstOrDefaultAsync(u => u.Id == userId);
-        }
+        public async Task<int> CountAsync(CancellationToken ct = default)
+            => await _context.Users.CountAsync(ct);
 
-        public async Task<IEnumerable<User>> GetActiveUsersAsync()
-        {
-            return await _dbSet
-                .Where(u => u.IsActive)
-                .OrderBy(u => u.LastName)
-                .ThenBy(u => u.FirstName)
-                .ToListAsync();
-        }
+        public async Task<bool> ExistsAsync(Guid id, CancellationToken ct = default)
+            => await _context.Users.AnyAsync(u => u.Id == id, ct);
 
-        public override async Task<User> AddAsync(User entity)
-        {
-            entity.CreatedAt = DateTime.UtcNow;
-            entity.UpdatedAt = DateTime.UtcNow;
-            return await base.AddAsync(entity);
-        }
+        public async Task<IEnumerable<User>> FindAsync(Expression<Func<User, bool>> predicate, CancellationToken ct = default)
+            => await _context.Users.Where(predicate).Include(u => u.Profile).ToListAsync(ct);
 
-        public override async Task UpdateAsync(User entity)
-        {
-            entity.UpdatedAt = DateTime.UtcNow;
-            await base.UpdateAsync(entity);
-        }
+        public async Task<int> SaveChangesAsync(CancellationToken ct = default)
+            => await _context.SaveChangesAsync(ct);
     }
 }

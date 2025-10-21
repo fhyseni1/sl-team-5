@@ -1,5 +1,4 @@
-﻿// UserHealthService.Infrastructure/Repositories/RefreshTokenRepository.cs
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using UserHealthService.Application.Interfaces;
 using UserHealthService.Domain.Entities;
 using UserHealthService.Infrastructure.Data;
@@ -10,7 +9,6 @@ namespace UserHealthService.Infrastructure.Repositories
     {
         private readonly UserHealthDbContext _context;
 
-        // ✅ REMOVED JwtOptions dependency - NOT NEEDED
         public RefreshTokenRepository(UserHealthDbContext context)
         {
             _context = context;

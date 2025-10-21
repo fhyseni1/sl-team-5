@@ -19,6 +19,8 @@ builder.Services.AddDbContext<UserHealthDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
+
+// ========================================
 // JWT CONFIGURATION
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
 feat(user-health)--implement-notifications-endpoint-some-changes
@@ -26,8 +28,7 @@ builder.Services.AddHttpContextAccessor();
 main
 // REPOSITORIES
 builder.Services.AddScoped<IUserRepository, UserRepository>();
-// Dependency Injection
-builder.Services.AddScoped<IUserRepository, UserRepository>();
+
 builder.Services.AddScoped<IUserService, UserService>();
 
 builder.Services.AddScoped<IAllergyRepository, AllergyRepository>();
@@ -41,13 +42,67 @@ builder.Services.AddScoped<IHealthMetricRepository, HealthMetricRepository>();
 builder.Services.AddScoped<IHealthMetricService, HealthMetricService>();
 builder.Services.AddScoped<ISymptomLogRepository, SymptomLogRepository>();
 builder.Services.AddScoped<ISymptomLogService, SymptomLogService>();
-builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
-builder.Services.AddScoped<INotificationService, NotificationService>();
+
+
+builder.Services.AddHttpContextAccessor();
 // AutoMapper
 builder.Services.AddAutoMapper(typeof(UserProfile), typeof(AllergyProfile), typeof(AppointmentProfile), typeof(HealthMetricProfile), typeof(SymptomLogProfile));
-builder.Services.AddAutoMapper(typeof(NotificationProfile));
+builder.Services.AddAutoMapper(typeof(AllergyProfile), typeof(AppointmentProfile));
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        var jwtSettings = builder.Configuration.GetSection("Jwt").Get<JwtOptions>()!;
+
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwtSettings.Issuer,
+            ValidAudience = jwtSettings.Audience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.Key)),
+            ClockSkew = TimeSpan.Zero
+        };
+
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                context.Token = context.Request.Cookies["access_token"];
+                return Task.CompletedTask;
+            }
+        };
+    });
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+        policy
+            .WithOrigins(
+                "http://localhost:3000",
+                "https://localhost:3000",
+                "http://localhost:5029",
+                "http://localhost:7108")
+            .AllowAnyMethod()
+            .AllowAnyHeader()
+            .AllowCredentials()
+            .SetPreflightMaxAge(TimeSpan.FromMinutes(10)));  // ✅ Preflight cache
+
+    // Emergency dev policy
+    options.AddPolicy("AllowAllDev", policy =>
+        policy
+            .SetIsOriginAllowed(_ => true)  // ✅ ALL ORIGINS
+            .AllowAnyMethod()
+            .AllowAnyHeader()
+            .AllowCredentials());
+});
+
 
 // API CONTROLLERS & SWAGGER
+// ========================================
+
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
@@ -85,7 +140,13 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
+
+
 var app = builder.Build();
+
+
+
+// ========================================
 // CRITICAL MIDDLEWARE ORDER - FIXED
 if (app.Environment.IsDevelopment())
 {
@@ -99,8 +160,7 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-app.UseHttpsRedirection();
-app.UseCors("AllowAllDev");
+app.UseCors("AllowFrontend");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
