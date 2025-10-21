@@ -101,6 +101,16 @@ namespace MedicationService.Application.Services
         {
             return await _repository.ExistsAsync(id);
         }
+
+        public async Task<IEnumerable<MedicationResponseDto>> SearchMedicationsAsync(string searchTerm)
+            {
+                if (string.IsNullOrWhiteSpace(searchTerm))
+                    return Enumerable.Empty<MedicationResponseDto>();
+
+                var medications = await _repository.SearchByNameAsync(searchTerm);
+                return _mapper.Map<IEnumerable<MedicationResponseDto>>(medications);
+            }
+
     }
 }
 

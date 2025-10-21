@@ -196,6 +196,23 @@ namespace MedicationService.API.Controllers
                 return StatusCode(500, "Internal server error");
             }
         }
+        [HttpGet("search-by-name")]
+            public async Task<ActionResult<IEnumerable<MedicationResponseDto>>> Search([FromQuery] string query)
+            {
+                try
+                {
+                    if (string.IsNullOrWhiteSpace(query))
+                        return BadRequest("Search query cannot be empty");
+
+                    var medications = await _medicationService.SearchMedicationsAsync(query);
+                    return Ok(medications);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error searching medications with query {Query}", query);
+                    return StatusCode(500, "Internal server error");
+                }
+            }
     }
 }
 
