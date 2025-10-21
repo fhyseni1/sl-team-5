@@ -37,6 +37,13 @@ namespace UserHealthService.API.Controllers
             return Ok(allergies);
         }
 
+        [HttpGet("user/{userId}/count")]
+        public async Task<ActionResult<int>> GetAllergyCount(Guid userId)
+        {
+            var count = await _allergyService.GetAllergyCountAsync(userId);
+            return Ok(count);
+        }
+
         [HttpPost("check")]
         public async Task<ActionResult> CheckAllergyConflicts([FromBody] AllergyCheckRequest request)
         {

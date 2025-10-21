@@ -31,6 +31,11 @@ namespace UserHealthService.Application.Services
             return allergies.Select(MapToResponseDto);
         }
 
+        public async Task<int> GetAllergyCountAsync(Guid userId)
+        {
+            return await _allergyRepository.CountByUserIdAsync(userId);
+        }
+
         public async Task<AllergyResponseDto> CreateAsync(AllergyCreateDto createDto)
         {
             var allergy = new Allergy
