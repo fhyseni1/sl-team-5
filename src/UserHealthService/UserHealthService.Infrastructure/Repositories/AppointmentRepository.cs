@@ -43,7 +43,7 @@ namespace UserHealthService.Infrastructure.Repositories
 
         public async Task<IEnumerable<Appointment>> GetUpcomingAsync()
         {
-            var today = DateTime.Today;
+            var today = DateTime.UtcNow.Date;
             return await _context.Appointments
                 .Include(a => a.User)
                 .Where(a => a.AppointmentDate >= today && 
@@ -61,18 +61,18 @@ namespace UserHealthService.Infrastructure.Repositories
                 .Where(a => a.Status != Domain.Enums.AppointmentStatus.Cancelled)
                 .AsQueryable();
 
-            // Filter by fromDate if provided
-            if (fromDate.HasValue)
-            {
-                query = query.Where(a => a.AppointmentDate >= fromDate.Value.Date);
-            }
+  
+        if (fromDate.HasValue)
+        {
+        var fromDateUtc = fromDate.Value.Kind == DateTimeKind.Utc ? fromDate.Value : fromDate.Value.ToUniversalTime();
+        query = query.Where(a => a.AppointmentDate >= fromDateUtc.Date);
+        }
 
-            // Filter by toDate if provided
-            if (toDate.HasValue)
-            {
-                query = query.Where(a => a.AppointmentDate <= toDate.Value.Date);
-            }
-
+        if (toDate.HasValue)
+       {
+        var toDateUtc = toDate.Value.Kind == DateTimeKind.Utc ? toDate.Value : toDate.Value.ToUniversalTime();
+         query = query.Where(a => a.AppointmentDate <= toDateUtc.Date);
+     }
             return await query
                 .OrderByDescending(a => a.AppointmentDate)
                 .ThenBy(a => a.StartTime)
@@ -81,13 +81,18 @@ namespace UserHealthService.Infrastructure.Repositories
 
         public async Task<Appointment> AddAsync(Appointment appointment)
         {
-            appointment.CreatedAt = DateTime.UtcNow;
-            appointment.UpdatedAt = DateTime.UtcNow;
-            
-            _context.Appointments.Add(appointment);
-            await _context.SaveChangesAsync();
-            return appointment;
+        appointment.CreatedAt = DateTime.UtcNow;
+        appointment.UpdatedAt = DateTime.UtcNow;
+     
+        if (appointment.AppointmentDate.Kind == DateTimeKind.Unspecified)
+        {
+        appointment.AppointmentDate = DateTime.SpecifyKind(appointment.AppointmentDate, DateTimeKind.Utc);
         }
+    
+       _context.Appointments.Add(appointment);
+       await _context.SaveChangesAsync();
+       return appointment;
+       }
 
         public async Task<Appointment> UpdateAsync(Appointment appointment)
         {
