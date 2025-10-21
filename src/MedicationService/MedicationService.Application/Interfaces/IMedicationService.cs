@@ -9,6 +9,7 @@ namespace MedicationService.Application.Interfaces
         Task<IEnumerable<MedicationResponseDto>> GetByUserIdAsync(Guid userId);
         Task<IEnumerable<MedicationResponseDto>> GetActiveByUserIdAsync(Guid userId);
         Task<MedicationResponseDto?> GetByIdWithDetailsAsync(Guid id);
+        Task<IEnumerable<MedicationResponseDto>> GetMedicationsByStatusAsync(Domain.Enums.MedicationStatus status);
         Task<IEnumerable<MedicationResponseDto>> SearchByNameAsync(string name);
         Task<MedicationResponseDto> CreateAsync(MedicationCreateDto createDto);
         Task<MedicationResponseDto?> UpdateAsync(Guid id, MedicationUpdateDto updateDto);

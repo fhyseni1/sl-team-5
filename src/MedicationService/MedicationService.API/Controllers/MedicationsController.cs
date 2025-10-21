@@ -1,5 +1,6 @@
 using MedicationService.Application.DTOs.Medications;
 using MedicationService.Application.Interfaces;
+using MedicationService.Domain.Enums;
 using Microsoft.AspNetCore.Mvc;
 
 namespace MedicationService.API.Controllers
@@ -114,6 +115,27 @@ namespace MedicationService.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error searching medications by name {Name}", name);
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        [HttpGet("status/{status}")]
+        public async Task<ActionResult<IEnumerable<MedicationResponseDto>>> GetByStatus(string status)
+        {
+            try
+            {
+                if (!Enum.TryParse<MedicationStatus>(status, true, out var medicationStatus))
+                {
+                    var validStatuses = string.Join(", ", Enum.GetNames(typeof(MedicationStatus)));
+                    return BadRequest($"Invalid status value. Valid values are: {validStatuses}");
+                }
+
+                var medications = await _medicationService.GetMedicationsByStatusAsync(medicationStatus);
+                return Ok(medications);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting medications by status {Status}", status);
                 return StatusCode(500, "Internal server error");
             }
         }

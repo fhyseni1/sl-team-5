@@ -47,6 +47,12 @@ namespace MedicationService.Application.Services
             return medication == null ? null : _mapper.Map<MedicationResponseDto>(medication);
         }
 
+        public async Task<IEnumerable<MedicationResponseDto>> GetMedicationsByStatusAsync(MedicationStatus status)
+        {
+            var medications = await _repository.GetByStatusAsync(status);
+            return _mapper.Map<IEnumerable<MedicationResponseDto>>(medications);
+        }
+
         public async Task<IEnumerable<MedicationResponseDto>> SearchByNameAsync(string name)
         {
             if (string.IsNullOrWhiteSpace(name))
