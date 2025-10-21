@@ -2,8 +2,6 @@
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using UserHealthService.Domain.Entities;
 using UserHealthService.Domain.Enums;
-using MedicationService.Domain.Entities;
-
 
 namespace UserHealthService.Infrastructure.Data
 {
@@ -14,7 +12,7 @@ namespace UserHealthService.Infrastructure.Data
         {
         }
 
-        // DbSets for each entity
+        // DbSets për çdo entitet
         public DbSet<User> Users { get; set; }
         public DbSet<UserProfile> UserProfiles { get; set; }
         public DbSet<Allergy> Allergies { get; set; }
@@ -29,7 +27,7 @@ namespace UserHealthService.Infrastructure.Data
         {
             base.OnModelCreating(modelBuilder);
 
-            // Configure User entity
+            // ✅ USER
             modelBuilder.Entity<User>(entity =>
             {
                 entity.HasKey(e => e.Id);
@@ -38,52 +36,49 @@ namespace UserHealthService.Infrastructure.Data
                 entity.Property(e => e.FirstName).IsRequired().HasMaxLength(50);
                 entity.Property(e => e.LastName).IsRequired().HasMaxLength(50);
                 entity.Property(e => e.PhoneNumber).HasMaxLength(20);
-
-                // ✅ CRITICAL: ADD THIS LINE
                 entity.Property(e => e.PasswordHash).IsRequired().HasMaxLength(500);
 
                 entity.Property(e => e.Type)
                     .HasConversion(new EnumToStringConverter<UserType>())
-                    .HasColumnType("varchar");
+                    .HasColumnType("varchar(50)");
 
-                // Relationships
                 entity.HasOne(e => e.Profile)
                     .WithOne(e => e.User)
                     .HasForeignKey<UserProfile>(e => e.UserId)
                     .OnDelete(DeleteBehavior.Cascade);
+
                 entity.HasMany(e => e.Allergies)
                     .WithOne(e => e.User)
                     .HasForeignKey(e => e.UserId)
                     .OnDelete(DeleteBehavior.Cascade);
+
                 entity.HasMany(e => e.Appointments)
                     .WithOne(e => e.User)
                     .HasForeignKey(e => e.UserId)
                     .OnDelete(DeleteBehavior.Cascade);
+
                 entity.HasMany(e => e.HealthMetrics)
                     .WithOne(e => e.User)
                     .HasForeignKey(e => e.UserId)
                     .OnDelete(DeleteBehavior.Cascade);
+
                 entity.HasMany(e => e.Notifications)
                     .WithOne(e => e.User)
                     .HasForeignKey(e => e.UserId)
                     .OnDelete(DeleteBehavior.Cascade);
+
                 entity.HasMany(e => e.Relationships)
                     .WithOne(e => e.User)
                     .HasForeignKey(e => e.UserId)
                     .OnDelete(DeleteBehavior.Cascade);
-
-                // Link to MedicationService
-                entity.HasMany<Medication>()
-                    .WithOne()
-                    .HasForeignKey("UserId")
-                    .OnDelete(DeleteBehavior.Cascade);
             });
 
-            // Configure UserProfile entity
+            // ✅ USER PROFILE
             modelBuilder.Entity<UserProfile>(entity =>
             {
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.Id).ValueGeneratedOnAdd();
+
                 entity.Property(e => e.Gender).HasMaxLength(20);
                 entity.Property(e => e.BloodType).HasMaxLength(10);
                 entity.Property(e => e.MedicalHistory).HasMaxLength(1000);
@@ -102,7 +97,7 @@ namespace UserHealthService.Infrastructure.Data
                 entity.Property(e => e.Country).HasMaxLength(100);
             });
 
-            // Configure Allergy entity
+            // ✅ ALLERGY
             modelBuilder.Entity<Allergy>(entity =>
             {
                 entity.HasKey(e => e.Id);
@@ -112,16 +107,18 @@ namespace UserHealthService.Infrastructure.Data
                 entity.Property(e => e.Symptoms).HasMaxLength(500);
                 entity.Property(e => e.Treatment).HasMaxLength(500);
                 entity.Property(e => e.DiagnosedBy).HasMaxLength(100);
+
                 entity.Property(e => e.Severity)
                     .HasConversion(new EnumToStringConverter<AllergySeverity>())
-                    .HasColumnType("varchar");
+                    .HasColumnType("varchar(50)");
             });
 
-            // Configure Appointment entity
+            // ✅ APPOINTMENT
             modelBuilder.Entity<Appointment>(entity =>
             {
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.Id).ValueGeneratedOnAdd();
+
                 entity.Property(e => e.DoctorName).IsRequired().HasMaxLength(100);
                 entity.Property(e => e.Specialty).HasMaxLength(100);
                 entity.Property(e => e.ClinicName).HasMaxLength(100);
@@ -129,12 +126,13 @@ namespace UserHealthService.Infrastructure.Data
                 entity.Property(e => e.Purpose).HasMaxLength(500);
                 entity.Property(e => e.Notes).HasMaxLength(500);
                 entity.Property(e => e.PhoneNumber).HasMaxLength(20);
+
                 entity.Property(e => e.Status)
                     .HasConversion(new EnumToStringConverter<AppointmentStatus>())
-                    .HasColumnType("varchar");
+                    .HasColumnType("varchar(50)");
             });
 
-            // Configure HealthMetric entity
+            // ✅ HEALTH METRIC
             modelBuilder.Entity<HealthMetric>(entity =>
             {
                 entity.HasKey(e => e.Id);
@@ -142,52 +140,55 @@ namespace UserHealthService.Infrastructure.Data
                 entity.Property(e => e.Unit).IsRequired().HasMaxLength(50);
                 entity.Property(e => e.Notes).HasMaxLength(500);
                 entity.Property(e => e.Device).HasMaxLength(100);
+
                 entity.Property(e => e.Type)
                     .HasConversion(new EnumToStringConverter<HealthMetricType>())
-                    .HasColumnType("varchar");
+                    .HasColumnType("varchar(50)");
             });
 
-            // Configure Notification entity
+            // ✅ NOTIFICATION
             modelBuilder.Entity<Notification>(entity =>
             {
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.Id).ValueGeneratedOnAdd();
+
                 entity.Property(e => e.Title).IsRequired().HasMaxLength(100);
                 entity.Property(e => e.Message).IsRequired().HasMaxLength(500);
                 entity.Property(e => e.ActionUrl).HasMaxLength(200);
                 entity.Property(e => e.Priority).HasMaxLength(20);
+
                 entity.Property(e => e.Type)
                     .HasConversion(new EnumToStringConverter<NotificationType>())
-                    .HasColumnType("varchar");
+                    .HasColumnType("varchar(50)");
             });
 
-            // Configure UserRelationship entity
+            // ✅ USER RELATIONSHIP
             modelBuilder.Entity<UserRelationship>(entity =>
             {
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.Id).ValueGeneratedOnAdd();
+
                 entity.Property(e => e.RelationshipType)
                     .HasConversion(new EnumToStringConverter<RelationshipType>())
-                    .HasColumnType("varchar");
+                    .HasColumnType("varchar(50)");
 
-                // Relationship to RelatedUser
                 entity.HasOne(e => e.RelatedUser)
                     .WithMany()
                     .HasForeignKey(e => e.RelatedUserId)
                     .OnDelete(DeleteBehavior.Restrict);
             });
+
+            // ✅ REFRESH TOKEN
             modelBuilder.Entity<RefreshToken>(entity =>
             {
                 entity.HasKey(e => e.Token);
                 entity.Property(e => e.Token).HasMaxLength(500);
+
                 entity.HasOne(e => e.User)
                       .WithMany()
                       .HasForeignKey(e => e.UserId)
                       .OnDelete(DeleteBehavior.Cascade);
             });
-
-            base.OnModelCreating(modelBuilder);
-
         }
     }
 }

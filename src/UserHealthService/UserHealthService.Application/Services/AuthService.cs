@@ -25,7 +25,7 @@ namespace UserHealthService.Application.Services
             IUserRepository userRepository,
             IRefreshTokenRepository refreshTokenRepository,
             IHttpContextAccessor httpContextAccessor,
-           IOptions<JwtOptions> jwtOptions)
+            IOptions<JwtOptions> jwtOptions)
         {
             _userRepository = userRepository;
             _refreshTokenRepository = refreshTokenRepository;
@@ -35,7 +35,7 @@ namespace UserHealthService.Application.Services
 
         public async Task<TokenResponseDto> RegisterAsync(RegisterDto dto, CancellationToken ct = default)
         {
-            if (await _userRepository.GetByEmailAsync(dto.Email, ct) != null)
+            if (await _userRepository.GetByEmailAsync(dto.Email) != null)
                 throw new InvalidOperationException("Email already exists");
 
             var user = new User
@@ -50,19 +50,17 @@ namespace UserHealthService.Application.Services
                 CreatedAt = DateTime.UtcNow
             };
 
-            await _userRepository.AddAsync(user, ct);
-            await _userRepository.SaveChangesAsync(ct);
+            await _userRepository.AddAsync(user);
 
             var tokens = GenerateTokens(user);
             await _refreshTokenRepository.AddAsync(tokens.refreshToken, user.Id, ct);
-            await _refreshTokenRepository.SaveChangesAsync(ct);
 
             return new TokenResponseDto(tokens.accessToken, tokens.refreshToken, tokens.expiresIn);
         }
 
         public async Task<TokenResponseDto> LoginAsync(LoginDto dto, CancellationToken ct = default)
         {
-            var user = await _userRepository.GetByEmailAsync(dto.Email, ct)
+            var user = await _userRepository.GetByEmailAsync(dto.Email)
                 ?? throw new UnauthorizedAccessException("Invalid credentials");
 
             if (!BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash))
@@ -75,7 +73,6 @@ namespace UserHealthService.Application.Services
 
             var tokens = GenerateTokens(user);
             await _refreshTokenRepository.AddAsync(tokens.refreshToken, user.Id, ct);
-            await _refreshTokenRepository.SaveChangesAsync(ct);
 
             return new TokenResponseDto(tokens.accessToken, tokens.refreshToken, tokens.expiresIn);
         }
@@ -88,15 +85,13 @@ namespace UserHealthService.Application.Services
             if (storedToken.IsRevoked || storedToken.ExpiresAt < DateTime.UtcNow)
                 throw new UnauthorizedAccessException("Refresh token expired");
 
-            var user = await _userRepository.GetByIdAsync(storedToken.UserId, ct)
+            var user = await _userRepository.GetByIdAsync(storedToken.UserId)
                 ?? throw new UnauthorizedAccessException("User not found");
 
             storedToken.IsRevoked = true;
-            await _refreshTokenRepository.SaveChangesAsync(ct);
 
             var tokens = GenerateTokens(user);
             await _refreshTokenRepository.AddAsync(tokens.refreshToken, user.Id, ct);
-            await _refreshTokenRepository.SaveChangesAsync(ct);
 
             return new TokenResponseDto(tokens.accessToken, tokens.refreshToken, tokens.expiresIn);
         }
@@ -107,14 +102,13 @@ namespace UserHealthService.Application.Services
             if (storedToken != null)
             {
                 storedToken.IsRevoked = true;
-                await _refreshTokenRepository.SaveChangesAsync(ct);
             }
         }
 
         public async Task<UserResponseDto> GetCurrentUserAsync(CancellationToken ct = default)
         {
             var userId = GetCurrentUserId();
-            var user = await _userRepository.GetByIdAsync(userId, ct)
+            var user = await _userRepository.GetByIdAsync(userId)
                 ?? throw new UnauthorizedAccessException("User not found");
 
             return new UserResponseDto
@@ -131,14 +125,13 @@ namespace UserHealthService.Application.Services
         public async Task<bool> ChangePasswordAsync(ChangePasswordDto dto, CancellationToken ct = default)
         {
             var userId = GetCurrentUserId();
-            var user = await _userRepository.GetByIdAsync(userId, ct)
+            var user = await _userRepository.GetByIdAsync(userId)
                 ?? throw new UnauthorizedAccessException("User not found");
 
             if (!BCrypt.Net.BCrypt.Verify(dto.OldPassword, user.PasswordHash))
                 throw new UnauthorizedAccessException("Invalid old password");
 
             user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.NewPassword);
-            await _userRepository.SaveChangesAsync(ct);
             return true;
         }
 
@@ -151,8 +144,8 @@ namespace UserHealthService.Application.Services
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
             };
 
-            var key = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtOptions.Key));
-            var creds = new Microsoft.IdentityModel.Tokens.SigningCredentials(key, Microsoft.IdentityModel.Tokens.SecurityAlgorithms.HmacSha256);
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtOptions.Key));
+            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
             var token = new JwtSecurityToken(
                 issuer: _jwtOptions.Issuer,
