@@ -54,6 +54,31 @@ namespace UserHealthService.Infrastructure.Repositories
                 .ToListAsync();
         }
 
+        public async Task<IEnumerable<Appointment>> GetByDateRangeAsync(DateTime? fromDate, DateTime? toDate)
+        {
+            var query = _context.Appointments
+                .Include(a => a.User)
+                .Where(a => a.Status != Domain.Enums.AppointmentStatus.Cancelled)
+                .AsQueryable();
+
+            // Filter by fromDate if provided
+            if (fromDate.HasValue)
+            {
+                query = query.Where(a => a.AppointmentDate >= fromDate.Value.Date);
+            }
+
+            // Filter by toDate if provided
+            if (toDate.HasValue)
+            {
+                query = query.Where(a => a.AppointmentDate <= toDate.Value.Date);
+            }
+
+            return await query
+                .OrderByDescending(a => a.AppointmentDate)
+                .ThenBy(a => a.StartTime)
+                .ToListAsync();
+        }
+
         public async Task<Appointment> AddAsync(Appointment appointment)
         {
             appointment.CreatedAt = DateTime.UtcNow;
