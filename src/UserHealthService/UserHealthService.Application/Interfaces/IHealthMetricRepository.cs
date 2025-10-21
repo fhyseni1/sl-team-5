@@ -1,5 +1,6 @@
 using UserHealthService.Domain.Entities;
 using UserHealthService.Domain.Enums;
+using UserHealthService.Application.DTOs.HealthMetrics; 
 
 namespace UserHealthService.Application.Interfaces
 {
@@ -14,5 +15,6 @@ namespace UserHealthService.Application.Interfaces
         Task UpdateAsync(HealthMetric metric);
         Task DeleteAsync(HealthMetric metric);
         Task SaveChangesAsync();
+         Task<HealthMetric?> GetLatestByUserAndTypeAsync(Guid userId, HealthMetricType type);
     }
 }

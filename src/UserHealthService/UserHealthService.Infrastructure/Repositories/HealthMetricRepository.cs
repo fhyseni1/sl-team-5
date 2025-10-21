@@ -3,6 +3,7 @@ using UserHealthService.Application.Interfaces;
 using UserHealthService.Domain.Entities;
 using UserHealthService.Domain.Enums;
 using UserHealthService.Infrastructure.Data;
+using UserHealthService.Application.DTOs.HealthMetrics; 
 
 namespace UserHealthService.Infrastructure.Repositories
 {
@@ -72,6 +73,14 @@ namespace UserHealthService.Infrastructure.Repositories
         public async Task SaveChangesAsync()
         {
             await _context.SaveChangesAsync();
+        }
+
+        public async Task<HealthMetric?> GetLatestByUserAndTypeAsync(Guid userId, HealthMetricType type)
+        {
+            return await _context.HealthMetrics
+                .Where(h => h.UserId == userId && h.Type == type)
+                .OrderByDescending(h => h.RecordedAt)
+                .FirstOrDefaultAsync();
         }
     }
 }

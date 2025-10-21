@@ -1,3 +1,6 @@
+using System;
+using System.Threading.Tasks;
+using UserHealthService.Domain.Enums; 
 using UserHealthService.Application.DTOs.HealthMetrics;
 
 namespace UserHealthService.Application.Interfaces
@@ -12,5 +15,6 @@ namespace UserHealthService.Application.Interfaces
         Task<HealthMetricResponseDto> CreateAsync(HealthMetricCreateDto dto);
         Task<bool> UpdateAsync(Guid id, HealthMetricUpdateDto dto);
         Task<bool> DeleteAsync(Guid id);
+        Task<HealthMetricResponseDto?> GetLatestMetricAsync(Guid userId, HealthMetricType type);
     }
 }
