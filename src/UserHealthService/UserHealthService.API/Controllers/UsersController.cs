@@ -1,7 +1,11 @@
+// UserHealthService.API/Controllers/UsersController.cs
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using UserHealthService.Application.DTOs.Users;
 using UserHealthService.Application.DTOs.UserProfiles;
 using UserHealthService.Application.Interfaces;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace UserHealthService.API.Controllers
 {
@@ -89,6 +93,24 @@ namespace UserHealthService.API.Controllers
             {
                 _logger.LogError(ex, "Error retrieving active users");
                 return StatusCode(500, "An error occurred while retrieving active users");
+            }
+        }
+
+        [HttpGet("stats/active-count")]
+        [Authorize]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        public async Task<ActionResult<int>> GetActiveUsersCount(CancellationToken ct)
+        {
+            try
+            {
+                var count = await _userService.GetActiveUsersCountAsync(ct);
+                return Ok(count);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving active users count");
+                return StatusCode(500, "An error occurred while retrieving active users count");
             }
         }
 
@@ -197,4 +219,3 @@ namespace UserHealthService.API.Controllers
         }
     }
 }
-

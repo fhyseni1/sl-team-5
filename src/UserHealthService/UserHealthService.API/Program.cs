@@ -23,9 +23,7 @@ builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
 // ========================================
 // JWT CONFIGURATION
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
-feat(user-health)--implement-notifications-endpoint-some-changes
 builder.Services.AddHttpContextAccessor();
-main
 // REPOSITORIES
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 

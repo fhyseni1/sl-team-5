@@ -1,8 +1,11 @@
+// UserHealthService.Application/Services/UserService.cs
 using AutoMapper;
 using UserHealthService.Application.DTOs.Users;
 using UserHealthService.Application.DTOs.UserProfiles;
 using UserHealthService.Application.Interfaces;
 using UserHealthService.Domain.Entities;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace UserHealthService.Application.Services
 {
@@ -37,7 +40,6 @@ namespace UserHealthService.Application.Services
 
         public async Task<UserResponseDto> CreateUserAsync(UserCreateDto userCreateDto)
         {
-            // Check if email already exists
             if (await _userRepository.EmailExistsAsync(userCreateDto.Email))
             {
                 throw new InvalidOperationException($"User with email '{userCreateDto.Email}' already exists.");
@@ -78,7 +80,6 @@ namespace UserHealthService.Application.Services
 
             if (user.Profile == null)
             {
-                // Create new profile if it doesn't exist
                 user.Profile = new UserProfile
                 {
                     Id = Guid.NewGuid(),
@@ -117,6 +118,10 @@ namespace UserHealthService.Application.Services
             var users = await _userRepository.GetActiveUsersAsync();
             return _mapper.Map<IEnumerable<UserResponseDto>>(users);
         }
+
+        public async Task<int> GetActiveUsersCountAsync(CancellationToken ct = default)
+        {
+            return await _userRepository.GetActiveUsersCountAsync(ct); // Added
+        }
     }
 }
-

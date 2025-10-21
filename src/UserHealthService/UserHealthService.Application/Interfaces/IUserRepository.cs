@@ -1,3 +1,6 @@
+using System;
+using System.Threading;
+using System.Threading.Tasks;
 using UserHealthService.Domain.Entities;
 
 namespace UserHealthService.Application.Interfaces
@@ -8,5 +11,6 @@ namespace UserHealthService.Application.Interfaces
         Task<User?> GetWithProfileAsync(Guid id, CancellationToken ct = default);
         Task<IEnumerable<User>> GetActiveUsersAsync(CancellationToken ct = default);
         Task<bool> EmailExistsAsync(string email, CancellationToken ct = default);
+        Task<int> GetActiveUsersCountAsync(CancellationToken ct = default);
     }
 }

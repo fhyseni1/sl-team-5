@@ -1,3 +1,4 @@
+﻿// UserHealthService.Infrastructure/Repositories/UserRepository.cs
 using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
 using UserHealthService.Application.Interfaces;
@@ -59,5 +60,12 @@ namespace UserHealthService.Infrastructure.Repositories
 
         public async Task<int> SaveChangesAsync(CancellationToken ct = default)
             => await _context.SaveChangesAsync(ct);
+
+        public async Task<int> GetActiveUsersCountAsync(CancellationToken ct = default)
+        {
+            return await _context.Users
+                .Where(u => u.IsActive)
+                .CountAsync(ct); // Added: Count active users
+        }
     }
 }

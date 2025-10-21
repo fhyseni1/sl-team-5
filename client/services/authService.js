@@ -48,6 +48,10 @@ export const authService = {
     const response = await api.post("/auth/change-password", passwordData);
     return response.data;
   },
+  async getActiveUsersCount() {
+    const response = await api.get("users/stats/active-count");
+    return response.data;
+  },
 };
 
 export default authService;
