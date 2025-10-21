@@ -1,6 +1,7 @@
 import React, { useState } from "react";
+import { useRouter } from "next/router";
 import {
-  Hospital,
+  Cross,
   Mail,
   Lock,
   User,
@@ -21,7 +22,7 @@ const AuthComponent = () => {
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [user, setUser] = useState(null);
+  const router = useRouter();
 
   const handleChange = (e) => {
     setFormData({
@@ -36,14 +37,13 @@ const AuthComponent = () => {
     setLoading(true);
 
     try {
-      let response;
       if (isLogin) {
-        response = await authService.login({
+        await authService.login({
           email: formData.email,
           password: formData.password,
         });
       } else {
-        response = await authService.register({
+        await authService.register({
           email: formData.email,
           password: formData.password,
           firstName: formData.firstName,
@@ -52,8 +52,7 @@ const AuthComponent = () => {
         });
       }
 
-      const userData = await authService.getMe();
-      setUser(userData);
+      router.push("/dashboard/dashboard");
     } catch (err) {
       setError(err.response?.data?.message || "Authentication failed");
     } finally {
@@ -61,71 +60,12 @@ const AuthComponent = () => {
     }
   };
 
-  const handleLogout = async () => {
-    try {
-      setLoading(true);
-      await authService.logout();
-      setUser(null);
-    } catch (err) {
-      console.error("Logout error:", err);
-      setUser(null);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (user) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-teal-50 via-white to-blue-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md border border-teal-100">
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-teal-100 rounded-full mb-4">
-              <Hospital className="w-8 h-8 text-teal-600" />
-            </div>
-            <h2 className="text-2xl font-semibold text-gray-800 mb-2">
-              Welcome Back
-            </h2>
-            <p className="text-gray-600">You're successfully logged in</p>
-          </div>
-
-          <div className="space-y-4 mb-8">
-            <div className="bg-teal-50 rounded-lg p-4 border border-teal-100">
-              <p className="text-sm text-gray-600 mb-1">Name</p>
-              <p className="text-lg font-medium text-gray-800">
-                {user.firstName} {user.lastName}
-              </p>
-            </div>
-            <div className="bg-blue-50 rounded-lg p-4 border border-blue-100">
-              <p className="text-sm text-gray-600 mb-1">Email</p>
-              <p className="text-lg font-medium text-gray-800">{user.email}</p>
-            </div>
-          </div>
-
-          <button
-            onClick={handleLogout}
-            disabled={loading}
-            className="w-full bg-gray-800 hover:bg-gray-900 text-white font-medium py-3 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                Logging out...
-              </>
-            ) : (
-              "Logout"
-            )}
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-teal-50 via-white to-blue-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md border border-teal-100">
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-teal-100 rounded-full mb-4">
-            <Hospital className="w-8 h-8 text-teal-600" />
+            <Cross className="w-8 h-8 text-teal-600" />
           </div>
           <h2 className="text-3xl font-semibold text-gray-800 mb-2">
             {isLogin ? "Welcome Back" : "Create Account"}
@@ -156,7 +96,7 @@ const AuthComponent = () => {
                     placeholder="John"
                     value={formData.firstName}
                     onChange={handleChange}
-                    required
+                    required={!isLogin}
                     className="w-full pl-10 pr-4 py-3 border text-black border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-200 outline-none"
                   />
                 </div>
@@ -177,7 +117,7 @@ const AuthComponent = () => {
                     placeholder="Doe"
                     value={formData.lastName}
                     onChange={handleChange}
-                    required
+                    required={!isLogin}
                     className="w-full pl-10 pr-4 py-3 border text-black border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-200 outline-none"
                   />
                 </div>
@@ -202,7 +142,7 @@ const AuthComponent = () => {
                   placeholder="+1 (555) 000-0000"
                   value={formData.phoneNumber}
                   onChange={handleChange}
-                  required
+                  required={!isLogin}
                   className="w-full pl-10 pr-4 py-3 border text-black border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-200 outline-none"
                 />
               </div>

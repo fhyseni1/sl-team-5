@@ -1,3 +1,4 @@
+﻿// UserHealthService.Infrastructure/Repositories/UserRepository.cs
 using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
 using UserHealthService.Application.Interfaces;
@@ -46,6 +47,25 @@ namespace UserHealthService.Infrastructure.Repositories
         {
             _context.Users.Remove(entity);
             await _context.SaveChangesAsync(ct);
+        }
+
+        public async Task<int> CountAsync(CancellationToken ct = default)
+            => await _context.Users.CountAsync(ct);
+
+        public async Task<bool> ExistsAsync(Guid id, CancellationToken ct = default)
+            => await _context.Users.AnyAsync(u => u.Id == id, ct);
+
+        public async Task<IEnumerable<User>> FindAsync(Expression<Func<User, bool>> predicate, CancellationToken ct = default)
+            => await _context.Users.Where(predicate).Include(u => u.Profile).ToListAsync(ct);
+
+        public async Task<int> SaveChangesAsync(CancellationToken ct = default)
+            => await _context.SaveChangesAsync(ct);
+
+        public async Task<int> GetActiveUsersCountAsync(CancellationToken ct = default)
+        {
+            return await _context.Users
+                .Where(u => u.IsActive)
+                .CountAsync(ct); // Added: Count active users
         }
 
         public async Task<int> CountAsync(CancellationToken ct = default)
