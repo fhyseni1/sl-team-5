@@ -82,5 +82,14 @@ namespace UserHealthService.Infrastructure.Repositories
                 .OrderByDescending(h => h.RecordedAt)
                 .FirstOrDefaultAsync();
         }
+
+        public async Task<IEnumerable<HealthMetric>> GetRecentByTypeAsync(Guid userId, HealthMetricType type, int count)
+        {
+            return await _context.HealthMetrics
+                .Where(h => h.UserId == userId && h.Type == type)
+                .OrderByDescending(h => h.RecordedAt)
+                .Take(count)
+                .ToListAsync();
+        }
     }
 }
