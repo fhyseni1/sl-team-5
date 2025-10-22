@@ -58,6 +58,28 @@ namespace UserHealthService.API.Controllers
                 return StatusCode(500, "An error occurred while retrieving the user");
             }
         }
+              [HttpGet("{userId}/dashboard")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<UserDashboardDto>> GetUserDashboard(Guid userId)
+        {
+            try
+            {
+                var dashboard = await _userService.GetUserDashboardAsync(userId);
+                return Ok(dashboard);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                _logger.LogWarning(ex, "User with ID {UserId} not found for dashboard", userId);
+                return NotFound($"User with ID '{userId}' not found");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving dashboard for user with ID {UserId}", userId);
+                return StatusCode(500, "An error occurred while retrieving the user dashboard");
+            }
+        }
 
         [HttpGet("email/{email}")]
         [ProducesResponseType(StatusCodes.Status200OK)]
