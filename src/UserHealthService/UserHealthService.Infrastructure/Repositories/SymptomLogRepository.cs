@@ -44,6 +44,14 @@ namespace UserHealthService.Infrastructure.Repositories
                 .ToListAsync();
         }
 
+        public async Task<IEnumerable<SymptomLog>> GetBySeverityAsync(SymptomSeverity severity)
+        {
+            return await _context.SymptomLogs
+                .Where(s => s.Severity == severity)
+                .OrderByDescending(s => s.CreatedAt)
+                .ToListAsync();
+        }
+
         public async Task<SymptomLog> AddAsync(SymptomLog symptomLog)
         {
             symptomLog.CreatedAt = DateTime.UtcNow;

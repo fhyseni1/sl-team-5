@@ -9,6 +9,7 @@ namespace UserHealthService.Application.Interfaces
         Task<IEnumerable<SymptomLog>> GetAllAsync();
         Task<IEnumerable<SymptomLog>> GetByUserIdAsync(Guid userId);
         Task<IEnumerable<SymptomLog>> GetByUserIdAndSeverityAsync(Guid userId, SymptomSeverity severity);
+        Task<IEnumerable<SymptomLog>> GetBySeverityAsync(SymptomSeverity severity);
         Task<SymptomLog> AddAsync(SymptomLog symptomLog);
         Task<SymptomLog> UpdateAsync(SymptomLog symptomLog);
         Task<bool> DeleteAsync(Guid id);

@@ -114,6 +114,62 @@ namespace UserHealthService.Application.Services
             await _repository.SaveChangesAsync();
             return true;
         }
+
+        public async Task<HealthMetricTrendDto> GetMetricTrendAsync(Guid userId, HealthMetricType type)
+        {
+            var metrics = await _repository.GetRecentByTypeAsync(userId, type, 10);
+            var metricsList = metrics.ToList();
+
+            var trendDto = new HealthMetricTrendDto
+            {
+                Metrics = _mapper.Map<List<HealthMetricResponseDto>>(metricsList)
+            };
+
+            if (!metricsList.Any())
+            {
+                trendDto.Trend = "No Data";
+                trendDto.ChangePercentage = null;
+                return trendDto;
+            }
+
+            if (metricsList.Count == 1)
+            {
+                trendDto.Trend = "Stable";
+                trendDto.ChangePercentage = 0;
+                return trendDto;
+            }
+
+            var oldestMetric = metricsList.Last();
+            var latestMetric = metricsList.First();
+
+            var oldValue = oldestMetric.Value;
+            var newValue = latestMetric.Value;
+
+            if (oldValue == 0)
+            {
+                trendDto.Trend = "Stable";
+                trendDto.ChangePercentage = 0;
+                return trendDto;
+            }
+
+            var changePercentage = ((newValue - oldValue) / oldValue) * 100;
+            trendDto.ChangePercentage = Math.Round(changePercentage, 2);
+
+            if (Math.Abs(changePercentage) < 5)
+            {
+                trendDto.Trend = "Stable";
+            }
+            else if (changePercentage > 0)
+            {
+                trendDto.Trend = "Improving";
+            }
+            else
+            {
+                trendDto.Trend = "Worsening";
+            }
+
+            return trendDto;
+        }
        
     }
 }

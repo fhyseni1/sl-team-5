@@ -48,6 +48,13 @@ namespace UserHealthService.API.Controllers
             return Ok(symptoms);
         }
 
+        [HttpGet("severity/{severity}")]
+        public async Task<ActionResult<IEnumerable<SymptomLogResponseDto>>> GetSymptomsBySeverity(SymptomSeverity severity)
+        {
+            var symptoms = await _symptomLogService.GetSymptomsBySeverityAsync(severity);
+            return Ok(symptoms);
+        }
+
         [HttpPost]
         public async Task<ActionResult<SymptomLogResponseDto>> Create(SymptomLogCreateDto createDto)
         {

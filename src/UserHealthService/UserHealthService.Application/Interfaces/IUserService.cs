@@ -1,4 +1,3 @@
-// UserHealthService.Application/Interfaces/IUserService.cs
 using System;
 using System.Collections.Generic;
 using System.Threading;
