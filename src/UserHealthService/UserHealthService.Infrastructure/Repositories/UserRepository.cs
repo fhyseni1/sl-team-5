@@ -65,7 +65,12 @@ namespace UserHealthService.Infrastructure.Repositories
         {
             return await _context.Users
                 .Where(u => u.IsActive)
-                .CountAsync(ct); // Added: Count active users
+                .CountAsync(ct); 
+        }
+
+        public async Task<int> GetAllUsersCountAsync(CancellationToken ct = default)
+        {
+            return await _context.Users.CountAsync(ct);
         }
     }
 }

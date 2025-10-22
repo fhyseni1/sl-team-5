@@ -37,13 +37,15 @@ const AuthComponent = () => {
     setLoading(true);
 
     try {
+      let response;
+
       if (isLogin) {
-        await authService.login({
+        response = await authService.login({
           email: formData.email,
           password: formData.password,
         });
       } else {
-        await authService.register({
+        response = await authService.register({
           email: formData.email,
           password: formData.password,
           firstName: formData.firstName,
@@ -52,7 +54,18 @@ const AuthComponent = () => {
         });
       }
 
-      router.push("/dashboard/dashboard");
+      const userData = response;
+
+      const isAdmin =
+        userData.type === "Admin" ||
+        userData.type === 5 ||
+        userData.email === "admin@meditrack.com";
+
+      if (isAdmin) {
+        router.push("/dashboard/admin-dashboard");
+      } else {
+        router.push("/dashboard/dashboard");
+      }
     } catch (err) {
       setError(err.response?.data?.message || "Authentication failed");
     } finally {

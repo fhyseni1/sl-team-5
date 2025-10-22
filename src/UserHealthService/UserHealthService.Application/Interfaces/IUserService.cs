@@ -19,6 +19,6 @@ namespace UserHealthService.Application.Interfaces
         Task<bool> DeleteUserAsync(Guid id);
         Task<bool> EmailExistsAsync(string email);
         Task<int> GetActiveUsersCountAsync(CancellationToken ct = default);
-        Task<UserDashboardDto> GetUserDashboardAsync(Guid userId);
+        Task<int> GetAllUsersCountAsync(CancellationToken ct = default);
     }
 }

@@ -46,6 +46,7 @@ namespace UserHealthService.Application.Services
                 LastName = dto.LastName,
                 PhoneNumber = dto.PhoneNumber,
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password),
+                Type = dto.Type,
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow
             };
@@ -111,6 +112,8 @@ namespace UserHealthService.Application.Services
             var user = await _userRepository.GetByIdAsync(userId)
                 ?? throw new UnauthorizedAccessException("User not found");
 
+            Console.WriteLine($"🔍 getMe() - DB Type: {user.Type} ({(int)user.Type})"); 
+
             return new UserResponseDto
             {
                 Id = user.Id,
@@ -118,7 +121,11 @@ namespace UserHealthService.Application.Services
                 FirstName = user.FirstName,
                 LastName = user.LastName,
                 PhoneNumber = user.PhoneNumber,
-                IsActive = user.IsActive
+                Type = user.Type,  
+                IsActive = user.IsActive,
+                DateOfBirth = user.DateOfBirth,  
+                CreatedAt = user.CreatedAt,
+                UpdatedAt = user.UpdatedAt
             };
         }
 
@@ -141,6 +148,8 @@ namespace UserHealthService.Application.Services
             {
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new Claim(ClaimTypes.Email, user.Email),
+                new Claim("type", ((int)user.Type).ToString()),
+                new Claim(ClaimTypes.Role, user.Type.ToString()),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
             };
 
