@@ -41,6 +41,12 @@ namespace UserHealthService.Application.Services
             return _mapper.Map<IEnumerable<SymptomLogResponseDto>>(symptomLogs);
         }
 
+        public async Task<IEnumerable<SymptomLogResponseDto>> GetSymptomsBySeverityAsync(SymptomSeverity severity)
+        {
+            var symptomLogs = await _symptomLogRepository.GetBySeverityAsync(severity);
+            return _mapper.Map<IEnumerable<SymptomLogResponseDto>>(symptomLogs);
+        }
+
         public async Task<SymptomLogResponseDto> CreateAsync(SymptomLogCreateDto createDto)
         {
             var symptomLog = _mapper.Map<SymptomLog>(createDto);
