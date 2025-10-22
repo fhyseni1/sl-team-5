@@ -9,6 +9,7 @@ namespace UserHealthService.Application.Interfaces
         Task<IEnumerable<SymptomLogResponseDto>> GetAllAsync();
         Task<IEnumerable<SymptomLogResponseDto>> GetByUserIdAsync(Guid userId);
         Task<IEnumerable<SymptomLogResponseDto>> GetByUserIdAndSeverityAsync(Guid userId, SymptomSeverity severity);
+        Task<IEnumerable<SymptomLogResponseDto>> GetSymptomsBySeverityAsync(SymptomSeverity severity);
         Task<SymptomLogResponseDto> CreateAsync(SymptomLogCreateDto createDto);
         Task<SymptomLogResponseDto?> UpdateAsync(Guid id, SymptomLogUpdateDto updateDto);
         Task<bool> DeleteAsync(Guid id);
