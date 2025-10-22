@@ -1,7 +1,7 @@
-// UserHealthService.Application/Services/UserService.cs
 using AutoMapper;
 using UserHealthService.Application.DTOs.Users;
 using UserHealthService.Application.DTOs.UserProfiles;
+using UserHealthService.Application.DTOs.HealthMetrics;
 using UserHealthService.Application.Interfaces;
 using UserHealthService.Domain.Entities;
 using System.Threading;
@@ -11,15 +11,114 @@ namespace UserHealthService.Application.Services
 {
     public class UserService : IUserService
     {
-        private readonly IUserRepository _userRepository;
+          private readonly IUserRepository _userRepository;
+        private readonly IAllergyRepository _allergyRepository;
+        private readonly IAppointmentRepository _appointmentRepository;
+        private readonly INotificationRepository _notificationRepository;
+        private readonly IHealthMetricRepository _healthMetricRepository;
         private readonly IMapper _mapper;
 
-        public UserService(IUserRepository userRepository, IMapper mapper)
+        public UserService(
+            IUserRepository userRepository,
+            IAllergyRepository allergyRepository,
+            IAppointmentRepository appointmentRepository,
+            INotificationRepository notificationRepository,
+            IHealthMetricRepository healthMetricRepository,
+            IMapper mapper)
         {
             _userRepository = userRepository;
+            _allergyRepository = allergyRepository;
+            _appointmentRepository = appointmentRepository;
+            _notificationRepository = notificationRepository;
+            _healthMetricRepository = healthMetricRepository;
             _mapper = mapper;
         }
+        public async Task<UserDashboardDto> GetUserDashboardAsync(Guid userId)
+        {
+        var user = await _userRepository.GetByIdAsync(userId);
+        if (user == null)
+        {
+        throw new KeyNotFoundException($"User with ID '{userId}' not found.");
+        }
 
+        var dashboard = new UserDashboardDto
+        {
+        UserId = userId,
+        UserName = $"{user.FirstName} {user.LastName}",
+        TotalAllergies = 0,
+        UpcomingAppointments = 0,
+        UnreadNotifications = 0,
+        LatestHealthMetric = null,
+        LastLogin = user.UpdatedAt
+        };
+       try
+       {
+        var allergies = await _allergyRepository.GetByUserIdAsync(userId);
+        dashboard.TotalAllergies = allergies.Count();
+       }
+       catch (Exception ex)
+        {
+        Console.WriteLine($"Allergies error: {ex.Message}");
+        }
+
+      try
+      {
+        var appointments = await _appointmentRepository.GetUpcomingAsync();
+        dashboard.UpcomingAppointments = appointments.Count(a => a.UserId == userId);
+      }
+      catch (Exception ex)
+      {
+        Console.WriteLine($"Appointments error: {ex.Message}");
+       }
+
+       try
+       {
+        var notifications = await _notificationRepository.GetUnreadByUserIdAsync(userId);
+        dashboard.UnreadNotifications = notifications.Count();
+        }
+        catch (Exception ex)
+        {
+        Console.WriteLine($"Notifications error: {ex.Message}");
+        }
+
+        try
+        {
+        var healthMetrics = await _healthMetricRepository.GetByUserIdAsync(userId);
+        var latestHealthMetric = healthMetrics.OrderByDescending(m => m.RecordedAt).FirstOrDefault();
+        dashboard.LatestHealthMetric = latestHealthMetric != null ? 
+            _mapper.Map<HealthMetricResponseDto>(latestHealthMetric) : null;
+        }
+        catch (Exception ex)
+        {
+        Console.WriteLine($"Health metrics error: {ex.Message}");
+         }
+
+         return dashboard;
+        }
+         private async Task<HealthMetricResponseDto?> GetLatestHealthMetricAsync(Guid userId)
+        {
+            var latestMetric = await _healthMetricRepository.GetAllAsync();
+            var userLatestMetric = latestMetric
+                .Where(m => m.UserId == userId)
+                .OrderByDescending(m => m.RecordedAt)
+                .FirstOrDefault();
+
+            if (userLatestMetric == null)
+                return null;
+
+            return new HealthMetricResponseDto
+            {
+                Id = userLatestMetric.Id,
+                UserId = userLatestMetric.UserId,
+                Type = userLatestMetric.Type,
+                Value = userLatestMetric.Value,
+                Unit = userLatestMetric.Unit,
+                RecordedAt = userLatestMetric.RecordedAt,
+                Notes = userLatestMetric.Notes,
+                Device = userLatestMetric.Device,
+                CreatedAt = userLatestMetric.CreatedAt
+            };
+        }
         public async Task<IEnumerable<UserResponseDto>> GetAllUsersAsync()
         {
             var users = await _userRepository.GetAllAsync();
