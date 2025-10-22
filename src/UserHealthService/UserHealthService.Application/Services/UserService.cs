@@ -121,7 +121,12 @@ namespace UserHealthService.Application.Services
 
         public async Task<int> GetActiveUsersCountAsync(CancellationToken ct = default)
         {
-            return await _userRepository.GetActiveUsersCountAsync(ct); // Added
+            return await _userRepository.GetActiveUsersCountAsync(ct); 
+        }
+
+        public async Task<int> GetAllUsersCountAsync(CancellationToken ct = default)
+        {
+            return await _userRepository.CountAsync(ct);
         }
     }
 }

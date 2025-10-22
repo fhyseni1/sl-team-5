@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using UserHealthService.Domain.Enums;
 
 namespace UserHealthService.Application.DTOs.Auth
 {
@@ -11,5 +12,5 @@ namespace UserHealthService.Application.DTOs.Auth
         string Password,
         string FirstName,
         string LastName,
-        string PhoneNumber);
+        string PhoneNumber, UserType Type = UserType.Patient);
 }

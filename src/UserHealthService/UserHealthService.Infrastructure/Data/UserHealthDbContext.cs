@@ -21,6 +21,7 @@ namespace UserHealthService.Infrastructure.Data
         public DbSet<Notification> Notifications { get; set; }
         public DbSet<UserRelationship> UserRelationships { get; set; }
         public DbSet<SymptomLog> SymptomLogs { get; set; }
+        public DbSet<Doctor> Doctors { get; set; }
 
         public DbSet<RefreshToken> RefreshTokens { get; set; } = null!;
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -162,23 +163,42 @@ namespace UserHealthService.Infrastructure.Data
                     .HasColumnType("varchar(50)");
             });
 
-            // ✅ USER RELATIONSHIP
             modelBuilder.Entity<UserRelationship>(entity =>
             {
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.Id).ValueGeneratedOnAdd();
 
+                entity.HasIndex(e => new { e.UserId, e.RelatedUserId, e.RelationshipType }).IsUnique();
+
                 entity.Property(e => e.RelationshipType)
                     .HasConversion(new EnumToStringConverter<RelationshipType>())
+                    .HasMaxLength(50)
                     .HasColumnType("varchar(50)");
 
+                entity.Property(e => e.CanManageMedications).IsRequired().HasDefaultValue(false);
+                entity.Property(e => e.CanViewHealthData).IsRequired().HasDefaultValue(false);
+                entity.Property(e => e.CanScheduleAppointments).IsRequired().HasDefaultValue(false);
+                entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+
+                entity.Property(e => e.CreatedAt).IsRequired()
+                    .HasDefaultValueSql("NOW()")  
+                    .ValueGeneratedOnAdd();
+
+                entity.Property(e => e.UpdatedAt).IsRequired()
+                    .HasDefaultValueSql("NOW()")  
+                    .ValueGeneratedOnAddOrUpdate(); 
+
+                entity.HasOne(e => e.User)
+                    .WithMany(u => u.Relationships)
+                    .HasForeignKey(e => e.UserId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
                 entity.HasOne(e => e.RelatedUser)
-                    .WithMany()
+                    .WithMany(u => u.RelatedBy)
                     .HasForeignKey(e => e.RelatedUserId)
                     .OnDelete(DeleteBehavior.Restrict);
             });
 
-            // ✅ REFRESH TOKEN
             modelBuilder.Entity<RefreshToken>(entity =>
             {
                 entity.HasKey(e => e.Token);

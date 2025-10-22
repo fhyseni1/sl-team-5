@@ -13,5 +13,6 @@ namespace UserHealthService.Application.Interfaces
         Task<AppointmentResponseDto?> UpdateAsync(Guid id, AppointmentUpdateDto updateDto);
         Task<bool> CancelAsync(Guid id);
         Task<bool> DeleteAsync(Guid id);
+        Task<int> GetUpcomingCountAsync(Guid userId);
     }
 }

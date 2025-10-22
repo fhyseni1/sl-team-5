@@ -217,5 +217,22 @@ namespace UserHealthService.API.Controllers
                 return StatusCode(500, "An error occurred while deleting the user");
             }
         }
+
+        [HttpGet("count")]
+        [Authorize]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        public async Task<ActionResult<int>> GetUsersCount(CancellationToken ct)
+        {
+            try
+            {
+                var count = await _userService.GetAllUsersCountAsync(ct);
+                return Ok(count);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving users count");
+                return StatusCode(500, "An error occurred while retrieving users count");
+            }
+        }
     }
 }

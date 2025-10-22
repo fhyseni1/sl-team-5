@@ -2,6 +2,7 @@ using AutoMapper;
 using UserHealthService.Application.DTOs.Appointments;
 using UserHealthService.Application.Interfaces;
 using UserHealthService.Domain.Entities;
+using UserHealthService.Domain.Enums;
 
 namespace UserHealthService.Application.Services
 {
@@ -48,9 +49,25 @@ namespace UserHealthService.Application.Services
 
         public async Task<AppointmentResponseDto> CreateAsync(AppointmentCreateDto createDto)
         {
-            var appointment = _mapper.Map<Appointment>(createDto);
-            appointment.Status = Domain.Enums.AppointmentStatus.Scheduled;
-            appointment.ReminderSent = false;
+            var appointment = new Appointment
+            {
+                Id = Guid.NewGuid(),
+                UserId = createDto.UserId,
+                DoctorName = createDto.DoctorName,
+                Specialty = createDto.Specialty,
+                ClinicName = createDto.ClinicName,
+                Address = createDto.Address,
+                AppointmentDate = createDto.AppointmentDate,
+                StartTime = TimeSpan.Parse(createDto.StartTime),
+                EndTime = TimeSpan.Parse(createDto.EndTime),     
+                Purpose = createDto.Purpose,
+                Notes = createDto.Notes,
+                PhoneNumber = createDto.PhoneNumber,
+                Status = AppointmentStatus.Pending,
+                ReminderSent = false,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
 
             var createdAppointment = await _appointmentRepository.AddAsync(appointment);
             return _mapper.Map<AppointmentResponseDto>(createdAppointment);
@@ -80,5 +97,12 @@ namespace UserHealthService.Application.Services
         {
             return await _appointmentRepository.DeleteAsync(id);
         }
+
+        public async Task<int> GetUpcomingCountAsync(Guid userId)
+        {
+            return await _appointmentRepository.CountUpcomingByUserIdAsync(userId);
+        }
+
+
     }
 }
