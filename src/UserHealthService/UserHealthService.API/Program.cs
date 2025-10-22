@@ -1,32 +1,30 @@
-﻿// UserHealthService.API/Program.cs
+﻿// UserHealthService.API/Program.cs - COMPLETE FIXED VERSION
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-using System.Text;
 using System;
-using UserHealthService.Application.Options;
+using System.Text;
+using UserHealthService.Application.DTOs.Doctors;
 using UserHealthService.Application.Interfaces;
 using UserHealthService.Application.Mappings;
+using UserHealthService.Application.Options;
 using UserHealthService.Application.Services;
 using UserHealthService.Infrastructure.Data;
 using UserHealthService.Infrastructure.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// DATABASE
 builder.Services.AddDbContext<UserHealthDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
-
-// ========================================
-// JWT CONFIGURATION
-builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
 builder.Services.AddHttpContextAccessor();
-// REPOSITORIES
+
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IAllergyRepository, AllergyRepository>();
+builder.Services.AddScoped<IAppointmentService, AppointmentService>();
 builder.Services.AddScoped<IAppointmentRepository, AppointmentRepository>();
 builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 builder.Services.AddScoped<IHealthMetricRepository, HealthMetricRepository>();
@@ -40,7 +38,7 @@ builder.Services.AddScoped<IUserRelationshipRepository, UserRelationshipReposito
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IAllergyService, AllergyService>();
-builder.Services.AddScoped<IAppointmentService, AppointmentService>();
+builder.Services.AddScoped<IHealthMetricRepository, HealthMetricRepository>();
 builder.Services.AddScoped<IHealthMetricService, HealthMetricService>();
 builder.Services.AddScoped<INotificationService, NotificationService>(); 
 builder.Services.AddScoped<ISymptomLogService, SymptomLogService>();
@@ -77,32 +75,24 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("Admin", policy => policy.RequireRole("Admin"));
+});
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
         policy
             .WithOrigins(
                 "http://localhost:3000",
-                "https://localhost:3000",
-                "http://localhost:5029",
-                "http://localhost:7108")
+                "https://localhost:3000")
             .AllowAnyMethod()
             .AllowAnyHeader()
             .AllowCredentials()
-            .SetPreflightMaxAge(TimeSpan.FromMinutes(10)));  // ✅ Preflight cache
-
-    // Emergency dev policy
-    options.AddPolicy("AllowAllDev", policy =>
-        policy
-            .SetIsOriginAllowed(_ => true)  // ✅ ALL ORIGINS
-            .AllowAnyMethod()
-            .AllowAnyHeader()
-            .AllowCredentials());
+            .SetIsOriginAllowed(_ => true)  // Be careful with this in production
+            .SetPreflightMaxAge(TimeSpan.FromMinutes(10)));
 });
-
-
-// API CONTROLLERS & SWAGGER
-// ========================================
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -141,22 +131,15 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-
-
 var app = builder.Build();
 
-
-
-// ========================================
-// CRITICAL MIDDLEWARE ORDER - FIXED
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI(options =>
     {
         options.SwaggerEndpoint("/swagger/v1/swagger.json", "UserHealthService API v1");
-        options.RoutePrefix = "swagger"; // Swagger at root: https://localhost:7108/
-       
+        options.RoutePrefix = "swagger";
         options.DisplayRequestDuration();
     });
 }
@@ -165,6 +148,5 @@ app.UseCors("AllowFrontend");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
-
+await UserHealthService.Infrastructure.Data.SeedAdmin.EnsureSuperAdminAsync(app.Services);
 app.Run();
-

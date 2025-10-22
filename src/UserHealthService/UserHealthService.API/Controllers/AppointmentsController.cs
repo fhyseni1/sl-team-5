@@ -1,18 +1,31 @@
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using UserHealthService.Application.DTOs.Appointments;
 using UserHealthService.Application.Interfaces;
+using UserHealthService.Domain.Enums;
 
 namespace UserHealthService.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class AppointmentsController : ControllerBase
     {
         private readonly IAppointmentService _appointmentService;
+        private readonly IAppointmentRepository _appointmentRepository;
+        private readonly IUserService _userService;
+        private readonly ILogger<AppointmentsController> _logger;
 
-        public AppointmentsController(IAppointmentService appointmentService)
+        public AppointmentsController(
+            IAppointmentService appointmentService,
+            IAppointmentRepository appointmentRepository,
+            IUserService userService,
+            ILogger<AppointmentsController> logger)
         {
             _appointmentService = appointmentService;
+            _appointmentRepository = appointmentRepository;
+            _userService = userService;
+            _logger = logger;
         }
 
         [HttpGet]
@@ -46,7 +59,7 @@ namespace UserHealthService.API.Controllers
 
         [HttpGet("filter")]
         public async Task<ActionResult<IEnumerable<AppointmentResponseDto>>> GetByDateRange(
-            [FromQuery] DateTime? fromDate, 
+            [FromQuery] DateTime? fromDate,
             [FromQuery] DateTime? toDate)
         {
             var appointments = await _appointmentService.GetAppointmentsByDateRangeAsync(fromDate, toDate);
@@ -56,8 +69,16 @@ namespace UserHealthService.API.Controllers
         [HttpPost]
         public async Task<ActionResult<AppointmentResponseDto>> Create(AppointmentCreateDto createDto)
         {
-            var createdAppointment = await _appointmentService.CreateAsync(createDto);
-            return CreatedAtAction(nameof(GetById), new { id = createdAppointment.Id }, createdAppointment);
+            try
+            {
+                var createdAppointment = await _appointmentService.CreateAsync(createDto);
+                return CreatedAtAction(nameof(GetById), new { id = createdAppointment.Id }, createdAppointment);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating appointment");
+                return StatusCode(500, "Error creating appointment");
+            }
         }
 
         [HttpPut("{id}")]
@@ -82,6 +103,92 @@ namespace UserHealthService.API.Controllers
             var result = await _appointmentService.DeleteAsync(id);
             if (!result) return NotFound();
             return NoContent();
+        }
+
+        // ✅ NEW ADMIN ENDPOINTS - FIXED!
+        [HttpGet("pending")]
+        [Authorize(Roles = "Admin")]
+        public async Task<ActionResult<List<PendingAppointmentDto>>> GetPending()
+        {
+            try
+            {
+                var appointments = await _appointmentRepository.GetPendingAppointmentsAsync();
+
+                var pendingDtos = new List<PendingAppointmentDto>();
+                foreach (var app in appointments)
+                {
+                    var user = await _userService.GetUserByIdAsync(app.UserId);
+                    pendingDtos.Add(new PendingAppointmentDto
+                    {
+                        Id = app.Id,
+                        UserFirstName = user?.FirstName ?? "Unknown",
+                        UserLastName = user?.LastName ?? "",
+                        DoctorName = app.DoctorName,
+                        DoctorSpecialty = app.Specialty,
+                        AppointmentDate = app.AppointmentDate,
+                        StartTime = app.StartTime.ToString(@"hh\:mm"),
+                        EndTime = app.EndTime.ToString(@"hh\:mm"),
+                        Purpose = app.Purpose ?? "",
+                        Notes = app.Notes
+                    });
+                }
+
+                return Ok(pendingDtos);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving pending appointments");
+                return StatusCode(500, "Error retrieving pending appointments");
+            }
+        }
+
+        [HttpGet("user/{userId}/upcoming/count")]
+        public async Task<ActionResult<int>> GetUpcomingCount(Guid userId)
+        {
+            try
+            {
+                var count = await _appointmentRepository.CountUpcomingByUserIdAsync(userId);
+                return Ok(count);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving upcoming count");
+                return StatusCode(500, "Error retrieving count");
+            }
+        }
+
+        [HttpPut("{id}/approve")]
+        [Authorize(Roles = "Admin")]
+        public async Task<ActionResult> Approve(Guid id)
+        {
+            try
+            {
+                var result = await _appointmentRepository.ApproveAsync(id);
+                if (!result) return NotFound();
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error approving appointment {AppointmentId}", id);
+                return StatusCode(500, "Error approving appointment");
+            }
+        }
+
+        [HttpPut("{id}/reject")]
+        [Authorize(Roles = "Admin")]
+        public async Task<ActionResult> Reject(Guid id)
+        {
+            try
+            {
+                var result = await _appointmentRepository.RejectAsync(id);
+                if (!result) return NotFound();
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error rejecting appointment {AppointmentId}", id);
+                return StatusCode(500, "Error rejecting appointment");
+            }
         }
     }
 }

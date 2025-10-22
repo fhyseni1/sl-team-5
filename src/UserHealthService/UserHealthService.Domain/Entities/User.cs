@@ -23,6 +23,7 @@ namespace UserHealthService.Domain.Entities
         public virtual ICollection<HealthMetric> HealthMetrics { get; set; } = new List<HealthMetric>();
         public virtual ICollection<Notification> Notifications { get; set; } = new List<Notification>();
         public virtual ICollection<UserRelationship> Relationships { get; set; } = new List<UserRelationship>();
+        public virtual ICollection<UserRelationship> RelatedBy { get; set; } = new List<UserRelationship>();
     }
 }
 
