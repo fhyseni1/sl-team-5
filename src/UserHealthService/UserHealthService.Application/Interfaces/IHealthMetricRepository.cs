@@ -15,6 +15,7 @@ namespace UserHealthService.Application.Interfaces
         Task UpdateAsync(HealthMetric metric);
         Task DeleteAsync(HealthMetric metric);
         Task SaveChangesAsync();
-         Task<HealthMetric?> GetLatestByUserAndTypeAsync(Guid userId, HealthMetricType type);
+        Task<HealthMetric?> GetLatestByUserAndTypeAsync(Guid userId, HealthMetricType type);
+        Task<IEnumerable<HealthMetric>> GetRecentByTypeAsync(Guid userId, HealthMetricType type, int count);
     }
 }

@@ -16,5 +16,6 @@ namespace UserHealthService.Application.Interfaces
         Task<bool> UpdateAsync(Guid id, HealthMetricUpdateDto dto);
         Task<bool> DeleteAsync(Guid id);
         Task<HealthMetricResponseDto?> GetLatestMetricAsync(Guid userId, HealthMetricType type);
+        Task<HealthMetricTrendDto> GetMetricTrendAsync(Guid userId, HealthMetricType type);
     }
 }

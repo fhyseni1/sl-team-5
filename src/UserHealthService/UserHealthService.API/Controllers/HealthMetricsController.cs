@@ -80,5 +80,12 @@ namespace UserHealthService.API.Controllers
 
             return Ok(result);
         }
+
+        [HttpGet("user/{userId}/trend")]
+        public async Task<IActionResult> GetMetricTrend(Guid userId, [FromQuery] HealthMetricType type)
+        {
+            var result = await _service.GetMetricTrendAsync(userId, type);
+            return Ok(result);
+        }
     }
 }
