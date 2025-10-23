@@ -17,7 +17,6 @@ namespace UserHealthService.Infrastructure.Data
     var loggerFactory = scope.ServiceProvider.GetRequiredService<ILoggerFactory>();
     var logger = loggerFactory.CreateLogger("SeedAdmin");
 
-    Console.WriteLine("🚀 SEED STARTING..."); // ← LOUD CONSOLE LOG
 
     try
     {
@@ -25,11 +24,9 @@ namespace UserHealthService.Infrastructure.Data
         var adminPassword = "Admin123!";
 
         var existingAdmin = await userRepository.GetByEmailAsync(adminEmail);
-        Console.WriteLine($"🔍 Existing admin: {existingAdmin != null}"); // ← DEBUG
 
         if (existingAdmin == null)
         {
-            Console.WriteLine("🌟 CREATING Super Admin..."); // ← LOUD
 
             var registerDto = new RegisterDto(
                 Email: adminEmail,
@@ -42,22 +39,16 @@ namespace UserHealthService.Infrastructure.Data
 
             await authService.RegisterAsync(registerDto);
             
-            // ✅ VERIFY IT WORKED
             var createdAdmin = await userRepository.GetByEmailAsync(adminEmail);
-            Console.WriteLine($"✅ CREATED! Type: {createdAdmin.Type} ({(int)createdAdmin.Type})");
         }
         else
         {
-            Console.WriteLine($"✅ EXISTS! Type: {existingAdmin.Type} ({(int)existingAdmin.Type})");
         }
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"❌ SEED ERROR: {ex.Message}");
-        Console.WriteLine($"❌ SEED STACK: {ex.StackTrace}");
     }
 
-    Console.WriteLine("🏁 SEED FINISHED!");
 }
     }
 }

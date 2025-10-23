@@ -58,7 +58,7 @@ namespace UserHealthService.API.Controllers
                 return StatusCode(500, "An error occurred while retrieving the user");
             }
         }
-              [HttpGet("{userId}/dashboard")]
+        [HttpGet("{userId}/dashboard")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]

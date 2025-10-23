@@ -3,6 +3,8 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import {
   Pill,
   Calendar,
@@ -22,6 +24,7 @@ import {
   X,
   Camera,
 } from "lucide-react";
+import AppointmentCalendar from "../components/AppointmentCalendar";
 import { authService, api } from "../../services/authService";
 import { userService } from "../../services/userService";
 
@@ -158,22 +161,63 @@ const UserDashboard = () => {
     e.preventDefault();
     try {
       if (!user?.id) {
-        throw new Error("User ID is not available");
+        toast.error("User ID is not available");
+        return;
       }
 
       if (!appointmentForm.doctorId) {
-        throw new Error("Please select a doctor");
+        toast.error("Please select a doctor");
+        return;
       }
 
       const appointmentDate = new Date(appointmentForm.appointmentDate);
       if (isNaN(appointmentDate.getTime())) {
-        throw new Error("Invalid appointment date");
+        toast.error("Invalid appointment date");
+        return;
       }
+
+      // Validate time slot
+      const [startHour, startMinute] = appointmentForm.startTime
+        .split(":")
+        .map(Number);
+      const [endHour, endMinute] = appointmentForm.endTime
+        .split(":")
+        .map(Number);
+      const durationInMinutes =
+        endHour * 60 + endMinute - (startHour * 60 + startMinute);
+
+      if (durationInMinutes !== 30) {
+        toast.error("Appointments must be exactly 30 minutes long");
+        return;
+      }
+
+      // Check if the time is within business hours (8 AM to 8 PM)
+      if (startHour < 8 || startHour >= 20 || endHour < 8 || endHour > 20) {
+        toast.error("Appointments must be between 8:00 AM and 8:00 PM");
+        return;
+      }
+
+      // Check if the appointment date is in the past
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (appointmentDate < today) {
+        toast.error("Cannot schedule appointments in the past");
+        return;
+      }
+
       const formattedDate = appointmentDate.toISOString().split("T")[0];
+
+      const selectedDoctor = doctors.find(
+        (d) => d.id === appointmentForm.doctorId
+      );
+      const doctorName = selectedDoctor
+        ? `${selectedDoctor.firstName} ${selectedDoctor.lastName}`
+        : "";
 
       const appointmentData = {
         userId: user.id,
         doctorId: appointmentForm.doctorId,
+        doctorName: doctorName,
         appointmentDate: formattedDate,
         startTime: appointmentForm.startTime.includes(":00")
           ? appointmentForm.startTime
@@ -183,7 +227,7 @@ const UserDashboard = () => {
           : appointmentForm.endTime + ":00",
         purpose: appointmentForm.purpose?.trim() || "",
         notes: appointmentForm.notes?.trim() || "",
-        status: "Pending",
+        status: 8, // Explicitly setting status to Pending (8)
       };
 
       const response = await api.post("/appointments", appointmentData);
@@ -204,14 +248,14 @@ const UserDashboard = () => {
         ]);
         setUserAppointments(appointments);
         setUpcomingAppointmentsCount(count);
-        alert("✅ Appointment scheduled! Waiting for admin approval.");
+        toast.success("Appointment scheduled! Waiting for admin approval.");
       }
     } catch (err) {
       console.error("Appointment scheduling error:", err.response?.data || err);
-      alert(
-        `❌ Failed to schedule appointment: ${
-          err.response?.data?.message || err.message || "Unknown error"
-        }`
+      toast.error(
+        err.response?.data?.message ||
+          err.message ||
+          "Failed to schedule appointment"
       );
     }
   };
@@ -261,6 +305,18 @@ const UserDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 relative">
+      <ToastContainer
+        position="top-right"
+        autoClose={5000}
+        hideProgressBar={false}
+        newestOnTop
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="dark"
+      />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-blue-900/20 via-transparent to-emerald-900/20"></div>
 
       <header className="bg-slate-900/80 backdrop-blur-xl border-b border-slate-700/50 sticky top-0 z-50">
@@ -322,6 +378,11 @@ const UserDashboard = () => {
           </div>
         </div>
 
+        <AppointmentCalendar
+          appointments={userAppointments}
+          doctors={doctors}
+        />
+
         <div className="mb-12">
           <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl p-8 border border-slate-700/50">
             <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
@@ -358,8 +419,20 @@ const UserDashboard = () => {
                           <p className="text-slate-300 text-sm">
                             {new Date(
                               appointment.appointmentDate
-                            ).toLocaleDateString()}
-                            , {appointment.startTime} - {appointment.endTime}
+                            ).toLocaleDateString("en-US", {
+                              weekday: "long",
+                              year: "numeric",
+                              month: "long",
+                              day: "numeric",
+                            })}
+                            {" at "}
+                            {appointment.startTime
+                              ? appointment.startTime.substring(0, 5)
+                              : ""}{" "}
+                            -
+                            {appointment.endTime
+                              ? appointment.endTime.substring(0, 5)
+                              : ""}
                           </p>
                         </div>
                       </div>
@@ -367,17 +440,22 @@ const UserDashboard = () => {
                         <div className="flex flex-col items-end gap-1">
                           <span
                             className={`px-3 py-1 rounded-full text-sm font-medium ${
-                              String(appointment.status || "").toLowerCase() ===
-                              "approved"
+                              appointment.status === 2 // Approved
                                 ? "bg-emerald-500/20 text-emerald-400"
-                                : String(
-                                    appointment.status || ""
-                                  ).toLowerCase() === "pending"
+                                : appointment.status === 8 // Pending
                                 ? "bg-amber-500/20 text-amber-400"
-                                : "bg-red-500/20 text-red-400"
+                                : appointment.status === 9 // Rejected
+                                ? "bg-red-500/20 text-red-400"
+                                : "bg-slate-500/20 text-slate-400"
                             }`}
                           >
-                            {appointment.status || "Unknown"}
+                            {appointment.status === 2
+                              ? "Approved"
+                              : appointment.status === 8
+                              ? "Pending"
+                              : appointment.status === 9
+                              ? "Rejected"
+                              : "Unknown"}
                           </span>
                           {String(appointment.status || "").toLowerCase() ===
                             "rejected" && (
@@ -549,22 +627,64 @@ const UserDashboard = () => {
                 />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <input
-                  name="startTime"
-                  type="time"
-                  value={appointmentForm.startTime}
-                  onChange={(e) => handleInputChange(e, setAppointmentForm)}
-                  className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
-                  required
-                />
-                <input
-                  name="endTime"
-                  type="time"
-                  value={appointmentForm.endTime}
-                  onChange={(e) => handleInputChange(e, setAppointmentForm)}
-                  className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
-                  required
-                />
+                <div>
+                  <label className="block text-slate-300 mb-2">
+                    Select Time Slot
+                  </label>
+                  <select
+                    name="startTime"
+                    value={appointmentForm.startTime}
+                    onChange={(e) => {
+                      const startTime = e.target.value;
+                      const [hours, minutes] = startTime.split(":");
+                      const endTime = new Date(
+                        2025,
+                        0,
+                        1,
+                        parseInt(hours),
+                        parseInt(minutes) + 30
+                      )
+                        .toTimeString()
+                        .slice(0, 5);
+
+                      handleInputChange(e, setAppointmentForm);
+                      setAppointmentForm((prev) => ({
+                        ...prev,
+                        endTime: endTime,
+                      }));
+                    }}
+                    className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
+                    required
+                  >
+                    <option value="">Select time</option>
+                    {Array.from({ length: 32 }, (_, i) => {
+                      const hour = Math.floor(i / 2) + 8; // Start from 8 AM
+                      const minutes = (i % 2) * 30;
+                      const time = `${hour
+                        .toString()
+                        .padStart(2, "0")}:${minutes
+                        .toString()
+                        .padStart(2, "0")}`;
+                      return (
+                        <option key={time} value={time}>
+                          {time}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-slate-300 mb-2">
+                    End Time (30min slot)
+                  </label>
+                  <input
+                    name="endTime"
+                    type="time"
+                    value={appointmentForm.endTime}
+                    className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white cursor-not-allowed"
+                    disabled
+                  />
+                </div>
               </div>
               <textarea
                 name="purpose"
