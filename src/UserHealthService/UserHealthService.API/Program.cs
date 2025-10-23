@@ -36,9 +36,12 @@ builder.Services.AddScoped<IHealthMetricService, HealthMetricService>();
 builder.Services.AddScoped<ISymptomLogRepository, SymptomLogRepository>();
 builder.Services.AddScoped<ISymptomLogService, SymptomLogService>();
 builder.Services.AddScoped<IDoctorRepository, DoctorRepository>();
+builder.Services.AddScoped<IUserRelationshipRepository, UserRelationshipRepository>();
+builder.Services.AddScoped<IUserRelationshipService, UserRelationshipService>();
+
 
 builder.Services.AddAutoMapper(typeof(UserProfile), typeof(AllergyProfile),
-    typeof(AppointmentProfile), typeof(HealthMetricProfile), typeof(SymptomLogProfile));
+    typeof(AppointmentProfile), typeof(HealthMetricProfile), typeof(SymptomLogProfile),typeof(UserRelationshipProfile));
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
