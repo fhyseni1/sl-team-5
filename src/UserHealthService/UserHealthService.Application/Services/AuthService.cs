@@ -106,28 +106,28 @@ namespace UserHealthService.Application.Services
             }
         }
 
-        public async Task<UserResponseDto> GetCurrentUserAsync(CancellationToken ct = default)
-        {
-            var userId = GetCurrentUserId();
-            var user = await _userRepository.GetByIdAsync(userId)
-                ?? throw new UnauthorizedAccessException("User not found");
+     public async Task<UserResponseDto> GetCurrentUserAsync(CancellationToken ct = default)
+{
+    var userId = GetCurrentUserId();
+    var user = await _userRepository.GetByIdAsync(userId)
+        ?? throw new UnauthorizedAccessException("User not found");
 
-            Console.WriteLine($"🔍 getMe() - DB Type: {user.Type} ({(int)user.Type})"); 
+    Console.WriteLine($"🔍 GetCurrentUserAsync - User Type: {user.Type} ({(int)user.Type})"); 
 
-            return new UserResponseDto
-            {
-                Id = user.Id,
-                Email = user.Email,
-                FirstName = user.FirstName,
-                LastName = user.LastName,
-                PhoneNumber = user.PhoneNumber,
-                Type = user.Type,  
-                IsActive = user.IsActive,
-                DateOfBirth = user.DateOfBirth,  
-                CreatedAt = user.CreatedAt,
-                UpdatedAt = user.UpdatedAt
-            };
-        }
+    return new UserResponseDto
+    {
+        Id = user.Id,
+        Email = user.Email,
+        FirstName = user.FirstName,
+        LastName = user.LastName,
+        PhoneNumber = user.PhoneNumber,
+        Type = user.Type,  
+        IsActive = user.IsActive,
+        DateOfBirth = user.DateOfBirth,  
+        CreatedAt = user.CreatedAt,
+        UpdatedAt = user.UpdatedAt
+    };
+}
 
         public async Task<bool> ChangePasswordAsync(ChangePasswordDto dto, CancellationToken ct = default)
         {

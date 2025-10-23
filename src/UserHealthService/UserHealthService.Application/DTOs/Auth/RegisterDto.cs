@@ -12,5 +12,9 @@ namespace UserHealthService.Application.DTOs.Auth
         string Password,
         string FirstName,
         string LastName,
-        string PhoneNumber, UserType Type = UserType.Patient);
+ string PhoneNumber, 
+ UserType Type = UserType.Patient,
+    string? Specialty = null,    
+    string? ClinicName = null,   
+    string? Address = null);   
 }

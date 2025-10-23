@@ -4,6 +4,9 @@ using UserHealthService.Application.DTOs.UserProfiles;
 using UserHealthService.Application.DTOs.HealthMetrics;
 using UserHealthService.Application.Interfaces;
 using UserHealthService.Domain.Entities;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -33,68 +36,77 @@ namespace UserHealthService.Application.Services
             _healthMetricRepository = healthMetricRepository;
             _mapper = mapper;
         }
-        public async Task<UserDashboardDto> GetUserDashboardAsync(Guid userId)
-        {
-        var user = await _userRepository.GetByIdAsync(userId);
-        if (user == null)
-        {
+       public async Task<UserDashboardDto> GetUserDashboardAsync(Guid userId)
+{
+    var user = await _userRepository.GetByIdAsync(userId);
+    if (user == null)
+    {
         throw new KeyNotFoundException($"User with ID '{userId}' not found.");
-        }
+    }
 
-        var dashboard = new UserDashboardDto
-        {
+    var dashboard = new UserDashboardDto
+    {
         UserId = userId,
-        UserName = $"{user.FirstName} {user.LastName}",
+        UserName = user.Email,
+        FullName = $"{user.FirstName} {user.LastName}",
+        Email = user.Email,
         TotalAllergies = 0,
         UpcomingAppointments = 0,
         UnreadNotifications = 0,
-        LatestHealthMetric = null,
-        LastLogin = user.UpdatedAt
-        };
-       try
-       {
+        LastLogin = user.UpdatedAt,
+        HasRecentData = false
+    };
+
+    try
+    {
         var allergies = await _allergyRepository.GetByUserIdAsync(userId);
         dashboard.TotalAllergies = allergies.Count();
-       }
-       catch (Exception ex)
-        {
+    }
+    catch (Exception ex)
+    {
+ 
         Console.WriteLine($"Allergies error: {ex.Message}");
-        }
+    }
 
-      try
-      {
+    try
+    {
         var appointments = await _appointmentRepository.GetUpcomingAsync();
         dashboard.UpcomingAppointments = appointments.Count(a => a.UserId == userId);
-      }
-      catch (Exception ex)
-      {
+    }
+    catch (Exception ex)
+    {
         Console.WriteLine($"Appointments error: {ex.Message}");
-       }
+    }
 
-       try
-       {
+    try
+    {
         var notifications = await _notificationRepository.GetUnreadByUserIdAsync(userId);
         dashboard.UnreadNotifications = notifications.Count();
-        }
-        catch (Exception ex)
-        {
+    }
+    catch (Exception ex)
+    {
         Console.WriteLine($"Notifications error: {ex.Message}");
-        }
+    }
 
-        try
-        {
+    try
+    {
         var healthMetrics = await _healthMetricRepository.GetByUserIdAsync(userId);
         var latestHealthMetric = healthMetrics.OrderByDescending(m => m.RecordedAt).FirstOrDefault();
-        dashboard.LatestHealthMetric = latestHealthMetric != null ? 
-            _mapper.Map<HealthMetricResponseDto>(latestHealthMetric) : null;
-        }
-        catch (Exception ex)
+        
+        if (latestHealthMetric != null)
         {
-        Console.WriteLine($"Health metrics error: {ex.Message}");
-         }
-
-         return dashboard;
+            dashboard.LatestHealthMetric = _mapper.Map<HealthMetricResponseDto>(latestHealthMetric);
+            dashboard.LastHealthCheck = latestHealthMetric.RecordedAt;
+            dashboard.HasRecentData = (DateTime.UtcNow - latestHealthMetric.RecordedAt).TotalDays <= 30; 
         }
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Health metrics error: {ex.Message}");
+    }
+
+    return dashboard;
+}
          private async Task<HealthMetricResponseDto?> GetLatestHealthMetricAsync(Guid userId)
         {
             var latestMetric = await _healthMetricRepository.GetAllAsync();

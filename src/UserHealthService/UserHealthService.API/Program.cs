@@ -1,10 +1,11 @@
-﻿// UserHealthService.API/Program.cs - COMPLETE FIXED VERSION
-using Microsoft.AspNetCore.Authentication.JwtBearer;
+﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System;
 using System.Text;
+using UserHealthService.Domain.Entities;
+using UserHealthService.Application.DTOs.Relationships;
 using UserHealthService.Application.DTOs.Doctors;
 using UserHealthService.Application.Interfaces;
 using UserHealthService.Application.Mappings;

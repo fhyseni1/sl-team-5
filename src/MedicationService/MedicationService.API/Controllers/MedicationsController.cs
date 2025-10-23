@@ -34,7 +34,7 @@ namespace MedicationService.API.Controllers
                 return StatusCode(500, "Internal server error");
             }
         }
-
+         
         [HttpGet("{id}")]
         public async Task<ActionResult<MedicationResponseDto>> GetById(Guid id)
         {

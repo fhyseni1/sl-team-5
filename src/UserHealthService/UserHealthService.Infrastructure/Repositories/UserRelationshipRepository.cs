@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using UserHealthService.Application.DTOs.Relationships;
-using UserHealthService.Application.Interfaces;
+using UserHealthService.Application.Interfaces; 
 using UserHealthService.Domain.Entities;
 using UserHealthService.Infrastructure.Data;
 
