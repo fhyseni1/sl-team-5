@@ -129,5 +129,17 @@ namespace MedicationService.Infrastructure.Repositories
                             d.ScheduledTime < now)
                 .CountAsync();
         }
+
+        public async Task<(int taken, int total)> GetAdherenceStatsAsync(Guid medicationId)
+        {
+            var doses = await _context.MedicationDoses
+           .Include(e => e.Medication)
+          .Where(d => d.MedicationId == medicationId)
+          .ToListAsync();
+            int total = doses.Count;
+            int taken = doses.Count(d => d.IsTaken); 
+            double percentage = total == 0 ? 0 : (double)taken / total * 100;
+            return (taken, total);
+        }
     }
 }
