@@ -48,20 +48,24 @@ const AdminDashboard = () => {
   const [approvedPage, setApprovedPage] = useState(1);
   const [userAppointments, setUserAppointments] = useState([]);
   const [userPage, setUserPage] = useState(1);
-
+const [generatedPassword, setGeneratedPassword] = useState("");
+const [showPasswordModal, setShowPasswordModal] = useState(false);
+const [newDoctorData, setNewDoctorData] = useState({ email: "", name: "", password: "" });
   const itemsPerPage = 5;
   const router = useRouter();
 
   // Combine pending and approved appointments for the calendar
   const allAppointments = [...pendingAppointments, ...approvedAppointments];
 
-  const [doctorForm, setDoctorForm] = useState({
-    name: "",
-    specialty: "",
-    clinicName: "",
-    address: "",
-    phoneNumber: "",
-  });
+const [doctorForm, setDoctorForm] = useState({
+  name: "",
+  email: "",
+  password: "", 
+  specialty: "",
+  clinicName: "",
+  address: "",
+  phoneNumber: ""
+});
 
   const [userForm, setUserForm] = useState({
     email: "",
@@ -124,92 +128,90 @@ const AdminDashboard = () => {
     }
   };
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const userData = await authService.getMe();
-        console.log("Admin Dashboard User Data:", userData);
+useEffect(() => {
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const userData = await authService.getMe();
+      console.log("Admin Dashboard User Data:", userData);
 
-        const isAdmin = userData.type === 5;
+      const isAdmin = userData.type === 5;
 
-        if (!isAdmin) {
-          console.log("Not an admin, redirecting...");
-          await authService.logout();
-          router.push("/dashboard/dashboard");
-          return;
+      if (!isAdmin) {
+        console.log("Not an admin, redirecting...");
+        await authService.logout();
+        router.push("/dashboard/dashboard");
+        return;
+      }
+
+      setUser(userData);
+      const results = await Promise.allSettled([
+        api.get("/users/count"),
+        api.get("/users"),
+        api.get("/appointments/pending"),
+        api.get("/appointments?status=approved"),
+        api.get("/users").then(res => {
+      
+          const allUsers = res.data || [];
+          return allUsers.filter(user => user.type === 4);
+        })
+      ]);
+
+      const usersCount = results[0].status === 'fulfilled' ? results[0].value.data : 0;
+      const allUsers = results[1].status === 'fulfilled' ? results[1].value.data : [];
+      const pendingAppts = results[2].status === 'fulfilled' ? results[2].value.data : [];
+      const approvedAppts = results[3].status === 'fulfilled' ? results[3].value.data : [];
+      const healthcareProviders = results[4].status === 'fulfilled' ? results[4].value : [];
+
+      results.forEach((result, index) => {
+        if (result.status === 'rejected') {
+          console.warn(`Request ${index} failed:`, result.reason);
         }
+      });
 
-        setUser(userData);
+      setStats({
+        totalUsers: usersCount || 0,
+        totalAppointments: (pendingAppts.length || 0) + (approvedAppts.length || 0),
+        pendingAppointments: pendingAppts.length || 0,
+        totalDoctors: healthcareProviders.length || 0,
+      });
 
-        const [
-          usersCountRes,
-          usersListRes,
-          pendingRes,
-          approvedRes,
-          doctorsRes,
-        ] = await Promise.all([
-          api.get("/users/count"),
-          api.get("/users"),
-          api.get("/appointments/pending"),
-          api.get("/appointments?status=approved"),
-          api.get("/doctors"),
-        ]);
+      setUsers(allUsers);
+      setDoctors(healthcareProviders);
 
-        // Get all healthcare providers (both from doctors and users with type 4)
-        const allUsers = usersListRes.data || [];
-        const healthcareProviders = allUsers.filter((user) => user.type === 4);
-
-        setStats({
-          totalUsers: usersCountRes.data || 0,
-          totalAppointments:
-            (pendingRes.data?.length || 0) + (approvedRes.data?.length || 0),
-          pendingAppointments: pendingRes.data?.length || 0,
-          totalDoctors: healthcareProviders.length || 0,
+      const processDoctorAndUserNames = (appointment) => {
+        const user = allUsers.find((u) => u.id === appointment.userId);
+        const doctor = healthcareProviders.find((d) => {
+          return d.id === appointment.doctorId;
         });
 
-        setUsers(allUsers);
-        setDoctors(healthcareProviders);
-
-        const processDoctorAndUserNames = (appointment) => {
-          const user = allUsers.find((u) => u.id === appointment.userId);
-          const doctor = healthcareProviders.find((d) => {
-            return (
-              d.id === appointment.doctorId || d.userId === appointment.doctorId
-            );
-          });
-
-          return {
-            ...appointment,
-            userFirstName: user?.firstName || "",
-            userLastName: user?.lastName || "",
-            doctorName: doctor
-              ? `Dr. ${doctor.firstName} ${doctor.lastName}`
-              : "Unknown Doctor",
-          };
+        return {
+          ...appointment,
+          userFirstName: user?.firstName || "Unknown",
+          userLastName: user?.lastName || "User",
+          doctorName: doctor
+            ? `Dr. ${doctor.firstName} ${doctor.lastName}`
+            : "Unknown Doctor",
         };
+      };
 
-        const pendingWithNames = (pendingRes.data || []).map(
-          processDoctorAndUserNames
-        );
-        const approvedWithNames = (approvedRes.data || []).map(
-          processDoctorAndUserNames
-        );
+      const pendingWithNames = (pendingAppts || []).map(processDoctorAndUserNames);
+      const approvedWithNames = (approvedAppts || []).map(processDoctorAndUserNames);
 
-        setPendingAppointments(pendingWithNames);
-        setApprovedAppointments(approvedWithNames);
-        setDoctors(healthcareProviders || []);
-      } catch (err) {
-        console.error("Admin dashboard error:", err);
-        setError(err.response?.data?.message || "Failed to load dashboard");
-        if (err.response?.status === 401) router.push("/login");
-      } finally {
-        setLoading(false);
-      }
-    };
+      setPendingAppointments(pendingWithNames);
+      setApprovedAppointments(approvedWithNames);
 
-    fetchData();
-  }, [router]);
+    } catch (err) {
+      console.error("Admin dashboard error:", err);
+      setError(err.response?.data?.message || "Failed to load dashboard");
+      if (err.response?.status === 401) router.push("/login");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchData();
+}, [router]);
 
   const handleLogout = async () => {
     await authService.logout();
@@ -276,79 +278,78 @@ const AdminDashboard = () => {
     }
   };
 
-  const handleAddDoctorSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      const nameParts = doctorForm.name.split(" ");
-      const firstName = nameParts[0];
-      const lastName = nameParts.slice(1).join(" ");
+const handleAddDoctorSubmit = async (e) => {
+  e.preventDefault();
+  try {
+    const nameParts = doctorForm.name.split(" ");
+    const firstName = nameParts[0];
+    const lastName = nameParts.slice(1).join(" ");
 
-      const response = await api.post("/auth/register", {
-        email:
-          firstName.toLowerCase() +
-          "." +
-          lastName.toLowerCase() +
-          "@meditrack.com",
-        password: "Doctor@123",
-        firstName: firstName,
-        lastName: lastName,
-        phoneNumber: doctorForm.phoneNumber || "",
-        type: 4,
+    const doctorEmail = doctorForm.email || `${firstName.toLowerCase()}.${lastName.toLowerCase()}@meditrack.com`;
+
+    const response = await api.post("/auth/register-doctor", {
+      email: doctorEmail,
+      password: doctorForm.password,
+      firstName: firstName,
+      lastName: lastName,
+      phoneNumber: doctorForm.phoneNumber || "",
+      type: 4, // HealthcareProvider
+      specialty: doctorForm.specialty,
+      clinicName: doctorForm.clinicName,
+      address: doctorForm.address
+    });
+
+    if (response.data) {
+   
+      setNewDoctorData({
+        email: doctorEmail,
+        name: doctorForm.name,
+        password: doctorForm.password
       });
-      if (response.status === 401) {
-        alert("❌ Unauthorized. Please log in again.");
-        await authService.logout();
-        router.push("/");
-        return;
-      }
+    
+      setShowPasswordModal(true);
+      setDoctorForm({
+        name: "",
+        email: "",
+        password: "",
+        specialty: "",
+        clinicName: "",
+        address: "",
+        phoneNumber: ""
+      });
 
-      if (response.data) {
-        setShowAddDoctorForm(false);
-        setDoctorForm({
-          name: "",
-          specialty: "",
-          clinicName: "",
-          address: "",
-          phoneNumber: "",
-        });
-
-        const usersRes = await api.get("/users");
-        const users = usersRes.data || [];
-        setUsers(users);
-
-        const healthcareProviders = users.filter(
-          (user) => user.type === 4 || user.type === "HealthcareProvider"
-        );
-        setDoctors(healthcareProviders);
-        setStats((prev) => ({
-          ...prev,
-          totalDoctors: healthcareProviders.length,
-        }));
-
-        toast.success("Doctor registered successfully!");
-      }
-    } catch (err) {
-      console.error("Error adding doctor:", err.response?.data || err);
-
-      if (err.response?.status === 401) {
-        toast.error("Session expired. Please log in again.");
-        await authService.logout();
-        router.push("/");
-      } else if (err.response?.status === 400) {
-        toast.error(
-          "Invalid input: " +
-            (err.response?.data?.message || "Please check the form fields")
-        );
-      } else {
-        toast.error("Failed to add doctor. Please try again.");
-      }
+   
+      const usersRes = await api.get("/users");
+      const users = usersRes.data || [];
+      const healthcareProviders = users.filter(user => user.type === 4);
+      
+      setUsers(users);
+      setDoctors(healthcareProviders);
+      setStats(prev => ({
+        ...prev,
+        totalDoctors: healthcareProviders.length
+      }));
     }
-  };
+  } catch (err) {
+    console.error("Error adding doctor:", err.response?.data || err);
+    toast.error(err.response?.data?.message || "Failed to add doctor");
+  }
+};
 
-  const handleAddUserSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      await api.post("/users", userForm);
+const handleAddUserSubmit = async (e) => {
+  e.preventDefault();
+  try {
+  
+    const response = await api.post("/auth/register", {
+      email: userForm.email,
+      password: userForm.password,
+      firstName: userForm.firstName,
+      lastName: userForm.lastName,
+      phoneNumber: userForm.phoneNumber || "",
+      type: userForm.type === "Admin" ? 5 : 1, 
+    });
+
+    if (response.data) {
       setShowAddUserForm(false);
       setUserForm({
         email: "",
@@ -358,13 +359,28 @@ const AdminDashboard = () => {
         phoneNumber: "",
         type: "Patient",
       });
+      
+      // Refresh users list
       const usersRes = await api.get("/users");
       setUsers(usersRes.data || []);
+      
+      // Update stats
+      setStats(prev => ({
+        ...prev,
+        totalUsers: (usersRes.data || []).length
+      }));
+      
       toast.success("User created successfully!");
-    } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to create user");
     }
-  };
+  } catch (err) {
+    console.error("Error creating user:", err.response?.data || err);
+    toast.error(
+      err.response?.data?.message || 
+      err.response?.data?.error || 
+      "Failed to create user"
+    );
+  }
+};
 
   const handleInputChange = (e, setter) => {
     const { name, value } = e.target;
@@ -904,68 +920,159 @@ const AdminDashboard = () => {
         </div>
       </main>
 
-      {showAddDoctorForm && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-800/95 backdrop-blur-xl rounded-3xl max-w-md w-full p-8 border border-slate-700/50">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-white">Add Doctor</h2>
-              <button
-                onClick={() => setShowAddDoctorForm(false)}
-                className="p-2 hover:bg-slate-700 rounded-xl"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-            <form onSubmit={handleAddDoctorSubmit} className="space-y-4">
-              <input
-                name="name"
-                placeholder="Doctor Name *"
-                value={doctorForm.name}
-                onChange={(e) => handleInputChange(e, setDoctorForm)}
-                className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
-                required
-              />
-              <input
-                name="specialty"
-                placeholder="Specialty *"
-                value={doctorForm.specialty}
-                onChange={(e) => handleInputChange(e, setDoctorForm)}
-                className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
-                required
-              />
-              <input
-                name="clinicName"
-                placeholder="Clinic Name"
-                value={doctorForm.clinicName}
-                onChange={(e) => handleInputChange(e, setDoctorForm)}
-                className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
-              />
-              <input
-                name="phoneNumber"
-                placeholder="Phone Number"
-                value={doctorForm.phoneNumber}
-                onChange={(e) => handleInputChange(e, setDoctorForm)}
-                className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
-              />
-              <textarea
-                name="address"
-                placeholder="Address"
-                value={doctorForm.address}
-                onChange={(e) => handleInputChange(e, setDoctorForm)}
-                rows="2"
-                className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white resize-vertical"
-              />
-              <button
-                type="submit"
-                className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 text-white py-4 rounded-xl font-bold hover:shadow-emerald-500/50 transition-all"
-              >
-                Add Doctor
-              </button>
-            </form>
-          </div>
+{showAddDoctorForm && (
+  <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div className="bg-slate-800/95 backdrop-blur-xl rounded-3xl max-w-md w-full p-8 border border-slate-700/50">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-bold text-white">Add Doctor</h2>
+        <button
+          onClick={() => setShowAddDoctorForm(false)}
+          className="p-2 hover:bg-slate-700 rounded-xl"
+        >
+          <X className="w-6 h-6" />
+        </button>
+      </div>
+      <form onSubmit={handleAddDoctorSubmit} className="space-y-4">
+        <div>
+          <input
+            name="name"
+            placeholder="Doctor Full Name *"
+            value={doctorForm.name}
+            onChange={(e) => handleInputChange(e, setDoctorForm)}
+            className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
+            required
+          />
+          <p className="text-slate-400 text-xs mt-1">e.g., John Smith</p>
         </div>
-      )}
-
+        
+        <div>
+          <input
+            name="email"
+            type="email"
+            placeholder="Email Address *"
+            value={doctorForm.email}
+            onChange={(e) => handleInputChange(e, setDoctorForm)}
+            className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
+            required
+          />
+          <p className="text-slate-400 text-xs mt-1">e.g., john.smith@meditrack.com</p>
+        </div>
+        
+        <div>
+          <input
+            name="password"
+            type="password"
+            placeholder="Set Password *"
+            value={doctorForm.password}
+            onChange={(e) => handleInputChange(e, setDoctorForm)}
+            className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
+            required
+            minLength="6"
+          />
+          <p className="text-slate-400 text-xs mt-1">Minimum 6 characters</p>
+        </div>
+        
+        <input
+          name="specialty"
+          placeholder="Specialty *"
+          value={doctorForm.specialty}
+          onChange={(e) => handleInputChange(e, setDoctorForm)}
+          className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
+          required
+        />
+        
+        <input
+          name="clinicName"
+          placeholder="Clinic Name"
+          value={doctorForm.clinicName}
+          onChange={(e) => handleInputChange(e, setDoctorForm)}
+          className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
+        />
+        
+        <input
+          name="phoneNumber"
+          placeholder="Phone Number"
+          value={doctorForm.phoneNumber}
+          onChange={(e) => handleInputChange(e, setDoctorForm)}
+          className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
+        />
+        
+        <textarea
+          name="address"
+          placeholder="Clinic Address"
+          value={doctorForm.address}
+          onChange={(e) => handleInputChange(e, setDoctorForm)}
+          rows="2"
+          className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white resize-vertical"
+        />
+        
+        <button
+          type="submit"
+          className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 text-white py-4 rounded-xl font-bold hover:shadow-emerald-500/50 transition-all"
+        >
+          Add Doctor
+        </button>
+      </form>
+    </div>
+  </div>
+)}
+    {/* Password Modal */}
+{showPasswordModal && (
+  <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div className="bg-slate-800/95 backdrop-blur-xl rounded-3xl max-w-md w-full p-8 border border-slate-700/50">
+      <div className="flex flex-col items-center gap-6">
+        <div className="w-16 h-16 bg-emerald-500/20 rounded-full flex items-center justify-center">
+          <Check className="w-8 h-8 text-emerald-500" />
+        </div>
+        <h2 className="text-2xl font-bold text-white text-center">
+          Doctor Registered Successfully!
+        </h2>
+        <div className="w-full space-y-4">
+          <p className="text-slate-300 text-center">
+            Doctor can now login with these credentials:
+          </p>
+          <div className="bg-slate-700/50 rounded-xl p-4 space-y-3">
+            <div className="flex justify-between items-center">
+              <span className="text-slate-400">Name:</span>
+              <span className="text-white font-medium">{newDoctorData.name}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-slate-400">Email:</span>
+              <span className="text-white font-mono text-sm">{newDoctorData.email}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-slate-400">Password:</span>
+              <span className="text-white font-mono bg-slate-600 px-3 py-1 rounded text-sm">
+                {newDoctorData.password}
+              </span>
+            </div>
+          </div>
+          <p className="text-green-400 text-sm text-center">
+            ✅ Doctor can now login to their dashboard
+          </p>
+        </div>
+        <div className="flex gap-3 w-full">
+          <button
+            onClick={() => {
+           
+              navigator.clipboard.writeText(`Email: ${newDoctorData.email}\nPassword: ${newDoctorData.password}`);
+              toast.success("Credentials copied to clipboard!");
+            }}
+            className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-all"
+          >
+            Copy Credentials
+          </button>
+          <button
+            onClick={() => setShowPasswordModal(false)}
+            className="flex-1 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl font-bold hover:shadow-emerald-500/50 transition-all"
+          >
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
       {showRejectModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-800/95 backdrop-blur-xl rounded-3xl max-w-md w-full p-8 border border-slate-700/50">

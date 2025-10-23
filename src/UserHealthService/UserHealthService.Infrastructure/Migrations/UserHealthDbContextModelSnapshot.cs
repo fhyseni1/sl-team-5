@@ -75,7 +75,7 @@ namespace UserHealthService.Infrastructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("Allergies");
+                    b.ToTable("Allergies", (string)null);
                 });
 
             modelBuilder.Entity("UserHealthService.Domain.Entities.Appointment", b =>
@@ -143,7 +143,7 @@ namespace UserHealthService.Infrastructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("Appointments");
+                    b.ToTable("Appointments", (string)null);
                 });
 
             modelBuilder.Entity("UserHealthService.Domain.Entities.Doctor", b =>
@@ -184,7 +184,7 @@ namespace UserHealthService.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Doctors");
+                    b.ToTable("Doctors", (string)null);
                 });
 
             modelBuilder.Entity("UserHealthService.Domain.Entities.HealthMetric", b =>
@@ -226,7 +226,7 @@ namespace UserHealthService.Infrastructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("HealthMetrics");
+                    b.ToTable("HealthMetrics", (string)null);
                 });
 
             modelBuilder.Entity("UserHealthService.Domain.Entities.Notification", b =>
@@ -276,7 +276,7 @@ namespace UserHealthService.Infrastructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("Notifications");
+                    b.ToTable("Notifications", (string)null);
                 });
 
             modelBuilder.Entity("UserHealthService.Domain.Entities.RefreshToken", b =>
@@ -301,7 +301,7 @@ namespace UserHealthService.Infrastructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("RefreshTokens");
+                    b.ToTable("RefreshTokens", (string)null);
                 });
 
             modelBuilder.Entity("UserHealthService.Domain.Entities.SymptomLog", b =>
@@ -349,7 +349,7 @@ namespace UserHealthService.Infrastructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("SymptomLogs");
+                    b.ToTable("SymptomLogs", (string)null);
                 });
 
             modelBuilder.Entity("UserHealthService.Domain.Entities.User", b =>
@@ -400,7 +400,7 @@ namespace UserHealthService.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Users");
+                    b.ToTable("Users", (string)null);
                 });
 
             modelBuilder.Entity("UserHealthService.Domain.Entities.UserProfile", b =>
@@ -493,7 +493,7 @@ namespace UserHealthService.Infrastructure.Migrations
                     b.HasIndex("UserId")
                         .IsUnique();
 
-                    b.ToTable("UserProfiles");
+                    b.ToTable("UserProfiles", (string)null);
                 });
 
             modelBuilder.Entity("UserHealthService.Domain.Entities.UserRelationship", b =>
@@ -550,7 +550,7 @@ namespace UserHealthService.Infrastructure.Migrations
                     b.HasIndex("UserId", "RelatedUserId", "RelationshipType")
                         .IsUnique();
 
-                    b.ToTable("UserRelationships");
+                    b.ToTable("UserRelationships", (string)null);
                 });
 
             modelBuilder.Entity("UserHealthService.Domain.Entities.Allergy", b =>

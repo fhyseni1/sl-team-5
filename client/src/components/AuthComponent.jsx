@@ -31,47 +31,46 @@ const AuthComponent = () => {
     });
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
+ const handleSubmit = async (e) => {
+  e.preventDefault();
+  setError("");
+  setLoading(true);
 
-    try {
-      let response;
+  try {
+    let response;
 
-      if (isLogin) {
-        response = await authService.login({
-          email: formData.email,
-          password: formData.password,
-        });
-      } else {
-        response = await authService.register({
-          email: formData.email,
-          password: formData.password,
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          phoneNumber: formData.phoneNumber,
-        });
-      }
-
-      const userData = response;
-
-      const isAdmin =
-        userData.type === "Admin" ||
-        userData.type === 5 ||
-        userData.email === "admin@meditrack.com";
-
-      if (isAdmin) {
-        router.push("/dashboard/admin-dashboard");
-      } else {
-        router.push("/dashboard/dashboard");
-      }
-    } catch (err) {
-      setError(err.response?.data?.message || "Authentication failed");
-    } finally {
-      setLoading(false);
+    if (isLogin) {
+      response = await authService.login({
+        email: formData.email,
+        password: formData.password,
+      });
+    } else {
+      response = await authService.register({
+        email: formData.email,
+        password: formData.password,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        phoneNumber: formData.phoneNumber,
+      });
     }
-  };
+
+    const userData = response;
+
+    console.log("Login Response:", userData);
+
+    if (userData.type === 5 || userData.type === "Admin") {
+      router.push("/dashboard/admin-dashboard");
+    } else if (userData.type === 4 || userData.type === "HealthcareProvider") {
+      router.push("/dashboard/doctor-dashboard");
+    } else {
+      router.push("/dashboard/dashboard");
+    }
+  } catch (err) {
+    setError(err.response?.data?.message || "Authentication failed");
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-teal-50 via-white to-blue-50 flex items-center justify-center p-4">

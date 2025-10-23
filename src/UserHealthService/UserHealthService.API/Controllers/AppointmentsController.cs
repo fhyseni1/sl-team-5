@@ -80,6 +80,7 @@ namespace UserHealthService.API.Controllers
                 return StatusCode(500, "Error creating appointment");
             }
         }
+        
 
         [HttpPut("{id}")]
         public async Task<ActionResult<AppointmentResponseDto>> Update(Guid id, AppointmentUpdateDto updateDto)
@@ -105,7 +106,6 @@ namespace UserHealthService.API.Controllers
             return NoContent();
         }
 
-        // ✅ NEW ADMIN ENDPOINTS - FIXED!
         [HttpGet("pending")]
         [Authorize(Roles = "Admin")]
         public async Task<ActionResult<List<PendingAppointmentDto>>> GetPending()

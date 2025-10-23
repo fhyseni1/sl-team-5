@@ -22,6 +22,7 @@ namespace UserHealthService.Application.Services
             var appointment = await _appointmentRepository.GetByIdAsync(id);
             return appointment == null ? null : _mapper.Map<AppointmentResponseDto>(appointment);
         }
+        
 
         public async Task<IEnumerable<AppointmentResponseDto>> GetAllAsync()
         {
