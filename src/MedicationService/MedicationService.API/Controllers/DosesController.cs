@@ -63,5 +63,12 @@ namespace MedicationService.API.Controllers
             if (!deleted) return NotFound();
             return NoContent();
         }
+        [HttpGet("medication/{medicationId}/adherence")] 
+        public async Task<IActionResult> GetAdherenceStatsAsync(Guid medicationId)
+        {
+          decimal adherenceRate=  await _service.CalculateAdherenceRateAsync(medicationId);
+            return Ok(adherenceRate);
+
+        }
     }
 }

@@ -90,5 +90,14 @@ namespace MedicationService.Application.Services
             await _repository.SaveChangesAsync();
             return true;
         }
+
+        public async Task<decimal> CalculateAdherenceRateAsync(Guid medicationId)
+        {
+            var (taken, total) = await _repository.GetAdherenceStatsAsync(medicationId);
+            if (total == 0)
+                return 0m; 
+            decimal rate = (decimal)taken / total * 100;
+            return rate;
+        }
     }
 }

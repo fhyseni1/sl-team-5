@@ -8,6 +8,7 @@ namespace MedicationService.Application.Interfaces
         Task<IEnumerable<MedicationDose>> GetMissedDosesAsync(Guid userId);
         Task<IEnumerable<MedicationDose>> GetDosesByDateRangeAsync(Guid userId, DateTime startDate, DateTime endDate);
         Task<IEnumerable<MedicationDose>> GetTodaysDosesAsync(Guid userId);
+        Task<(int taken, int total)> GetAdherenceStatsAsync(Guid medicationId)
         Task<int> GetMissedDoseCountAsync(Guid medicationId);
     
         Task SaveChangesAsync();

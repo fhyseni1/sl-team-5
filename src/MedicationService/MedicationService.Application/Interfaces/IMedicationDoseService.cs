@@ -14,6 +14,7 @@ namespace MedicationService.Application.Interfaces
         Task<IEnumerable<DoseResponseDto>> GetMissedDosesAsync(Guid userId);
         Task<DoseResponseDto> CreateAsync(DoseCreateDto dto);
         Task<DoseResponseDto?> UpdateAsync(Guid id, DoseUpdateDto dto);
+        Task<decimal> CalculateAdherenceRateAsync(Guid medicationId)
         Task<bool> DeleteAsync(Guid id);
     }
 }
