@@ -3,6 +3,8 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import {
   Users,
   Calendar,
@@ -24,7 +26,10 @@ import {
   Plus,
   X,
 } from "lucide-react";
+
+import { userService } from "../../services/userService";
 import { authService, api } from "../../services/authService";
+import AppointmentCalendar from "./AppointmentCalendar";
 
 const AdminDashboard = () => {
   const [user, setUser] = useState(null);
@@ -38,7 +43,17 @@ const AdminDashboard = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [showAddDoctorForm, setShowAddDoctorForm] = useState(false);
   const [showAddUserForm, setShowAddUserForm] = useState(false);
+  const [doctorPage, setDoctorPage] = useState(1);
+  const [pendingPage, setPendingPage] = useState(1);
+  const [approvedPage, setApprovedPage] = useState(1);
+  const [userAppointments, setUserAppointments] = useState([]);
+  const [userPage, setUserPage] = useState(1);
+
+  const itemsPerPage = 5;
   const router = useRouter();
+
+  // Combine pending and approved appointments for the calendar
+  const allAppointments = [...pendingAppointments, ...approvedAppointments];
 
   const [doctorForm, setDoctorForm] = useState({
     name: "",
@@ -56,6 +71,58 @@ const AdminDashboard = () => {
     phoneNumber: "",
     type: "Patient",
   });
+
+  const paginate = (data, page) => {
+    const start = (page - 1) * itemsPerPage;
+    return data.slice(start, start + itemsPerPage);
+  };
+
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState({
+    id: null,
+    type: null,
+    name: "",
+  });
+
+  const handleDeleteDoctor = async (doctor) => {
+    setDeleteTarget({
+      id: doctor.id,
+      type: "doctor",
+      name: `Dr. ${doctor.firstName} ${doctor.lastName}`,
+    });
+    setShowDeleteModal(true);
+  };
+
+  const handleDeleteUser = async (user) => {
+    setDeleteTarget({
+      id: user.id,
+      type: "user",
+      name: `${user.firstName} ${user.lastName}`,
+    });
+    setShowDeleteModal(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    try {
+      await api.delete(`/users/${deleteTarget.id}`);
+
+      if (deleteTarget.type === "doctor") {
+        setDoctors((prev) => prev.filter((d) => d.id !== deleteTarget.id));
+        toast.success("Doctor deleted successfully!");
+      } else {
+        setUsers((prev) => prev.filter((u) => u.id !== deleteTarget.id));
+        toast.success("User deleted successfully!");
+      }
+      setShowDeleteModal(false);
+    } catch (err) {
+      console.error("Error deleting:", err.response?.data || err);
+      toast.error(
+        err.response?.data?.message ||
+          err.message ||
+          `Failed to delete ${deleteTarget.type}`
+      );
+    }
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -88,10 +155,10 @@ const AdminDashboard = () => {
           api.get("/appointments?status=approved"),
           api.get("/doctors"),
         ]);
-        const healthcareProviders = [
-          ...(doctorsRes.data || []),
-          ...(usersListRes.data || []).filter((user) => user.type === 4),
-        ];
+
+        // Get all healthcare providers (both from doctors and users with type 4)
+        const allUsers = usersListRes.data || [];
+        const healthcareProviders = allUsers.filter((user) => user.type === 4);
 
         setStats({
           totalUsers: usersCountRes.data || 0,
@@ -101,39 +168,32 @@ const AdminDashboard = () => {
           totalDoctors: healthcareProviders.length || 0,
         });
 
-        setUsers(usersListRes.data || []);
-        const pendingWithNames = (pendingRes.data || []).map((appointment) => {
-          const user = usersListRes.data.find(
-            (u) => u.id === appointment.userId
-          );
-          const doctor = healthcareProviders.find(
-            (d) => d.id === appointment.doctorId
-          );
+        setUsers(allUsers);
+        setDoctors(healthcareProviders);
+
+        const processDoctorAndUserNames = (appointment) => {
+          const user = allUsers.find((u) => u.id === appointment.userId);
+          const doctor = healthcareProviders.find((d) => {
+            return (
+              d.id === appointment.doctorId || d.userId === appointment.doctorId
+            );
+          });
+
           return {
             ...appointment,
             userFirstName: user?.firstName || "",
             userLastName: user?.lastName || "",
-            doctorName: doctor ? `${doctor.firstName} ${doctor.lastName}` : "",
+            doctorName: doctor
+              ? `Dr. ${doctor.firstName} ${doctor.lastName}`
+              : "Unknown Doctor",
           };
-        });
+        };
 
+        const pendingWithNames = (pendingRes.data || []).map(
+          processDoctorAndUserNames
+        );
         const approvedWithNames = (approvedRes.data || []).map(
-          (appointment) => {
-            const user = usersListRes.data.find(
-              (u) => u.id === appointment.userId
-            );
-            const doctor = healthcareProviders.find(
-              (d) => d.id === appointment.doctorId
-            );
-            return {
-              ...appointment,
-              userFirstName: user?.firstName || "",
-              userLastName: user?.lastName || "",
-              doctorName: doctor
-                ? `${doctor.firstName} ${doctor.lastName}`
-                : "",
-            };
-          }
+          processDoctorAndUserNames
         );
 
         setPendingAppointments(pendingWithNames);
@@ -163,24 +223,56 @@ const AdminDashboard = () => {
       setPendingAppointments((prev) => prev.filter((a) => a.id !== id));
       setApprovedAppointments((prev) => [
         ...prev,
-        { ...approvedAppointment, status: "Approved" },
+        { ...approvedAppointment, status: 2 }, // Use numeric status (2 = Approved)
       ]);
-      alert("✅ Appointment approved!");
+      toast.success("Appointment approved successfully!");
     } catch (err) {
-      alert("❌ Failed to approve");
+      toast.error(
+        err.response?.data?.message ||
+          err.message ||
+          "Failed to approve appointment"
+      );
     }
   };
 
-  const handleRejectAppointment = async (id) => {
-    try {
-      const reason = prompt("Please enter the reason for rejection:");
-      if (reason === null) return;
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [appointmentToReject, setAppointmentToReject] = useState(null);
 
-      await api.put(`/appointments/${id}/reject`, { reason });
-      setPendingAppointments((prev) => prev.filter((a) => a.id !== id));
-      alert("✅ Appointment rejected!");
+  const handleRejectClick = (appointment) => {
+    setAppointmentToReject(appointment);
+    setShowRejectModal(true);
+    setRejectionReason("");
+  };
+
+  const handleRejectAppointment = async () => {
+    try {
+      if (!rejectionReason.trim()) {
+        toast.error("Please provide a reason for rejection");
+        return;
+      }
+
+      const response = await api.put(
+        `/appointments/${appointmentToReject.id}/reject`,
+        {
+          rejectionReason: rejectionReason,
+        }
+      );
+
+      if (response.data) {
+        setPendingAppointments((prev) =>
+          prev.filter((a) => a.id !== appointmentToReject.id)
+        );
+        setShowRejectModal(false);
+        toast.success("Appointment rejected successfully");
+      }
     } catch (err) {
-      alert("❌ Failed to reject");
+      console.error("Error rejecting appointment:", err.response?.data || err);
+      toast.error(
+        err.response?.data?.message ||
+          err.message ||
+          "Failed to reject appointment"
+      );
     }
   };
 
@@ -233,22 +325,22 @@ const AdminDashboard = () => {
           totalDoctors: healthcareProviders.length,
         }));
 
-        alert("✅ Doctor registered successfully!");
+        toast.success("Doctor registered successfully!");
       }
     } catch (err) {
       console.error("Error adding doctor:", err.response?.data || err);
 
       if (err.response?.status === 401) {
-        alert("❌ Session expired. Please log in again.");
+        toast.error("Session expired. Please log in again.");
         await authService.logout();
         router.push("/");
       } else if (err.response?.status === 400) {
-        alert(
-          "❌ Invalid input: " +
+        toast.error(
+          "Invalid input: " +
             (err.response?.data?.message || "Please check the form fields")
         );
       } else {
-        alert("❌ Failed to add doctor. Please try again.");
+        toast.error("Failed to add doctor. Please try again.");
       }
     }
   };
@@ -268,9 +360,9 @@ const AdminDashboard = () => {
       });
       const usersRes = await api.get("/users");
       setUsers(usersRes.data || []);
-      alert("✅ User created successfully!");
+      toast.success("User created successfully!");
     } catch (err) {
-      alert("❌ Failed to create user");
+      toast.error(err.response?.data?.message || "Failed to create user");
     }
   };
 
@@ -301,6 +393,18 @@ const AdminDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 relative">
+      <ToastContainer
+        position="top-right"
+        autoClose={5000}
+        hideProgressBar={false}
+        newestOnTop
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="dark"
+      />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-purple-900/20 via-transparent to-emerald-900/20"></div>
 
       <header className="bg-slate-900/80 backdrop-blur-xl border-b border-slate-700/50 sticky top-0 z-50">
@@ -389,7 +493,7 @@ const AdminDashboard = () => {
                 </tr>
               </thead>
               <tbody>
-                {doctors.map((doctor) => (
+                {paginate(doctors, doctorPage).map((doctor) => (
                   <tr
                     key={doctor.id}
                     className="border-b border-slate-700/30 hover:bg-slate-700/30"
@@ -400,6 +504,15 @@ const AdminDashboard = () => {
                     <td className="py-4 px-6 text-slate-300">{doctor.email}</td>
                     <td className="py-4 px-6 text-slate-300">
                       {doctor.phoneNumber}
+                    </td>
+                    <td className="py-4 px-6">
+                      <button
+                        onClick={() => handleDeleteDoctor(doctor)}
+                        className="p-2 bg-red-500/20 hover:bg-red-500/40 text-red-400 rounded-lg transition-all"
+                        title="Delete Doctor"
+                      >
+                        <Trash className="w-5 h-5" />
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -415,9 +528,43 @@ const AdminDashboard = () => {
                 )}
               </tbody>
             </table>
+            {doctors.length > itemsPerPage && (
+              <div className="flex justify-center items-center mt-4 space-x-4">
+                <button
+                  onClick={() => setDoctorPage((p) => Math.max(p - 1, 1))}
+                  className="px-4 py-2 bg-slate-700/50 rounded-lg text-white disabled:opacity-50"
+                  disabled={doctorPage === 1}
+                >
+                  Prev
+                </button>
+                <span className="text-slate-300">
+                  Page {doctorPage} of{" "}
+                  {Math.ceil(doctors.length / itemsPerPage)}
+                </span>
+                <button
+                  onClick={() =>
+                    setDoctorPage((p) =>
+                      p < Math.ceil(doctors.length / itemsPerPage) ? p + 1 : p
+                    )
+                  }
+                  className="px-4 py-2 bg-slate-700/50 rounded-lg text-white disabled:opacity-50"
+                  disabled={
+                    doctorPage === Math.ceil(doctors.length / itemsPerPage)
+                  }
+                >
+                  Next
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
+        <div className="mb-12">
+          <AppointmentCalendar
+            appointments={allAppointments}
+            doctors={doctors}
+          />
+        </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div className="bg-slate-800/50 backdrop-blur-xl rounded-3xl border border-slate-700/50 p-8">
             <div className="flex items-center justify-between mb-8">
@@ -448,7 +595,7 @@ const AdminDashboard = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {pendingAppointments.map((app) => (
+                  {paginate(pendingAppointments, pendingPage).map((app) => (
                     <tr
                       key={app.id}
                       className="border-b border-slate-700/30 hover:bg-slate-700/30"
@@ -474,7 +621,7 @@ const AdminDashboard = () => {
                             <Check className="w-5 h-5" />
                           </button>
                           <button
-                            onClick={() => handleRejectAppointment(app.id)}
+                            onClick={() => handleRejectClick(app)}
                             className="p-3 bg-red-500/20 hover:bg-red-500/40 text-red-400 rounded-xl transition-all"
                           >
                             <XCircle className="w-5 h-5" />
@@ -495,6 +642,37 @@ const AdminDashboard = () => {
                   )}
                 </tbody>
               </table>
+              {pendingAppointments.length > itemsPerPage && (
+                <div className="flex justify-center items-center mt-4 space-x-4">
+                  <button
+                    onClick={() => setPendingPage((p) => Math.max(p - 1, 1))}
+                    className="px-4 py-2 bg-slate-700/50 rounded-lg text-white disabled:opacity-50"
+                    disabled={pendingPage === 1}
+                  >
+                    Prev
+                  </button>
+                  <span className="text-slate-300">
+                    Page {pendingPage} of{" "}
+                    {Math.ceil(pendingAppointments.length / itemsPerPage)}
+                  </span>
+                  <button
+                    onClick={() =>
+                      setPendingPage((p) =>
+                        p < Math.ceil(pendingAppointments.length / itemsPerPage)
+                          ? p + 1
+                          : p
+                      )
+                    }
+                    className="px-4 py-2 bg-slate-700/50 rounded-lg text-white disabled:opacity-50"
+                    disabled={
+                      pendingPage ===
+                      Math.ceil(pendingAppointments.length / itemsPerPage)
+                    }
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
             </div>
           </div>
           <div className="bg-slate-800/50 backdrop-blur-xl rounded-3xl border border-slate-700/50 p-8">
@@ -523,7 +701,7 @@ const AdminDashboard = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {approvedAppointments.map((app) => (
+                  {paginate(approvedAppointments, approvedPage).map((app) => (
                     <tr
                       key={app.id}
                       className="border-b border-slate-700/30 hover:bg-slate-700/30"
@@ -535,7 +713,15 @@ const AdminDashboard = () => {
                         {app.doctorName}
                       </td>
                       <td className="py-4 px-6 text-slate-300">
-                        {app.appointmentDate} {app.startTime}
+                        {new Date(app.appointmentDate).toLocaleDateString(
+                          "en-US",
+                          {
+                            year: "numeric",
+                            month: "long",
+                            day: "numeric",
+                          }
+                        )}{" "}
+                        at {app.startTime ? app.startTime.substring(0, 5) : ""}
                       </td>
                       <td className="py-4 px-6 text-slate-400 max-w-xs truncate">
                         {app.purpose}
@@ -554,6 +740,38 @@ const AdminDashboard = () => {
                   )}
                 </tbody>
               </table>
+              {approvedAppointments.length > itemsPerPage && (
+                <div className="flex justify-center items-center mt-4 space-x-4">
+                  <button
+                    onClick={() => setApprovedPage((p) => Math.max(p - 1, 1))}
+                    className="px-4 py-2 bg-slate-700/50 rounded-lg text-white disabled:opacity-50"
+                    disabled={approvedPage === 1}
+                  >
+                    Prev
+                  </button>
+                  <span className="text-slate-300">
+                    Page {approvedPage} of{" "}
+                    {Math.ceil(approvedAppointments.length / itemsPerPage)}
+                  </span>
+                  <button
+                    onClick={() =>
+                      setApprovedPage((p) =>
+                        p <
+                        Math.ceil(approvedAppointments.length / itemsPerPage)
+                          ? p + 1
+                          : p
+                      )
+                    }
+                    className="px-4 py-2 bg-slate-700/50 rounded-lg text-white disabled:opacity-50"
+                    disabled={
+                      approvedPage ===
+                      Math.ceil(approvedAppointments.length / itemsPerPage)
+                    }
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
             </div>
           </div>
           <div className="bg-slate-800/50 backdrop-blur-xl rounded-3xl border border-slate-700/50 p-8">
@@ -595,7 +813,7 @@ const AdminDashboard = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredUsers.slice(0, 5).map((u) => (
+                  {paginate(filteredUsers, userPage).map((u) => (
                     <tr
                       key={u.id}
                       className="border-b border-slate-700/30 hover:bg-slate-700/30"
@@ -615,10 +833,52 @@ const AdminDashboard = () => {
                           {u.type}
                         </span>
                       </td>
+                      <td className="py-3 px-4">
+                        {u.type !== "Admin" && (
+                          <button
+                            onClick={() => handleDeleteUser(u)}
+                            className="p-2 bg-red-500/20 hover:bg-red-500/40 text-red-400 rounded-lg transition-all"
+                            title="Delete User"
+                          >
+                            <Trash className="w-5 h-5" />
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+              {filteredUsers.length > itemsPerPage && (
+                <div className="flex justify-center items-center mt-4 space-x-4">
+                  <button
+                    onClick={() => setUserPage((p) => Math.max(p - 1, 1))}
+                    className="px-4 py-2 bg-slate-700/50 rounded-lg text-white disabled:opacity-50"
+                    disabled={userPage === 1}
+                  >
+                    Prev
+                  </button>
+                  <span className="text-slate-300">
+                    Page {userPage} of{" "}
+                    {Math.ceil(filteredUsers.length / itemsPerPage)}
+                  </span>
+                  <button
+                    onClick={() =>
+                      setUserPage((p) =>
+                        p < Math.ceil(filteredUsers.length / itemsPerPage)
+                          ? p + 1
+                          : p
+                      )
+                    }
+                    className="px-4 py-2 bg-slate-700/50 rounded-lg text-white disabled:opacity-50"
+                    disabled={
+                      userPage ===
+                      Math.ceil(filteredUsers.length / itemsPerPage)
+                    }
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -702,6 +962,105 @@ const AdminDashboard = () => {
                 Add Doctor
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {showRejectModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-800/95 backdrop-blur-xl rounded-3xl max-w-md w-full p-8 border border-slate-700/50">
+            <div className="flex flex-col gap-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-white">
+                  Reject Appointment
+                </h2>
+                <button
+                  onClick={() => setShowRejectModal(false)}
+                  className="p-2 hover:bg-slate-700 rounded-xl"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <p className="text-slate-300 mb-2">
+                    Patient: {appointmentToReject?.userFirstName}{" "}
+                    {appointmentToReject?.userLastName}
+                  </p>
+                  <p className="text-slate-300 mb-4">
+                    Date:{" "}
+                    {appointmentToReject
+                      ? new Date(
+                          appointmentToReject.appointmentDate
+                        ).toLocaleDateString("en-US", {
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                        })
+                      : ""}
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-slate-300 mb-2">
+                    Reason for rejection:
+                  </label>
+                  <textarea
+                    value={rejectionReason}
+                    onChange={(e) => setRejectionReason(e.target.value)}
+                    placeholder="Please provide a reason for rejecting this appointment..."
+                    className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white resize-vertical"
+                    rows="3"
+                  />
+                </div>
+                <div className="flex gap-4">
+                  <button
+                    onClick={() => setShowRejectModal(false)}
+                    className="flex-1 py-3 px-4 bg-slate-700/50 hover:bg-slate-700 text-white rounded-xl transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleRejectAppointment}
+                    className="flex-1 py-3 px-4 bg-red-600 hover:bg-red-700 text-white rounded-xl transition-all"
+                  >
+                    Reject Appointment
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-800/95 backdrop-blur-xl rounded-3xl max-w-md w-full p-8 border border-slate-700/50">
+            <div className="flex flex-col items-center gap-6">
+              <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center">
+                <AlertTriangle className="w-8 h-8 text-red-500" />
+              </div>
+              <h2 className="text-2xl font-bold text-white text-center">
+                Confirm Deletion
+              </h2>
+              <p className="text-slate-300 text-center">
+                Are you sure you want to delete {deleteTarget.name}? This action
+                cannot be undone.
+              </p>
+              <div className="flex gap-4 w-full">
+                <button
+                  onClick={() => setShowDeleteModal(false)}
+                  className="flex-1 py-3 px-4 bg-slate-700/50 hover:bg-slate-700 text-white rounded-xl transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmDelete}
+                  className="flex-1 py-3 px-4 bg-red-600 hover:bg-red-700 text-white rounded-xl transition-all"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
