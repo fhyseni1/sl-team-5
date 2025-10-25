@@ -1,5 +1,7 @@
 // client/components/DoctorDashboard.jsx
 "use client";
+import ChatInbox from '../components/ChatInbox';
+import { MessageCircle } from 'lucide-react';
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -27,6 +29,7 @@ const DoctorDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [patients, setPatients] = useState([]);
+  const [showChatInbox, setShowChatInbox] = useState(false);
 const [showPatientsModal, setShowPatientsModal] = useState(false);
   const [appointments, setAppointments] = useState([]);
   const [medications, setMedications] = useState([]);
@@ -525,6 +528,12 @@ const [showPatientsModal, setShowPatientsModal] = useState(false);
             <h3 className="text-xl font-bold mb-2">Patient Analytics</h3>
             <p className="text-blue-100">View health reports</p>
           </div>
+      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-8 rounded-3xl shadow-xl hover:shadow-purple-500/50 transition-all hover:scale-105 cursor-pointer group"
+    onClick={() => setShowChatInbox(true)}>
+  <MessageCircle className="w-12 h-12 mx-auto mb-4 group-hover:scale-110 transition-transform" />
+  <h3 className="text-xl font-bold mb-2">Patient Messages</h3>
+  <p className="text-indigo-100">Chat with your patients</p>
+</div>
    <div className="bg-gradient-to-r from-purple-600 to-pink-600 text-white p-8 rounded-3xl shadow-xl hover:shadow-purple-500/50 transition-all hover:scale-105 cursor-pointer"
      onClick={() => {
        fetchDoctorPatients();
@@ -575,7 +584,33 @@ const [showPatientsModal, setShowPatientsModal] = useState(false);
     </div>
   </div>
 )}
-
+{showChatInbox && (
+  <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div className="bg-slate-800/95 backdrop-blur-xl rounded-3xl w-full max-w-6xl h-[90vh] overflow-hidden border border-slate-700/50 flex flex-col">
+      {/* Header i përmirësuar */}
+      <div className="flex items-center justify-between p-6 border-b border-slate-700/50 bg-slate-900/80">
+        <div className="flex items-center gap-3">
+          <MessageCircle className="w-8 h-8 text-blue-400" />
+          <div>
+            <h2 className="text-2xl font-bold text-white">Patient Messages</h2>
+            <p className="text-slate-400 text-sm">Chat with your patients</p>
+          </div>
+        </div>
+        <button
+          onClick={() => setShowChatInbox(false)}
+          className="p-3 hover:bg-slate-700 rounded-xl transition-all hover:scale-105"
+        >
+          <X className="w-6 h-6 text-slate-300" />
+        </button>
+      </div>
+      
+      {/* Chat container i përmirësuar */}
+      <div className="flex-1 p-0 overflow-hidden">
+        <ChatInbox currentUser={user} isDoctorView={true} />
+      </div>
+    </div>
+  </div>
+)}
       {/* Add Medication Modal */}
       {showAddMedicationForm && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">

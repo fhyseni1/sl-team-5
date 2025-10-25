@@ -1,6 +1,6 @@
-// components/UserDashboard.jsx
 "use client";
-
+import ChatInbox from '../components/ChatInbox';
+import { MessageCircle } from 'lucide-react';
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -28,7 +28,9 @@ import {
 } from "lucide-react";
 import { authService, api } from "../../services/authService";
 import { userService } from "../../services/userService";
-
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import AppointmentCalendar from "../components/AppointmentCalendar";
 const UserDashboard = () => {
   const [activeUsersCount, setActiveUsersCount] = useState(null);
   const [user, setUser] = useState(null);
@@ -45,6 +47,7 @@ const UserDashboard = () => {
   const [showAllergyWarning, setShowAllergyWarning] = useState(false);
   const [allergyWarningMedication, setAllergyWarningMedication] = useState("");
   const [acknowledgeWarning, setAcknowledgeWarning] = useState(false);
+  const [showChatInbox, setShowChatInbox] = useState(false);
   const [medicationTypes, setMedicationTypes] = useState({
     prescription: [],
     overTheCounter: [],
@@ -473,13 +476,48 @@ const UserDashboard = () => {
 
       const appointmentDate = new Date(appointmentForm.appointmentDate);
       if (isNaN(appointmentDate.getTime())) {
-        throw new Error("Invalid appointment date");
+         toast.error("Invalid appointment date");
+        return;
+      }
+        const [startHour, startMinute] = appointmentForm.startTime
+        .split(":")
+        .map(Number);
+      const [endHour, endMinute] = appointmentForm.endTime
+        .split(":")
+        .map(Number);
+      const durationInMinutes =
+        endHour * 60 + endMinute - (startHour * 60 + startMinute);
+
+      if (durationInMinutes !== 30) {
+        toast.error("Appointments must be exactly 30 minutes long");
+        return;
+      }
+
+      // Check if the time is within business hours (8 AM to 8 PM)
+      if (startHour < 8 || startHour >= 20 || endHour < 8 || endHour > 20) {
+        toast.error("Appointments must be between 8:00 AM and 8:00 PM");
+        return;
+      }
+
+      // Check if the appointment date is in the past
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (appointmentDate < today) {
+        toast.error("Cannot schedule appointments in the past");
+        return;
       }
       const formattedDate = appointmentDate.toISOString().split("T")[0];
+      const selectedDoctor = doctors.find(
+        (d) => d.id === appointmentForm.doctorId
+      );
+      const doctorName = selectedDoctor
+        ? `${selectedDoctor.firstName} ${selectedDoctor.lastName}`
+        : "";
 
       const appointmentData = {
         userId: user.id,
         doctorId: appointmentForm.doctorId,
+         doctorName: doctorName,
         appointmentDate: formattedDate,
         startTime: appointmentForm.startTime.includes(":00")
           ? appointmentForm.startTime
@@ -489,7 +527,7 @@ const UserDashboard = () => {
           : appointmentForm.endTime + ":00",
         purpose: appointmentForm.purpose?.trim() || "",
         notes: appointmentForm.notes?.trim() || "",
-        status: "Pending",
+        status: 8,
       };
 
       const response = await api.post("/appointments", appointmentData);
@@ -510,14 +548,14 @@ const UserDashboard = () => {
         ]);
         setUserAppointments(appointments);
         setUpcomingAppointmentsCount(count);
-        alert("✅ Appointment scheduled! Waiting for admin approval.");
+               toast.success("Appointment scheduled! Waiting for admin approval.");
       }
     } catch (err) {
       console.error("Appointment scheduling error:", err.response?.data || err);
-      alert(
-        `❌ Failed to schedule appointment: ${
-          err.response?.data?.message || err.message || "Unknown error"
-        }`
+ toast.error(
+        err.response?.data?.message ||
+          err.message ||
+          "Failed to schedule appointment"
       );
     }
   };
@@ -688,6 +726,18 @@ const UserDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 relative">
+            <ToastContainer
+        position="top-right"
+        autoClose={5000}
+        hideProgressBar={false}
+        newestOnTop
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="dark"
+      />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-blue-900/20 via-transparent to-emerald-900/20"></div>
 
       <header className="bg-slate-900/80 backdrop-blur-xl border-b border-slate-700/50 sticky top-0 z-50">
@@ -863,6 +913,10 @@ const UserDashboard = () => {
               <Calendar className="w-7 h-7 text-blue-400" />
               Your Appointments
             </h3>
+                    <AppointmentCalendar
+          appointments={userAppointments}
+          doctors={doctors}
+        />
             <div className="divide-y divide-slate-700">
               {userAppointments.length > 0 ? (
                 userAppointments.map((appointment) => (
@@ -965,6 +1019,13 @@ const UserDashboard = () => {
                 <Calendar className="w-6 h-6" />
                 <span>Schedule Appointment</span>
               </button>
+                <button
+  onClick={() => setShowChatInbox(true)}
+  className="w-full flex items-center space-x-3 p-5 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-semibold hover:shadow-purple-500/50 transition-all hover:scale-105 group"
+>
+  <MessageCircle className="w-6 h-6 group-hover:scale-110 transition-transform" />
+  <span>Messages</span>
+</button>
             </div>
           </div>
           <div className="bg-gradient-to-br from-emerald-600 to-teal-700 text-white rounded-2xl p-8 shadow-2xl">
@@ -976,7 +1037,33 @@ const UserDashboard = () => {
           </div>
         </div>
       </main>
-
+{showChatInbox && (
+  <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div className="bg-slate-800/95 backdrop-blur-xl rounded-3xl w-full max-w-6xl h-[90vh] overflow-hidden border border-slate-700/50 flex flex-col">
+      {/* Header i përmirësuar */}
+      <div className="flex items-center justify-between p-6 border-b border-slate-700/50 bg-slate-900/80">
+        <div className="flex items-center gap-3">
+          <MessageCircle className="w-8 h-8 text-purple-400" />
+          <div>
+            <h2 className="text-2xl font-bold text-white">Doctor Messages</h2>
+            <p className="text-slate-400 text-sm">Chat with your healthcare providers</p>
+          </div>
+        </div>
+        <button
+          onClick={() => setShowChatInbox(false)}
+          className="p-3 hover:bg-slate-700 rounded-xl transition-all hover:scale-105"
+        >
+          <X className="w-6 h-6 text-slate-300" />
+        </button>
+      </div>
+      
+      {/* Chat container i përmirësuar */}
+      <div className="flex-1 p-0 overflow-hidden">
+        <ChatInbox currentUser={user} isDoctorView={false} />
+      </div>
+    </div>
+  </div>
+)}
       {/* Medication Form Modal */}
       {showMedicationForm && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -1163,24 +1250,64 @@ const UserDashboard = () => {
                   required
                 />
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <input
-                  name="startTime"
-                  type="time"
-                  value={appointmentForm.startTime}
-                  onChange={(e) => handleInputChange(e, setAppointmentForm)}
-                  className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
-                  required
-                />
-                <input
-                  name="endTime"
-                  type="time"
-                  value={appointmentForm.endTime}
-                  onChange={(e) => handleInputChange(e, setAppointmentForm)}
-                  className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
-                  required
-                />
-              </div>
+             <div>
+                  <label className="block text-slate-300 mb-2">
+                    Select Time Slot
+                  </label>
+                  <select
+                    name="startTime"
+                    value={appointmentForm.startTime}
+                    onChange={(e) => {
+                      const startTime = e.target.value;
+                      const [hours, minutes] = startTime.split(":");
+                      const endTime = new Date(
+                        2025,
+                        0,
+                        1,
+                        parseInt(hours),
+                        parseInt(minutes) + 30
+                      )
+                        .toTimeString()
+                        .slice(0, 5);
+
+                      handleInputChange(e, setAppointmentForm);
+                      setAppointmentForm((prev) => ({
+                        ...prev,
+                        endTime: endTime,
+                      }));
+                    }}
+                    className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
+                    required
+                  >
+                    <option value="">Select time</option>
+                    {Array.from({ length: 32 }, (_, i) => {
+                      const hour = Math.floor(i / 2) + 8; // Start from 8 AM
+                      const minutes = (i % 2) * 30;
+                      const time = `${hour
+                        .toString()
+                        .padStart(2, "0")}:${minutes
+                        .toString()
+                        .padStart(2, "0")}`;
+                      return (
+                        <option key={time} value={time}>
+                          {time}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-slate-300 mb-2">
+                    End Time (30min slot)
+                  </label>
+                  <input
+                    name="endTime"
+                    type="time"
+                    value={appointmentForm.endTime}
+                    className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white cursor-not-allowed"
+                    disabled
+                  />
+                </div>
               <textarea
                 name="purpose"
                 placeholder="Purpose of visit *"

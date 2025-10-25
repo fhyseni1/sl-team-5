@@ -1,5 +1,6 @@
 ﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
+using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
@@ -12,6 +13,25 @@ namespace UserHealthService.Infrastructure.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
+                name: "Doctors",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    Name = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    Specialty = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
+                    ClinicName = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
+                    Address = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
+                    PhoneNumber = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    IsActive = table.Column<bool>(type: "boolean", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Doctors", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Users",
                 columns: table => new
                 {
@@ -22,7 +42,7 @@ namespace UserHealthService.Infrastructure.Migrations
                     DateOfBirth = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     PhoneNumber = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: true),
                     PasswordHash = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
-                    Type = table.Column<string>(type: "varchar", nullable: false),
+                    Type = table.Column<string>(type: "varchar(50)", nullable: false),
                     IsActive = table.Column<bool>(type: "boolean", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
@@ -40,7 +60,7 @@ namespace UserHealthService.Infrastructure.Migrations
                     UserId = table.Column<Guid>(type: "uuid", nullable: false),
                     AllergenName = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
                     Description = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
-                    Severity = table.Column<string>(type: "varchar", nullable: false),
+                    Severity = table.Column<string>(type: "varchar(50)", nullable: false),
                     Symptoms = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
                     Treatment = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
                     DiagnosedDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
@@ -73,7 +93,7 @@ namespace UserHealthService.Infrastructure.Migrations
                     AppointmentDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     StartTime = table.Column<TimeSpan>(type: "interval", nullable: false),
                     EndTime = table.Column<TimeSpan>(type: "interval", nullable: false),
-                    Status = table.Column<string>(type: "varchar", nullable: false),
+                    Status = table.Column<string>(type: "varchar(50)", nullable: false),
                     Purpose = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
                     Notes = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
                     PhoneNumber = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: true),
@@ -93,12 +113,47 @@ namespace UserHealthService.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "chatmessages",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    senderid = table.Column<Guid>(type: "uuid", nullable: false),
+                    receiverid = table.Column<Guid>(type: "uuid", nullable: false),
+                    message = table.Column<string>(type: "text", nullable: false),
+                    isread = table.Column<bool>(type: "boolean", nullable: false),
+                    parentmessageid = table.Column<Guid>(type: "uuid", nullable: true),
+                    sentat = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_chatmessages", x => x.id);
+                    table.ForeignKey(
+                        name: "FK_chatmessages_Users_receiverid",
+                        column: x => x.receiverid,
+                        principalTable: "Users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_chatmessages_Users_senderid",
+                        column: x => x.senderid,
+                        principalTable: "Users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_chatmessages_chatmessages_parentmessageid",
+                        column: x => x.parentmessageid,
+                        principalTable: "chatmessages",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "HealthMetrics",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     UserId = table.Column<Guid>(type: "uuid", nullable: false),
-                    Type = table.Column<string>(type: "varchar", nullable: false),
+                    Type = table.Column<string>(type: "varchar(50)", nullable: false),
                     Value = table.Column<decimal>(type: "numeric", nullable: false),
                     Unit = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
                     RecordedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
@@ -118,48 +173,12 @@ namespace UserHealthService.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "Medication",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    UserId = table.Column<Guid>(type: "uuid", nullable: false),
-                    Name = table.Column<string>(type: "text", nullable: false),
-                    GenericName = table.Column<string>(type: "text", nullable: false),
-                    Manufacturer = table.Column<string>(type: "text", nullable: false),
-                    Type = table.Column<int>(type: "integer", nullable: false),
-                    Dosage = table.Column<decimal>(type: "numeric", nullable: false),
-                    DosageUnit = table.Column<int>(type: "integer", nullable: false),
-                    Description = table.Column<string>(type: "text", nullable: false),
-                    Instructions = table.Column<string>(type: "text", nullable: false),
-                    Status = table.Column<int>(type: "integer", nullable: false),
-                    StartDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    EndDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    Barcode = table.Column<string>(type: "text", nullable: true),
-                    QRCode = table.Column<string>(type: "text", nullable: true),
-                    NDCCode = table.Column<string>(type: "text", nullable: true),
-                    ScanningMethod = table.Column<int>(type: "integer", nullable: false),
-                    ScannedImageUrl = table.Column<string>(type: "text", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_Medication", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_Medication_Users_UserId",
-                        column: x => x.UserId,
-                        principalTable: "Users",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "Notifications",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     UserId = table.Column<Guid>(type: "uuid", nullable: false),
-                    Type = table.Column<string>(type: "varchar", nullable: false),
+                    Type = table.Column<string>(type: "varchar(50)", nullable: false),
                     Title = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
                     Message = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
                     IsRead = table.Column<bool>(type: "boolean", nullable: false),
@@ -186,9 +205,9 @@ namespace UserHealthService.Infrastructure.Migrations
                 {
                     Token = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
                     UserId = table.Column<Guid>(type: "uuid", nullable: false),
-                    IsRevoked = table.Column<bool>(type: "boolean", nullable: false),
+                    IsRevoked = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
                     ExpiresAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "NOW()")
                 },
                 constraints: table =>
                 {
@@ -202,7 +221,7 @@ namespace UserHealthService.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "SymptomLog",
+                name: "SymptomLogs",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
@@ -220,9 +239,9 @@ namespace UserHealthService.Infrastructure.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_SymptomLog", x => x.Id);
+                    table.PrimaryKey("PK_SymptomLogs", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_SymptomLog_Users_UserId",
+                        name: "FK_SymptomLogs_Users_UserId",
                         column: x => x.UserId,
                         principalTable: "Users",
                         principalColumn: "Id",
@@ -274,13 +293,13 @@ namespace UserHealthService.Infrastructure.Migrations
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     UserId = table.Column<Guid>(type: "uuid", nullable: false),
                     RelatedUserId = table.Column<Guid>(type: "uuid", nullable: false),
-                    RelationshipType = table.Column<string>(type: "varchar", nullable: false),
-                    CanManageMedications = table.Column<bool>(type: "boolean", nullable: false),
-                    CanViewHealthData = table.Column<bool>(type: "boolean", nullable: false),
-                    CanScheduleAppointments = table.Column<bool>(type: "boolean", nullable: false),
-                    IsActive = table.Column<bool>(type: "boolean", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                    RelationshipType = table.Column<string>(type: "varchar(50)", maxLength: 50, nullable: false),
+                    CanManageMedications = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
+                    CanViewHealthData = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
+                    CanScheduleAppointments = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
+                    IsActive = table.Column<bool>(type: "boolean", nullable: false, defaultValue: true),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "NOW()"),
+                    UpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "NOW()")
                 },
                 constraints: table =>
                 {
@@ -296,142 +315,7 @@ namespace UserHealthService.Infrastructure.Migrations
                         column: x => x.UserId,
                         principalTable: "Users",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "DrugInteraction",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    MedicationId = table.Column<Guid>(type: "uuid", nullable: false),
-                    InteractingDrugName = table.Column<string>(type: "text", nullable: false),
-                    InteractionDescription = table.Column<string>(type: "text", nullable: false),
-                    Severity = table.Column<int>(type: "integer", nullable: false),
-                    ClinicalEffect = table.Column<string>(type: "text", nullable: false),
-                    ManagementRecommendation = table.Column<string>(type: "text", nullable: false),
-                    DetectedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    IsAcknowledged = table.Column<bool>(type: "boolean", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_DrugInteraction", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_DrugInteraction_Medication_MedicationId",
-                        column: x => x.MedicationId,
-                        principalTable: "Medication",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "MedicationDose",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    MedicationId = table.Column<Guid>(type: "uuid", nullable: false),
-                    ScheduledTime = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    TakenTime = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    IsTaken = table.Column<bool>(type: "boolean", nullable: false),
-                    IsMissed = table.Column<bool>(type: "boolean", nullable: false),
-                    Notes = table.Column<string>(type: "text", nullable: true),
-                    ActualDosage = table.Column<decimal>(type: "numeric", nullable: true),
-                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_MedicationDose", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_MedicationDose_Medication_MedicationId",
-                        column: x => x.MedicationId,
-                        principalTable: "Medication",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "MedicationSchedule",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    MedicationId = table.Column<Guid>(type: "uuid", nullable: false),
-                    Frequency = table.Column<int>(type: "integer", nullable: false),
-                    CustomFrequencyHours = table.Column<int>(type: "integer", nullable: false),
-                    TimeOfDay = table.Column<TimeSpan>(type: "interval", nullable: false),
-                    DaysOfWeek = table.Column<string>(type: "text", nullable: false),
-                    IsActive = table.Column<bool>(type: "boolean", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_MedicationSchedule", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_MedicationSchedule_Medication_MedicationId",
-                        column: x => x.MedicationId,
-                        principalTable: "Medication",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "Prescription",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    MedicationId = table.Column<Guid>(type: "uuid", nullable: false),
-                    PrescriptionNumber = table.Column<string>(type: "text", nullable: false),
-                    PrescriberName = table.Column<string>(type: "text", nullable: false),
-                    PrescriberContact = table.Column<string>(type: "text", nullable: false),
-                    PharmacyName = table.Column<string>(type: "text", nullable: false),
-                    PharmacyContact = table.Column<string>(type: "text", nullable: false),
-                    IssueDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    ExpiryDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    Status = table.Column<int>(type: "integer", nullable: false),
-                    Notes = table.Column<string>(type: "text", nullable: false),
-                    RemainingRefills = table.Column<int>(type: "integer", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_Prescription", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_Prescription_Medication_MedicationId",
-                        column: x => x.MedicationId,
-                        principalTable: "Medication",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "MedicationReminder",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    MedicationId = table.Column<Guid>(type: "uuid", nullable: false),
-                    ScheduleId = table.Column<Guid>(type: "uuid", nullable: true),
-                    ScheduledTime = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    Status = table.Column<int>(type: "integer", nullable: false),
-                    SentAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    AcknowledgedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    SnoozeCount = table.Column<int>(type: "integer", nullable: false),
-                    Message = table.Column<string>(type: "text", nullable: true),
-                    NotificationChannel = table.Column<string>(type: "text", nullable: true),
-                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_MedicationReminder", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_MedicationReminder_MedicationSchedule_ScheduleId",
-                        column: x => x.ScheduleId,
-                        principalTable: "MedicationSchedule",
-                        principalColumn: "Id");
-                    table.ForeignKey(
-                        name: "FK_MedicationReminder_Medication_MedicationId",
-                        column: x => x.MedicationId,
-                        principalTable: "Medication",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateIndex(
@@ -445,9 +329,19 @@ namespace UserHealthService.Infrastructure.Migrations
                 column: "UserId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_DrugInteraction_MedicationId",
-                table: "DrugInteraction",
-                column: "MedicationId");
+                name: "IX_chatmessages_parentmessageid",
+                table: "chatmessages",
+                column: "parentmessageid");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_chatmessages_receiverid",
+                table: "chatmessages",
+                column: "receiverid");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_chatmessages_senderid",
+                table: "chatmessages",
+                column: "senderid");
 
             migrationBuilder.CreateIndex(
                 name: "IX_HealthMetrics_UserId",
@@ -455,40 +349,9 @@ namespace UserHealthService.Infrastructure.Migrations
                 column: "UserId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Medication_UserId",
-                table: "Medication",
-                column: "UserId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_MedicationDose_MedicationId",
-                table: "MedicationDose",
-                column: "MedicationId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_MedicationReminder_MedicationId",
-                table: "MedicationReminder",
-                column: "MedicationId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_MedicationReminder_ScheduleId",
-                table: "MedicationReminder",
-                column: "ScheduleId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_MedicationSchedule_MedicationId",
-                table: "MedicationSchedule",
-                column: "MedicationId");
-
-            migrationBuilder.CreateIndex(
                 name: "IX_Notifications_UserId",
                 table: "Notifications",
                 column: "UserId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_Prescription_MedicationId",
-                table: "Prescription",
-                column: "MedicationId",
-                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_RefreshTokens_UserId",
@@ -496,8 +359,8 @@ namespace UserHealthService.Infrastructure.Migrations
                 column: "UserId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_SymptomLog_UserId",
-                table: "SymptomLog",
+                name: "IX_SymptomLogs_UserId",
+                table: "SymptomLogs",
                 column: "UserId");
 
             migrationBuilder.CreateIndex(
@@ -512,9 +375,10 @@ namespace UserHealthService.Infrastructure.Migrations
                 column: "RelatedUserId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_UserRelationships_UserId",
+                name: "IX_UserRelationships_UserId_RelatedUserId_RelationshipType",
                 table: "UserRelationships",
-                column: "UserId");
+                columns: new[] { "UserId", "RelatedUserId", "RelationshipType" },
+                unique: true);
         }
 
         /// <inheritdoc />
@@ -527,40 +391,28 @@ namespace UserHealthService.Infrastructure.Migrations
                 name: "Appointments");
 
             migrationBuilder.DropTable(
-                name: "DrugInteraction");
+                name: "chatmessages");
+
+            migrationBuilder.DropTable(
+                name: "Doctors");
 
             migrationBuilder.DropTable(
                 name: "HealthMetrics");
 
             migrationBuilder.DropTable(
-                name: "MedicationDose");
-
-            migrationBuilder.DropTable(
-                name: "MedicationReminder");
-
-            migrationBuilder.DropTable(
                 name: "Notifications");
-
-            migrationBuilder.DropTable(
-                name: "Prescription");
 
             migrationBuilder.DropTable(
                 name: "RefreshTokens");
 
             migrationBuilder.DropTable(
-                name: "SymptomLog");
+                name: "SymptomLogs");
 
             migrationBuilder.DropTable(
                 name: "UserProfiles");
 
             migrationBuilder.DropTable(
                 name: "UserRelationships");
-
-            migrationBuilder.DropTable(
-                name: "MedicationSchedule");
-
-            migrationBuilder.DropTable(
-                name: "Medication");
 
             migrationBuilder.DropTable(
                 name: "Users");
