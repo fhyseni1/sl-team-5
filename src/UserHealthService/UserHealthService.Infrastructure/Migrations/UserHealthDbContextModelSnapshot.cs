@@ -75,7 +75,7 @@ namespace UserHealthService.Infrastructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("Allergies", (string)null);
+                    b.ToTable("Allergies");
                 });
 
             modelBuilder.Entity("UserHealthService.Domain.Entities.Appointment", b =>
@@ -143,7 +143,50 @@ namespace UserHealthService.Infrastructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("Appointments", (string)null);
+                    b.ToTable("Appointments");
+                });
+
+            modelBuilder.Entity("UserHealthService.Domain.Entities.ChatMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("boolean")
+                        .HasColumnName("isread");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("message");
+
+                    b.Property<Guid?>("ParentMessageId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("parentmessageid");
+
+                    b.Property<Guid>("ReceiverId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("receiverid");
+
+                    b.Property<Guid>("SenderId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("senderid");
+
+                    b.Property<DateTime>("SentAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("sentat");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ParentMessageId");
+
+                    b.HasIndex("ReceiverId");
+
+                    b.HasIndex("SenderId");
+
+                    b.ToTable("chatmessages", (string)null);
                 });
 
             modelBuilder.Entity("UserHealthService.Domain.Entities.Doctor", b =>
@@ -184,7 +227,7 @@ namespace UserHealthService.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Doctors", (string)null);
+                    b.ToTable("Doctors");
                 });
 
             modelBuilder.Entity("UserHealthService.Domain.Entities.HealthMetric", b =>
@@ -226,7 +269,7 @@ namespace UserHealthService.Infrastructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("HealthMetrics", (string)null);
+                    b.ToTable("HealthMetrics");
                 });
 
             modelBuilder.Entity("UserHealthService.Domain.Entities.Notification", b =>
@@ -276,7 +319,7 @@ namespace UserHealthService.Infrastructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("Notifications", (string)null);
+                    b.ToTable("Notifications");
                 });
 
             modelBuilder.Entity("UserHealthService.Domain.Entities.RefreshToken", b =>
@@ -286,13 +329,17 @@ namespace UserHealthService.Infrastructure.Migrations
                         .HasColumnType("character varying(500)");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("NOW()");
 
                     b.Property<DateTime>("ExpiresAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<bool>("IsRevoked")
-                        .HasColumnType("boolean");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
 
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
@@ -301,7 +348,7 @@ namespace UserHealthService.Infrastructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("RefreshTokens", (string)null);
+                    b.ToTable("RefreshTokens");
                 });
 
             modelBuilder.Entity("UserHealthService.Domain.Entities.SymptomLog", b =>
@@ -349,7 +396,7 @@ namespace UserHealthService.Infrastructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("SymptomLogs", (string)null);
+                    b.ToTable("SymptomLogs");
                 });
 
             modelBuilder.Entity("UserHealthService.Domain.Entities.User", b =>
@@ -400,7 +447,7 @@ namespace UserHealthService.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Users", (string)null);
+                    b.ToTable("Users");
                 });
 
             modelBuilder.Entity("UserHealthService.Domain.Entities.UserProfile", b =>
@@ -493,7 +540,7 @@ namespace UserHealthService.Infrastructure.Migrations
                     b.HasIndex("UserId")
                         .IsUnique();
 
-                    b.ToTable("UserProfiles", (string)null);
+                    b.ToTable("UserProfiles");
                 });
 
             modelBuilder.Entity("UserHealthService.Domain.Entities.UserRelationship", b =>
@@ -550,7 +597,7 @@ namespace UserHealthService.Infrastructure.Migrations
                     b.HasIndex("UserId", "RelatedUserId", "RelationshipType")
                         .IsUnique();
 
-                    b.ToTable("UserRelationships", (string)null);
+                    b.ToTable("UserRelationships");
                 });
 
             modelBuilder.Entity("UserHealthService.Domain.Entities.Allergy", b =>
@@ -573,6 +620,32 @@ namespace UserHealthService.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("UserHealthService.Domain.Entities.ChatMessage", b =>
+                {
+                    b.HasOne("UserHealthService.Domain.Entities.ChatMessage", "ParentMessage")
+                        .WithMany("Replies")
+                        .HasForeignKey("ParentMessageId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("UserHealthService.Domain.Entities.User", "Receiver")
+                        .WithMany()
+                        .HasForeignKey("ReceiverId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("UserHealthService.Domain.Entities.User", "Sender")
+                        .WithMany()
+                        .HasForeignKey("SenderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ParentMessage");
+
+                    b.Navigation("Receiver");
+
+                    b.Navigation("Sender");
                 });
 
             modelBuilder.Entity("UserHealthService.Domain.Entities.HealthMetric", b =>
@@ -647,6 +720,11 @@ namespace UserHealthService.Infrastructure.Migrations
                     b.Navigation("RelatedUser");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("UserHealthService.Domain.Entities.ChatMessage", b =>
+                {
+                    b.Navigation("Replies");
                 });
 
             modelBuilder.Entity("UserHealthService.Domain.Entities.User", b =>

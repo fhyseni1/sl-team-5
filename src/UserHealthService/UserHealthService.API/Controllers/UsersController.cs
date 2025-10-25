@@ -37,7 +37,21 @@ namespace UserHealthService.API.Controllers
                 return StatusCode(500, "An error occurred while retrieving users");
             }
         }
-
+      [HttpGet("available-doctors")]
+[Authorize]
+public async Task<ActionResult<List<DoctorDto>>> GetAvailableDoctors()
+{
+    try
+    {
+        var doctors = await _userService.GetDoctorsAsync();
+        return Ok(doctors.Where(d => d.IsActive).ToList()); // Filtro vetëm aktivët
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Error retrieving available doctors");
+        return StatusCode(500, "An error occurred while retrieving doctors");
+    }
+}
         [HttpGet("{id}")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -80,7 +94,69 @@ namespace UserHealthService.API.Controllers
                 return StatusCode(500, "An error occurred while retrieving the user dashboard");
             }
         }
+        [HttpGet("doctors")]
+[Authorize]
+[ProducesResponseType(StatusCodes.Status200OK)]
+[ProducesResponseType(StatusCodes.Status401Unauthorized)]
+public async Task<ActionResult<List<DoctorDto>>> GetDoctors()
+{
+    try
+    {
+        var doctors = await _userService.GetDoctorsAsync();
+        return Ok(doctors);
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Error retrieving doctors");
+        return StatusCode(500, "An error occurred while retrieving doctors");
+    }
+}
 
+[HttpGet("doctor/{doctorId}/patients")]
+[Authorize]
+public async Task<ActionResult<List<PatientDto>>> GetDoctorPatients(Guid doctorId)
+{
+    try
+    {
+        Console.WriteLine($"🔍 GetDoctorPatients called with doctorId: {doctorId}");
+        
+        // Kjo duhet të implementohet në UserService
+        var patients = await _userService.GetDoctorPatientsAsync(doctorId);
+        
+        Console.WriteLine($"✅ Returning {patients.Count} patients for doctor {doctorId}");
+        return Ok(patients);
+    }
+    catch (KeyNotFoundException ex)
+    {
+        _logger.LogWarning(ex, "Doctor with ID {DoctorId} not found", doctorId);
+        return NotFound($"Doctor with ID '{doctorId}' not found");
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Error retrieving patients for doctor {DoctorId}", doctorId);
+        Console.WriteLine($"❌ ERROR in GetDoctorPatients: {ex.Message}");
+        Console.WriteLine($"❌ Stack Trace: {ex.StackTrace}");
+        return StatusCode(500, $"An error occurred while retrieving patients: {ex.Message}");
+    }
+}
+
+[HttpGet("patients")]
+[Authorize]
+[ProducesResponseType(StatusCodes.Status200OK)]
+[ProducesResponseType(StatusCodes.Status401Unauthorized)]
+public async Task<ActionResult<List<PatientDto>>> GetAllPatients()
+{
+    try
+    {
+        var patients = await _userService.GetAllPatientsAsync();
+        return Ok(patients);
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Error retrieving patients");
+        return StatusCode(500, "An error occurred while retrieving patients");
+    }
+}
         [HttpGet("email/{email}")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -257,5 +333,24 @@ namespace UserHealthService.API.Controllers
                 return StatusCode(500, "An error occurred while retrieving users count");
             }
         }
+        // DTO classes for doctors and patients
+public class DoctorDto
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string? PhoneNumber { get; set; }
+    public string? Specialty { get; set; }
+}
+
+public class PatientDto
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string? PhoneNumber { get; set; }
+    public DateTime? LastAppointment { get; set; }
+    public int TotalAppointments { get; set; }
+}
     }
 }

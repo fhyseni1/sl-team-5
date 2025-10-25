@@ -18,6 +18,9 @@ namespace UserHealthService.Application.Interfaces
         Task<UserResponseDto> UpdateUserProfileAsync(Guid userId, UserProfileUpdateDto profileUpdateDto);
         Task<bool> DeleteUserAsync(Guid id);
         Task<bool> EmailExistsAsync(string email);
+         Task<List<DoctorDto>> GetDoctorsAsync();
+    Task<List<PatientDto>> GetDoctorPatientsAsync(Guid doctorId);
+    Task<List<PatientDto>> GetAllPatientsAsync();
         Task<int> GetActiveUsersCountAsync(CancellationToken ct = default);
         Task<int> GetAllUsersCountAsync(CancellationToken ct = default);
         Task<UserDashboardDto> GetUserDashboardAsync(Guid userId);

@@ -39,10 +39,17 @@ builder.Services.AddScoped<ISymptomLogService, SymptomLogService>();
 builder.Services.AddScoped<IDoctorRepository, DoctorRepository>();
 builder.Services.AddScoped<IUserRelationshipRepository, UserRelationshipRepository>();
 builder.Services.AddScoped<IUserRelationshipService, UserRelationshipService>();
+// Shtoni këto rreshta në Program.cs
+builder.Services.AddScoped<IChatRepository, ChatRepository>();
+builder.Services.AddScoped<IChatService, ChatService>();
 
-
-builder.Services.AddAutoMapper(typeof(UserProfile), typeof(AllergyProfile),
-    typeof(AppointmentProfile), typeof(HealthMetricProfile), typeof(SymptomLogProfile),typeof(UserRelationshipProfile));
+builder.Services.AddAutoMapper(
+    typeof(UserHealthService.Application.Mappings.UserProfile), 
+    typeof(AllergyProfile),
+    typeof(AppointmentProfile), 
+    typeof(HealthMetricProfile), 
+    typeof(SymptomLogProfile)
+);
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
