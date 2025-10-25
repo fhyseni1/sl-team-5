@@ -13,6 +13,7 @@ namespace UserHealthService.Application.DTOs.Appointments
         public string EndTime { get; set; } = string.Empty;
         public string? Purpose { get; set; }
         public string? Notes { get; set; }
+        
         public string? PhoneNumber { get; set; }
     }
 }

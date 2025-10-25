@@ -31,7 +31,7 @@ const AuthComponent = () => {
     });
   };
 
- const handleSubmit = async (e) => {
+const handleSubmit = async (e) => {
   e.preventDefault();
   setError("");
   setLoading(true);
@@ -62,6 +62,8 @@ const AuthComponent = () => {
       router.push("/dashboard/admin-dashboard");
     } else if (userData.type === 4 || userData.type === "HealthcareProvider") {
       router.push("/dashboard/doctor-dashboard");
+    } else if (userData.type === 6 || userData.type === "Assistant") {
+      router.push("/dashboard/assistant-dashboard");
     } else {
       router.push("/dashboard/dashboard");
     }

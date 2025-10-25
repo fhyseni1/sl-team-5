@@ -19,6 +19,7 @@ namespace UserHealthService.Domain.Entities
         public string? PhoneNumber { get; set; }
         public bool ReminderSent { get; set; }
 
+        public string? RejectionReason { get; set; } 
 
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }

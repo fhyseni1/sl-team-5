@@ -1,5 +1,5 @@
 ﻿using System;
-using UserHealthService.Domain.Enums; // Shto këtë using
+using UserHealthService.Domain.Enums;
 
 namespace UserHealthService.Application.DTOs.Appointments
 {
@@ -15,6 +15,7 @@ namespace UserHealthService.Application.DTOs.Appointments
         public DateTime AppointmentDate { get; set; }
         public TimeSpan StartTime { get; set; }
         public TimeSpan EndTime { get; set; }
+          public string? RejectionReason { get; set; } 
         public AppointmentStatus Status { get; set; }
         public string? Purpose { get; set; }
         public string? Notes { get; set; }

@@ -22,41 +22,42 @@ namespace UserHealthService.Infrastructure.Data
         public DbSet<UserRelationship> UserRelationships { get; set; }
         public DbSet<SymptomLog> SymptomLogs { get; set; }
         public DbSet<Doctor> Doctors { get; set; }
-        // Shtoni këtë property
+           public DbSet<DoctorAssistant> DoctorAssistants { get; set; }
+
 public DbSet<ChatMessage> ChatMessages { get; set; } = null!;
         public DbSet<RefreshToken> RefreshTokens { get; set; } = null!;
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
-               // ✅ REFRESH TOKEN - Rregullo konfigurimin
-    modelBuilder.Entity<RefreshToken>(entity =>
-    {
-        // Përdor Token si primary key
-        entity.HasKey(e => e.Token);
-        
-        entity.Property(e => e.Token)
-              .HasMaxLength(500)
-              .IsRequired();
-        
-        entity.Property(e => e.UserId)
-              .IsRequired();
-        
-        entity.Property(e => e.ExpiresAt)
-              .IsRequired();
-        
-        entity.Property(e => e.CreatedAt)
-              .IsRequired()
-              .HasDefaultValueSql("NOW()");
-        
-        entity.Property(e => e.IsRevoked)
-              .IsRequired()
-              .HasDefaultValue(false);
+            // ✅ REFRESH TOKEN - Rregullo konfigurimin
+            modelBuilder.Entity<RefreshToken>(entity =>
+            {
+                // Përdor Token si primary key
+                entity.HasKey(e => e.Token);
 
-        entity.HasOne(e => e.User)
-              .WithMany()
-              .HasForeignKey(e => e.UserId)
-              .OnDelete(DeleteBehavior.Cascade);
-    });
+                entity.Property(e => e.Token)
+                      .HasMaxLength(500)
+                      .IsRequired();
+
+                entity.Property(e => e.UserId)
+                      .IsRequired();
+
+                entity.Property(e => e.ExpiresAt)
+                      .IsRequired();
+
+                entity.Property(e => e.CreatedAt)
+                      .IsRequired()
+                      .HasDefaultValueSql("NOW()");
+
+                entity.Property(e => e.IsRevoked)
+                      .IsRequired()
+                      .HasDefaultValue(false);
+
+                entity.HasOne(e => e.User)
+                      .WithMany()
+                      .HasForeignKey(e => e.UserId)
+                      .OnDelete(DeleteBehavior.Cascade);
+            });
             // ✅ USER
             modelBuilder.Entity<User>(entity =>
             {
@@ -210,6 +211,72 @@ public DbSet<ChatMessage> ChatMessages { get; set; } = null!;
                 entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
 
                 entity.Property(e => e.CreatedAt).IsRequired()
+                    .HasDefaultValueSql("NOW()")
+                    .ValueGeneratedOnAdd();
+
+                entity.Property(e => e.UpdatedAt).IsRequired()
+                    .HasDefaultValueSql("NOW()")
+                    .ValueGeneratedOnAddOrUpdate();
+
+                entity.HasOne(e => e.User)
+                    .WithMany(u => u.Relationships)
+                    .HasForeignKey(e => e.UserId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(e => e.RelatedUser)
+                    .WithMany(u => u.RelatedBy)
+                    .HasForeignKey(e => e.RelatedUserId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+            // ✅ CHAT MESSAGE - Shto konfigurimin për emrin e tabelës
+            modelBuilder.Entity<ChatMessage>(entity =>
+            {
+                entity.ToTable("chatmessages"); // Specifiko emrin e saktë të tabelës
+
+                entity.HasKey(e => e.Id);
+
+                // Konfiguro emrat e kolonave nëse janë të ndryshëm
+                entity.Property(e => e.Id).HasColumnName("id");
+                entity.Property(e => e.SenderId).HasColumnName("senderid");
+                entity.Property(e => e.ReceiverId).HasColumnName("receiverid");
+                entity.Property(e => e.Message).HasColumnName("message");
+                entity.Property(e => e.ParentMessageId).HasColumnName("parentmessageid");
+                entity.Property(e => e.SentAt).HasColumnName("sentat");
+                entity.Property(e => e.IsRead).HasColumnName("isread");
+
+                entity.HasOne(e => e.Sender)
+                    .WithMany()
+                    .HasForeignKey(e => e.SenderId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(e => e.Receiver)
+                    .WithMany()
+                    .HasForeignKey(e => e.ReceiverId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(e => e.ParentMessage)
+                    .WithMany(e => e.Replies)
+                    .HasForeignKey(e => e.ParentMessageId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+              modelBuilder.Entity<UserRelationship>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Id).ValueGeneratedOnAdd();
+
+                entity.HasIndex(e => new { e.UserId, e.RelatedUserId, e.RelationshipType }).IsUnique();
+
+                entity.Property(e => e.RelationshipType)
+                    .HasConversion(new EnumToStringConverter<RelationshipType>())
+                    .HasMaxLength(50)
+                    .HasColumnType("varchar(50)");
+
+                entity.Property(e => e.CanManageMedications).IsRequired().HasDefaultValue(false);
+                entity.Property(e => e.CanViewHealthData).IsRequired().HasDefaultValue(false);
+                entity.Property(e => e.CanScheduleAppointments).IsRequired().HasDefaultValue(false);
+                entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+
+                entity.Property(e => e.CreatedAt).IsRequired()
                     .HasDefaultValueSql("NOW()")  
                     .ValueGeneratedOnAdd();
 
@@ -227,37 +294,7 @@ public DbSet<ChatMessage> ChatMessages { get; set; } = null!;
                     .HasForeignKey(e => e.RelatedUserId)
                     .OnDelete(DeleteBehavior.Restrict);
             });
-           // ✅ CHAT MESSAGE - Shto konfigurimin për emrin e tabelës
-    modelBuilder.Entity<ChatMessage>(entity =>
-    {
-        entity.ToTable("chatmessages"); // Specifiko emrin e saktë të tabelës
-        
-        entity.HasKey(e => e.Id);
-        
-        // Konfiguro emrat e kolonave nëse janë të ndryshëm
-        entity.Property(e => e.Id).HasColumnName("id");
-        entity.Property(e => e.SenderId).HasColumnName("senderid");
-        entity.Property(e => e.ReceiverId).HasColumnName("receiverid");
-        entity.Property(e => e.Message).HasColumnName("message");
-        entity.Property(e => e.ParentMessageId).HasColumnName("parentmessageid");
-        entity.Property(e => e.SentAt).HasColumnName("sentat");
-        entity.Property(e => e.IsRead).HasColumnName("isread");
-        
-        entity.HasOne(e => e.Sender)
-            .WithMany()
-            .HasForeignKey(e => e.SenderId)
-            .OnDelete(DeleteBehavior.Restrict);
-            
-        entity.HasOne(e => e.Receiver)
-            .WithMany()
-            .HasForeignKey(e => e.ReceiverId)
-            .OnDelete(DeleteBehavior.Restrict);
-            
-        entity.HasOne(e => e.ParentMessage)
-            .WithMany(e => e.Replies)
-            .HasForeignKey(e => e.ParentMessageId)
-            .OnDelete(DeleteBehavior.Restrict);
-    });
         }
+        
     }
 }

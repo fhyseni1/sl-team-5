@@ -24,6 +24,9 @@ import {
   XCircle,
   Stethoscope,
   Plus,
+  UserCheck,
+  CheckCircle2,
+  UserPlus,
   X,
 } from "lucide-react";
 
@@ -48,7 +51,14 @@ const AdminDashboard = () => {
   const [approvedPage, setApprovedPage] = useState(1);
   const [userAppointments, setUserAppointments] = useState([]);
   const [userPage, setUserPage] = useState(1);
+  const [assistants, setAssistants] = useState([]);
+const [assistantPage, setAssistantPage] = useState(1);
 const [generatedPassword, setGeneratedPassword] = useState("");
+
+const [rejectedAppointments, setRejectedAppointments] = useState([]);
+
+const [rejectedPage, setRejectedPage] = useState(1);
+const [showAddAssistantForm, setShowAddAssistantForm] = useState(false);
 const [showPasswordModal, setShowPasswordModal] = useState(false);
 const [newDoctorData, setNewDoctorData] = useState({ email: "", name: "", password: "" });
   const itemsPerPage = 5;
@@ -56,7 +66,11 @@ const [newDoctorData, setNewDoctorData] = useState({ email: "", name: "", passwo
 
   // Combine pending and approved appointments for the calendar
   const allAppointments = [...pendingAppointments, ...approvedAppointments];
-
+const [showAssignAssistantModal, setShowAssignAssistantModal] = useState(false);
+const [assignForm, setAssignForm] = useState({
+  doctorId: "",
+  assistantId: ""
+});
 const [doctorForm, setDoctorForm] = useState({
   name: "",
   email: "",
@@ -66,7 +80,14 @@ const [doctorForm, setDoctorForm] = useState({
   address: "",
   phoneNumber: ""
 });
-
+// Shtoni këtë state për formën e asistentit
+const [assistantForm, setAssistantForm] = useState({
+  firstName: "",
+  lastName: "",
+  email: "",
+  password: "",
+  phoneNumber: "",
+});
   const [userForm, setUserForm] = useState({
     email: "",
     password: "",
@@ -87,6 +108,7 @@ const [doctorForm, setDoctorForm] = useState({
     type: null,
     name: "",
   });
+  
 
   const handleDeleteDoctor = async (doctor) => {
     setDeleteTarget({
@@ -133,73 +155,60 @@ useEffect(() => {
     try {
       setLoading(true);
       const userData = await authService.getMe();
-      console.log("Admin Dashboard User Data:", userData);
-
+      
       const isAdmin = userData.type === 5;
-
       if (!isAdmin) {
-        console.log("Not an admin, redirecting...");
         await authService.logout();
         router.push("/dashboard/dashboard");
         return;
       }
 
       setUser(userData);
+      
       const results = await Promise.allSettled([
         api.get("/users/count"),
         api.get("/users"),
         api.get("/appointments/pending"),
-        api.get("/appointments?status=approved"),
+        api.get("/appointments/approved"), 
+        api.get("/appointments/rejected"), 
         api.get("/users").then(res => {
-      
           const allUsers = res.data || [];
-          return allUsers.filter(user => user.type === 4);
+          return allUsers.filter(user => user.type === 4); // Doctors
+        }),
+        api.get("/users").then(res => {
+          const allUsers = res.data || [];
+          return allUsers.filter(user => user.type === 7); // Assistants
+        }).catch(err => {
+          console.error("Error fetching assistants:", err);
+          return [];
         })
       ]);
 
+  // Process results
       const usersCount = results[0].status === 'fulfilled' ? results[0].value.data : 0;
       const allUsers = results[1].status === 'fulfilled' ? results[1].value.data : [];
       const pendingAppts = results[2].status === 'fulfilled' ? results[2].value.data : [];
       const approvedAppts = results[3].status === 'fulfilled' ? results[3].value.data : [];
-      const healthcareProviders = results[4].status === 'fulfilled' ? results[4].value : [];
-
-      results.forEach((result, index) => {
-        if (result.status === 'rejected') {
-          console.warn(`Request ${index} failed:`, result.reason);
-        }
-      });
-
-      setStats({
-        totalUsers: usersCount || 0,
-        totalAppointments: (pendingAppts.length || 0) + (approvedAppts.length || 0),
-        pendingAppointments: pendingAppts.length || 0,
-        totalDoctors: healthcareProviders.length || 0,
-      });
+      const rejectedAppts = results[4].status === 'fulfilled' ? results[4].value.data : [];
+      const healthcareProviders = results[5].status === 'fulfilled' ? results[5].value : [];
+      const assistantsData = results[6].status === 'fulfilled' ? results[6].value : [];
 
       setUsers(allUsers);
       setDoctors(healthcareProviders);
+      setAssistants(Array.isArray(assistantsData) ? assistantsData : []);
+      setPendingAppointments(pendingAppts);
+      setApprovedAppointments(approvedAppts);
+      setRejectedAppointments(rejectedAppts); 
 
-      const processDoctorAndUserNames = (appointment) => {
-        const user = allUsers.find((u) => u.id === appointment.userId);
-        const doctor = healthcareProviders.find((d) => {
-          return d.id === appointment.doctorId;
-        });
-
-        return {
-          ...appointment,
-          userFirstName: user?.firstName || "Unknown",
-          userLastName: user?.lastName || "User",
-          doctorName: doctor
-            ? `Dr. ${doctor.firstName} ${doctor.lastName}`
-            : "Unknown Doctor",
-        };
-      };
-
-      const pendingWithNames = (pendingAppts || []).map(processDoctorAndUserNames);
-      const approvedWithNames = (approvedAppts || []).map(processDoctorAndUserNames);
-
-      setPendingAppointments(pendingWithNames);
-      setApprovedAppointments(approvedWithNames);
+      setStats({
+        totalUsers: usersCount || 0,
+        totalAppointments: (pendingAppts.length || 0) + (approvedAppts.length || 0) + (rejectedAppts.length || 0),
+        pendingAppointments: pendingAppts.length || 0,
+        approvedAppointments: approvedAppts.length || 0, 
+        rejectedAppointments: rejectedAppts.length || 0, 
+        totalDoctors: healthcareProviders.length || 0,
+        totalAssistants: Array.isArray(assistantsData) ? assistantsData.length : 0
+      });
 
     } catch (err) {
       console.error("Admin dashboard error:", err);
@@ -218,66 +227,65 @@ useEffect(() => {
     router.push("/");
   };
 
-  const handleApproveAppointment = async (id) => {
-    try {
-      const response = await api.put(`/appointments/${id}/approve`);
-      const approvedAppointment = pendingAppointments.find((a) => a.id === id);
-      setPendingAppointments((prev) => prev.filter((a) => a.id !== id));
-      setApprovedAppointments((prev) => [
-        ...prev,
-        { ...approvedAppointment, status: 2 }, // Use numeric status (2 = Approved)
-      ]);
-      toast.success("Appointment approved successfully!");
-    } catch (err) {
-      toast.error(
-        err.response?.data?.message ||
-          err.message ||
-          "Failed to approve appointment"
-      );
+const handleAddAssistantSubmit = async (e) => {
+  e.preventDefault();
+  try {
+    const response = await api.post("/auth/register-assistant", {
+      email: assistantForm.email,
+      password: assistantForm.password,
+      firstName: assistantForm.firstName,
+      lastName: assistantForm.lastName,
+      phoneNumber: assistantForm.phoneNumber || "",
+      type: 6, // Assistant
+    });
+
+    if (response.data) {
+      setShowAddAssistantForm(false);
+      setAssistantForm({
+        firstName: "",
+        lastName: "",
+        email: "",
+        password: "",
+        phoneNumber: "",
+      });
+      
+      // Refresh users list
+      const usersRes = await api.get("/users");
+      setUsers(usersRes.data || []);
+      
+      toast.success("Assistant created successfully!");
     }
-  };
+  } catch (err) {
+    console.error("Error creating assistant:", err.response?.data || err);
+    toast.error(
+      err.response?.data?.message || 
+      err.response?.data?.error || 
+      "Failed to create assistant"
+    );
+  }
+};
 
-  const [showRejectModal, setShowRejectModal] = useState(false);
-  const [rejectionReason, setRejectionReason] = useState("");
-  const [appointmentToReject, setAppointmentToReject] = useState(null);
+const handleAssignAssistant = async (e) => {
+  e.preventDefault();
+  try {
+    console.log("🟡 Assigning assistant:", assignForm);
+    
+    await api.post("/users/assign-assistant", assignForm);
+    
+    setShowAssignAssistantModal(false);
+    setAssignForm({ doctorId: "", assistantId: "" });
+    toast.success("Assistant assigned to doctor successfully!");
 
-  const handleRejectClick = (appointment) => {
-    setAppointmentToReject(appointment);
-    setShowRejectModal(true);
-    setRejectionReason("");
-  };
-
-  const handleRejectAppointment = async () => {
-    try {
-      if (!rejectionReason.trim()) {
-        toast.error("Please provide a reason for rejection");
-        return;
-      }
-
-      const response = await api.put(
-        `/appointments/${appointmentToReject.id}/reject`,
-        {
-          rejectionReason: rejectionReason,
-        }
-      );
-
-      if (response.data) {
-        setPendingAppointments((prev) =>
-          prev.filter((a) => a.id !== appointmentToReject.id)
-        );
-        setShowRejectModal(false);
-        toast.success("Appointment rejected successfully");
-      }
-    } catch (err) {
-      console.error("Error rejecting appointment:", err.response?.data || err);
-      toast.error(
-        err.response?.data?.message ||
-          err.message ||
-          "Failed to reject appointment"
-      );
-    }
-  };
-
+    const usersRes = await api.get("/users");
+    setUsers(usersRes.data || []);
+  
+    const assistantsRes = await api.get("/users/assistants");
+    setAssistants(assistantsRes.data || []);
+  } catch (err) {
+    console.error("❌ Error assigning assistant:", err.response?.data || err);
+    toast.error(err.response?.data?.message || "Failed to assign assistant");
+  }
+};
 const handleAddDoctorSubmit = async (e) => {
   e.preventDefault();
   try {
@@ -448,43 +456,62 @@ const handleAddUserSubmit = async (e) => {
       </header>
 
       <main className="max-w-7xl mx-auto px-6 py-12 relative z-10">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-          {[
-            {
-              label: "Total Users",
-              value: stats.totalUsers,
-              icon: Users,
-              color: "from-blue-500",
-            },
-            {
-              label: "Pending Appointments",
-              value: stats.pendingAppointments,
-              icon: Calendar,
-              color: "from-orange-500",
-            },
-            {
-              label: "Total Doctors",
-              value: stats.totalDoctors,
-              icon: Stethoscope,
-              color: "from-emerald-500",
-            },
-            {
-              label: "Total Appointments",
-              value: stats.totalAppointments,
-              icon: Pill,
-              color: "from-purple-500",
-            },
-          ].map((stat, i) => (
-            <div
-              key={i}
-              className={`bg-gradient-to-br ${stat.color}/10 backdrop-blur-xl rounded-2xl p-8 border shadow-xl hover:scale-105 transition-all`}
-            >
-              <stat.icon className="w-12 h-12 text-blue-400 mx-auto mb-4" />
-              <p className="text-3xl font-bold text-white mb-2">{stat.value}</p>
-              <p className="text-slate-400 font-semibold">{stat.label}</p>
-            </div>
-          ))}
-        </div>
+    
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+  {[
+    {
+      label: "Total Users",
+      value: stats.totalUsers,
+      icon: Users,
+      color: "from-blue-500",
+    },
+    {
+      label: "Pending Appointments",
+      value: stats.pendingAppointments,
+      icon: Calendar,
+      color: "from-orange-500",
+    },
+    {
+      label: "Approved Appointments",
+      value: stats.approvedAppointments,
+      icon: CheckCircle2,
+      color: "from-emerald-500",
+    },
+    {
+      label: "Rejected Appointments", 
+      value: stats.rejectedAppointments,
+      icon: XCircle,
+      color: "from-red-500",
+    },
+    {
+      label: "Total Doctors",
+      value: stats.totalDoctors,
+      icon: Stethoscope,
+      color: "from-emerald-500",
+    },
+    {
+      label: "Total Assistants",
+      value: stats.totalAssistants, 
+      icon: UserCheck,
+      color: "from-purple-500",
+    },
+    {
+      label: "Total Appointments",
+      value: stats.totalAppointments,
+      icon: Pill,
+      color: "from-purple-500",
+    },
+  ].map((stat, i) => (
+    <div
+      key={i}
+      className={`bg-gradient-to-br ${stat.color}/10 backdrop-blur-xl rounded-2xl p-8 border shadow-xl hover:scale-105 transition-all`}
+    >
+      <stat.icon className="w-12 h-12 text-blue-400 mx-auto mb-4" />
+      <p className="text-3xl font-bold text-white mb-2">{stat.value}</p>
+      <p className="text-slate-400 font-semibold">{stat.label}</p>
+    </div>
+  ))}
+</div>
 
         <div className="bg-slate-800/50 backdrop-blur-xl rounded-3xl border border-slate-700/50 p-8 mb-8">
           <div className="flex items-center justify-between mb-8">
@@ -574,7 +601,69 @@ const handleAddUserSubmit = async (e) => {
             )}
           </div>
         </div>
-
+{/* Assistants Section */}
+<div className="bg-slate-800/50 backdrop-blur-xl rounded-3xl border border-slate-700/50 p-8 mb-8">
+  <div className="flex items-center justify-between mb-8">
+    <h2 className="text-3xl font-bold text-white flex items-center gap-3">
+      <UserCheck className="w-8 h-8 text-purple-400" />
+      Registered Assistants ({assistants.length})
+    </h2>
+  </div>
+  <div className="overflow-x-auto">
+    <table className="w-full text-left">
+      <thead>
+        <tr className="border-b border-slate-700/50">
+          <th className="py-4 px-6 font-semibold text-slate-300">Name</th>
+          <th className="py-4 px-6 font-semibold text-slate-300">Email</th>
+          <th className="py-4 px-6 font-semibold text-slate-300">Phone</th>
+        </tr>
+      </thead>
+      <tbody>
+        {paginate(assistants, assistantPage).map((assistant) => (
+          <tr key={assistant.id} className="border-b border-slate-700/30 hover:bg-slate-700/30">
+            <td className="py-4 px-6 font-medium text-white">
+              {assistant.firstName} {assistant.lastName}
+            </td>
+            <td className="py-4 px-6 text-slate-300">{assistant.email}</td>
+            <td className="py-4 px-6 text-slate-300">{assistant.phoneNumber}</td>
+          </tr>
+        ))}
+        {assistants.length === 0 && (
+          <tr>
+            <td colSpan={3} className="py-12 text-center text-slate-400">
+              No assistants registered yet
+            </td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+    {assistants.length > itemsPerPage && (
+      <div className="flex justify-center items-center mt-4 space-x-4">
+        <button
+          onClick={() => setAssistantPage((p) => Math.max(p - 1, 1))}
+          className="px-4 py-2 bg-slate-700/50 rounded-lg text-white disabled:opacity-50"
+          disabled={assistantPage === 1}
+        >
+          Prev
+        </button>
+        <span className="text-slate-300">
+          Page {assistantPage} of {Math.ceil(assistants.length / itemsPerPage)}
+        </span>
+        <button
+          onClick={() =>
+            setAssistantPage((p) =>
+              p < Math.ceil(assistants.length / itemsPerPage) ? p + 1 : p
+            )
+          }
+          className="px-4 py-2 bg-slate-700/50 rounded-lg text-white disabled:opacity-50"
+          disabled={assistantPage === Math.ceil(assistants.length / itemsPerPage)}
+        >
+          Next
+        </button>
+      </div>
+    )}
+  </div>
+</div>
         <div className="mb-12">
           <AppointmentCalendar
             appointments={allAppointments}
@@ -582,214 +671,162 @@ const handleAddUserSubmit = async (e) => {
           />
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div className="bg-slate-800/50 backdrop-blur-xl rounded-3xl border border-slate-700/50 p-8">
-            <div className="flex items-center justify-between mb-8">
-              <h2 className="text-3xl font-bold text-white flex items-center gap-3">
-                <Calendar className="w-8 h-8 text-orange-400" />
-                Pending Appointments ({pendingAppointments.length})
-              </h2>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="border-b border-slate-700/50">
-                    <th className="py-4 px-6 font-semibold text-slate-300">
-                      Patient
-                    </th>
-                    <th className="py-4 px-6 font-semibold text-slate-300">
-                      Doctor
-                    </th>
-                    <th className="py-4 px-6 font-semibold text-slate-300">
-                      Date/Time
-                    </th>
-                    <th className="py-4 px-6 font-semibold text-slate-300">
-                      Purpose
-                    </th>
-                    <th className="py-4 px-6 font-semibold text-slate-300">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paginate(pendingAppointments, pendingPage).map((app) => (
-                    <tr
-                      key={app.id}
-                      className="border-b border-slate-700/30 hover:bg-slate-700/30"
-                    >
-                      <td className="py-4 px-6 font-medium text-white">
-                        {app.userFirstName} {app.userLastName}
-                      </td>
-                      <td className="py-4 px-6 text-slate-300">
-                        {app.doctorName}
-                      </td>
-                      <td className="py-4 px-6 text-slate-300">
-                        {app.appointmentDate} {app.startTime}
-                      </td>
-                      <td className="py-4 px-6 text-slate-400 max-w-xs truncate">
-                        {app.purpose}
-                      </td>
-                      <td className="py-4 px-6">
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleApproveAppointment(app.id)}
-                            className="p-3 bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-400 rounded-xl transition-all"
-                          >
-                            <Check className="w-5 h-5" />
-                          </button>
-                          <button
-                            onClick={() => handleRejectClick(app)}
-                            className="p-3 bg-red-500/20 hover:bg-red-500/40 text-red-400 rounded-xl transition-all"
-                          >
-                            <XCircle className="w-5 h-5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                  {pendingAppointments.length === 0 && (
-                    <tr>
-                      <td
-                        colSpan={5}
-                        className="py-12 text-center text-slate-400"
-                      >
-                        No pending appointments
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-              {pendingAppointments.length > itemsPerPage && (
-                <div className="flex justify-center items-center mt-4 space-x-4">
-                  <button
-                    onClick={() => setPendingPage((p) => Math.max(p - 1, 1))}
-                    className="px-4 py-2 bg-slate-700/50 rounded-lg text-white disabled:opacity-50"
-                    disabled={pendingPage === 1}
-                  >
-                    Prev
-                  </button>
-                  <span className="text-slate-300">
-                    Page {pendingPage} of{" "}
-                    {Math.ceil(pendingAppointments.length / itemsPerPage)}
-                  </span>
-                  <button
-                    onClick={() =>
-                      setPendingPage((p) =>
-                        p < Math.ceil(pendingAppointments.length / itemsPerPage)
-                          ? p + 1
-                          : p
-                      )
-                    }
-                    className="px-4 py-2 bg-slate-700/50 rounded-lg text-white disabled:opacity-50"
-                    disabled={
-                      pendingPage ===
-                      Math.ceil(pendingAppointments.length / itemsPerPage)
-                    }
-                  >
-                    Next
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-          <div className="bg-slate-800/50 backdrop-blur-xl rounded-3xl border border-slate-700/50 p-8">
-            <div className="flex items-center justify-between mb-8">
-              <h2 className="text-3xl font-bold text-white flex items-center gap-3">
-                <Calendar className="w-8 h-8 text-emerald-400" />
-                Approved Appointments ({approvedAppointments.length})
-              </h2>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="border-b border-slate-700/50">
-                    <th className="py-4 px-6 font-semibold text-slate-300">
-                      Patient
-                    </th>
-                    <th className="py-4 px-6 font-semibold text-slate-300">
-                      Doctor
-                    </th>
-                    <th className="py-4 px-6 font-semibold text-slate-300">
-                      Date/Time
-                    </th>
-                    <th className="py-4 px-6 font-semibold text-slate-300">
-                      Purpose
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paginate(approvedAppointments, approvedPage).map((app) => (
-                    <tr
-                      key={app.id}
-                      className="border-b border-slate-700/30 hover:bg-slate-700/30"
-                    >
-                      <td className="py-4 px-6 font-medium text-white">
-                        {app.userFirstName} {app.userLastName}
-                      </td>
-                      <td className="py-4 px-6 text-slate-300">
-                        {app.doctorName}
-                      </td>
-                      <td className="py-4 px-6 text-slate-300">
-                        {new Date(app.appointmentDate).toLocaleDateString(
-                          "en-US",
-                          {
-                            year: "numeric",
-                            month: "long",
-                            day: "numeric",
-                          }
-                        )}{" "}
-                        at {app.startTime ? app.startTime.substring(0, 5) : ""}
-                      </td>
-                      <td className="py-4 px-6 text-slate-400 max-w-xs truncate">
-                        {app.purpose}
-                      </td>
-                    </tr>
-                  ))}
-                  {approvedAppointments.length === 0 && (
-                    <tr>
-                      <td
-                        colSpan={4}
-                        className="py-12 text-center text-slate-400"
-                      >
-                        No approved appointments
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-              {approvedAppointments.length > itemsPerPage && (
-                <div className="flex justify-center items-center mt-4 space-x-4">
-                  <button
-                    onClick={() => setApprovedPage((p) => Math.max(p - 1, 1))}
-                    className="px-4 py-2 bg-slate-700/50 rounded-lg text-white disabled:opacity-50"
-                    disabled={approvedPage === 1}
-                  >
-                    Prev
-                  </button>
-                  <span className="text-slate-300">
-                    Page {approvedPage} of{" "}
-                    {Math.ceil(approvedAppointments.length / itemsPerPage)}
-                  </span>
-                  <button
-                    onClick={() =>
-                      setApprovedPage((p) =>
-                        p <
-                        Math.ceil(approvedAppointments.length / itemsPerPage)
-                          ? p + 1
-                          : p
-                      )
-                    }
-                    className="px-4 py-2 bg-slate-700/50 rounded-lg text-white disabled:opacity-50"
-                    disabled={
-                      approvedPage ===
-                      Math.ceil(approvedAppointments.length / itemsPerPage)
-                    }
-                  >
-                    Next
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
+        
+          {/* ✅ Approved Appointments Section */}
+<div className="bg-slate-800/50 backdrop-blur-xl rounded-3xl border border-slate-700/50 p-8 mb-8">
+  <div className="flex items-center justify-between mb-8">
+    <h2 className="text-3xl font-bold text-white flex items-center gap-3">
+      <CheckCircle2 className="w-8 h-8 text-emerald-400" />
+      Approved Appointments ({approvedAppointments.length})
+    </h2>
+  </div>
+  <div className="overflow-x-auto">
+    <table className="w-full text-left">
+      <thead>
+        <tr className="border-b border-slate-700/50">
+          <th className="py-4 px-6 font-semibold text-slate-300">Patient</th>
+          <th className="py-4 px-6 font-semibold text-slate-300">Doctor</th>
+          <th className="py-4 px-6 font-semibold text-slate-300">Date/Time</th>
+          <th className="py-4 px-6 font-semibold text-slate-300">Purpose</th>
+          <th className="py-4 px-6 font-semibold text-slate-300">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {paginate(approvedAppointments, approvedPage).map((app) => (
+          <tr key={app.id} className="border-b border-slate-700/30 hover:bg-slate-700/30">
+            <td className="py-4 px-6 font-medium text-white">
+              {app.userFirstName} {app.userLastName}
+            </td>
+            <td className="py-4 px-6 text-slate-300">{app.doctorName}</td>
+            <td className="py-4 px-6 text-slate-300">
+              {new Date(app.appointmentDate).toLocaleDateString()} at {app.startTime}
+            </td>
+            <td className="py-4 px-6 text-slate-400 max-w-xs truncate">
+              {app.purpose}
+            </td>
+            <td className="py-4 px-6">
+              <span className="px-3 py-1 bg-emerald-500/20 text-emerald-400 rounded-full text-sm font-medium">
+                Approved
+              </span>
+            </td>
+          </tr>
+        ))}
+        {approvedAppointments.length === 0 && (
+          <tr>
+            <td colSpan={5} className="py-12 text-center text-slate-400">
+              No approved appointments
+            </td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+    {approvedAppointments.length > itemsPerPage && (
+      <div className="flex justify-center items-center mt-4 space-x-4">
+        <button
+          onClick={() => setApprovedPage((p) => Math.max(p - 1, 1))}
+          className="px-4 py-2 bg-slate-700/50 rounded-lg text-white disabled:opacity-50"
+          disabled={approvedPage === 1}
+        >
+          Prev
+        </button>
+        <span className="text-slate-300">
+          Page {approvedPage} of {Math.ceil(approvedAppointments.length / itemsPerPage)}
+        </span>
+        <button
+          onClick={() =>
+            setApprovedPage((p) =>
+              p < Math.ceil(approvedAppointments.length / itemsPerPage) ? p + 1 : p
+            )
+          }
+          className="px-4 py-2 bg-slate-700/50 rounded-lg text-white disabled:opacity-50"
+          disabled={approvedPage === Math.ceil(approvedAppointments.length / itemsPerPage)}
+        >
+          Next
+        </button>
+      </div>
+    )}
+  </div>
+</div>
+
+{/* ❌ Rejected Appointments Section */}
+<div className="bg-slate-800/50 backdrop-blur-xl rounded-3xl border border-slate-700/50 p-8 mb-8">
+  <div className="flex items-center justify-between mb-8">
+    <h2 className="text-3xl font-bold text-white flex items-center gap-3">
+      <XCircle className="w-8 h-8 text-red-400" />
+      Rejected Appointments ({rejectedAppointments.length})
+    </h2>
+  </div>
+  <div className="overflow-x-auto">
+    <table className="w-full text-left">
+      <thead>
+        <tr className="border-b border-slate-700/50">
+          <th className="py-4 px-6 font-semibold text-slate-300">Patient</th>
+          <th className="py-4 px-6 font-semibold text-slate-300">Doctor</th>
+          <th className="py-4 px-6 font-semibold text-slate-300">Date/Time</th>
+          <th className="py-4 px-6 font-semibold text-slate-300">Purpose</th>
+          <th className="py-4 px-6 font-semibold text-slate-300">Rejection Reason</th>
+          <th className="py-4 px-6 font-semibold text-slate-300">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {paginate(rejectedAppointments, rejectedPage).map((app) => (
+          <tr key={app.id} className="border-b border-slate-700/30 hover:bg-slate-700/30">
+            <td className="py-4 px-6 font-medium text-white">
+              {app.userFirstName} {app.userLastName}
+            </td>
+            <td className="py-4 px-6 text-slate-300">{app.doctorName}</td>
+            <td className="py-4 px-6 text-slate-300">
+              {new Date(app.appointmentDate).toLocaleDateString()} at {app.startTime}
+            </td>
+            <td className="py-4 px-6 text-slate-400 max-w-xs truncate">
+              {app.purpose}
+            </td>
+            <td className="py-4 px-6 text-slate-400 max-w-xs">
+              {app.rejectionReason || "No reason provided"}
+            </td>
+            <td className="py-4 px-6">
+              <span className="px-3 py-1 bg-red-500/20 text-red-400 rounded-full text-sm font-medium">
+                Rejected
+              </span>
+            </td>
+          </tr>
+        ))}
+        {rejectedAppointments.length === 0 && (
+          <tr>
+            <td colSpan={6} className="py-12 text-center text-slate-400">
+              No rejected appointments
+            </td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+    {rejectedAppointments.length > itemsPerPage && (
+      <div className="flex justify-center items-center mt-4 space-x-4">
+        <button
+          onClick={() => setRejectedPage((p) => Math.max(p - 1, 1))}
+          className="px-4 py-2 bg-slate-700/50 rounded-lg text-white disabled:opacity-50"
+          disabled={rejectedPage === 1}
+        >
+          Prev
+        </button>
+        <span className="text-slate-300">
+          Page {rejectedPage} of {Math.ceil(rejectedAppointments.length / itemsPerPage)}
+        </span>
+        <button
+          onClick={() =>
+            setRejectedPage((p) =>
+              p < Math.ceil(rejectedAppointments.length / itemsPerPage) ? p + 1 : p
+            )
+          }
+          className="px-4 py-2 bg-slate-700/50 rounded-lg text-white disabled:opacity-50"
+          disabled={rejectedPage === Math.ceil(rejectedAppointments.length / itemsPerPage)}
+        >
+          Next
+        </button>
+      </div>
+    )}
+  </div>
+</div>
           <div className="bg-slate-800/50 backdrop-blur-xl rounded-3xl border border-slate-700/50 p-8">
             <div className="flex items-center justify-between mb-8">
               <h2 className="text-3xl font-bold text-white flex items-center gap-3">
@@ -907,6 +944,21 @@ const handleAddUserSubmit = async (e) => {
             <Stethoscope className="w-12 h-12 group-hover:scale-110 transition-transform" />
             <span className="text-xl">Add Doctor</span>
           </button>
+          <button
+  onClick={() => setShowAssignAssistantModal(true)}
+  className="group bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-white p-8 rounded-3xl font-bold shadow-xl hover:shadow-orange-500/50 transition-all hover:scale-105 flex flex-col items-center gap-4"
+>
+  <UserCheck className="w-12 h-12 group-hover:scale-110 transition-transform" />
+  <span className="text-xl">Assign Assistant</span>
+</button>
+ 
+<button
+  onClick={() => setShowAddAssistantForm(true)}
+  className="group bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white p-8 rounded-3xl font-bold shadow-xl hover:shadow-purple-500/50 transition-all hover:scale-105 flex flex-col items-center gap-4"
+>
+  <UserPlus className="w-12 h-12 group-hover:scale-110 transition-transform" />
+  <span className="text-xl">Add Assistant</span>
+</button>
           <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-8 rounded-3xl shadow-xl hover:shadow-blue-500/50 transition-all hover:scale-105">
             <BarChart3 className="w-12 h-12 mx-auto mb-4" />
             <h3 className="text-xl font-bold mb-2">Analytics</h3>
@@ -919,7 +971,135 @@ const handleAddUserSubmit = async (e) => {
           </div>
         </div>
       </main>
-
+     {/* Assign Assistant Modal */}
+{showAssignAssistantModal && (
+  <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div className="bg-slate-800/95 backdrop-blur-xl rounded-3xl max-w-md w-full p-8 border border-slate-700/50">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-bold text-white">Assign Assistant to Doctor</h2>
+        <button
+          onClick={() => setShowAssignAssistantModal(false)}
+          className="p-2 hover:bg-slate-700 rounded-xl"
+        >
+          <X className="w-6 h-6" />
+        </button>
+      </div>
+      <form onSubmit={handleAssignAssistant} className="space-y-4">
+        <select
+          name="doctorId"
+          value={assignForm.doctorId}
+          onChange={(e) => handleInputChange(e, setAssignForm)}
+          className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
+          required
+        >
+          <option value="">Select Doctor *</option>
+          {Array.isArray(doctors) && doctors.map(doctor => (
+            <option key={doctor.id} value={doctor.id}>
+              Dr. {doctor.firstName} {doctor.lastName}
+            </option>
+          ))}
+        </select>
+        
+        <select
+          name="assistantId"
+          value={assignForm.assistantId}
+          onChange={(e) => handleInputChange(e, setAssignForm)}
+          className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
+          required
+        >
+          <option value="">Select Assistant *</option>
+          {Array.isArray(assistants) && assistants.length > 0 ? (
+            assistants.map(assistant => (
+              <option key={assistant.id} value={assistant.id}>
+                {assistant.firstName} {assistant.lastName} ({assistant.email})
+              </option>
+            ))
+          ) : (
+            <option value="" disabled>No assistants available</option>
+          )}
+        </select>
+        
+        <button
+          type="submit"
+          className="w-full bg-gradient-to-r from-orange-600 to-amber-600 text-white py-4 rounded-xl font-bold hover:shadow-orange-500/50 transition-all"
+        >
+          Assign Assistant
+        </button>
+      </form>
+    </div>
+  </div>
+)}
+{showAddAssistantForm && (
+  <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div className="bg-slate-800/95 backdrop-blur-xl rounded-3xl max-w-md w-full p-8 border border-slate-700/50">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-bold text-white">Add Assistant</h2>
+        <button
+          onClick={() => setShowAddAssistantForm(false)}
+          className="p-2 hover:bg-slate-700 rounded-xl"
+        >
+          <X className="w-6 h-6" />
+        </button>
+      </div>
+      <form onSubmit={handleAddAssistantSubmit} className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <input
+            name="firstName"
+            placeholder="First Name *"
+            value={assistantForm.firstName}
+            onChange={(e) => handleInputChange(e, setAssistantForm)}
+            className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
+            required
+          />
+          <input
+            name="lastName"
+            placeholder="Last Name *"
+            value={assistantForm.lastName}
+            onChange={(e) => handleInputChange(e, setAssistantForm)}
+            className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
+            required
+          />
+        </div>
+        
+        <input
+          name="email"
+          type="email"
+          placeholder="Email *"
+          value={assistantForm.email}
+          onChange={(e) => handleInputChange(e, setAssistantForm)}
+          className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
+          required
+        />
+        
+        <input
+          name="password"
+          type="password"
+          placeholder="Password *"
+          value={assistantForm.password}
+          onChange={(e) => handleInputChange(e, setAssistantForm)}
+          className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
+          required
+          minLength="6"
+        />
+        
+        <input
+          name="phoneNumber"
+          placeholder="Phone Number (optional)"
+          value={assistantForm.phoneNumber}
+          onChange={(e) => handleInputChange(e, setAssistantForm)}
+          className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
+        />
+        
+        <button
+          type="submit"
+          className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-4 rounded-xl font-bold hover:shadow-purple-500/50 transition-all"
+        >
+          Add Assistant
+        </button>
+      </form>
+    </div>
+  </div>
+)}
 {showAddDoctorForm && (
   <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
     <div className="bg-slate-800/95 backdrop-blur-xl rounded-3xl max-w-md w-full p-8 border border-slate-700/50">
@@ -1073,71 +1253,6 @@ const handleAddUserSubmit = async (e) => {
     </div>
   </div>
 )}
-      {showRejectModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-800/95 backdrop-blur-xl rounded-3xl max-w-md w-full p-8 border border-slate-700/50">
-            <div className="flex flex-col gap-6">
-              <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold text-white">
-                  Reject Appointment
-                </h2>
-                <button
-                  onClick={() => setShowRejectModal(false)}
-                  className="p-2 hover:bg-slate-700 rounded-xl"
-                >
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
-              <div className="space-y-4">
-                <div>
-                  <p className="text-slate-300 mb-2">
-                    Patient: {appointmentToReject?.userFirstName}{" "}
-                    {appointmentToReject?.userLastName}
-                  </p>
-                  <p className="text-slate-300 mb-4">
-                    Date:{" "}
-                    {appointmentToReject
-                      ? new Date(
-                          appointmentToReject.appointmentDate
-                        ).toLocaleDateString("en-US", {
-                          year: "numeric",
-                          month: "long",
-                          day: "numeric",
-                        })
-                      : ""}
-                  </p>
-                </div>
-                <div>
-                  <label className="block text-slate-300 mb-2">
-                    Reason for rejection:
-                  </label>
-                  <textarea
-                    value={rejectionReason}
-                    onChange={(e) => setRejectionReason(e.target.value)}
-                    placeholder="Please provide a reason for rejecting this appointment..."
-                    className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white resize-vertical"
-                    rows="3"
-                  />
-                </div>
-                <div className="flex gap-4">
-                  <button
-                    onClick={() => setShowRejectModal(false)}
-                    className="flex-1 py-3 px-4 bg-slate-700/50 hover:bg-slate-700 text-white rounded-xl transition-all"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleRejectAppointment}
-                    className="flex-1 py-3 px-4 bg-red-600 hover:bg-red-700 text-white rounded-xl transition-all"
-                  >
-                    Reject Appointment
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {showDeleteModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">

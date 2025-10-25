@@ -7,7 +7,9 @@ namespace UserHealthService.Domain.Enums
         FamilyMember = 3,
         HealthcareProvider = 4,
         Admin = 5,
-        Doctor=6
+        Doctor = 6,
+        Assistant = 7
+
     }
 }
 
