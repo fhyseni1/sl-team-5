@@ -1,9 +1,13 @@
 // UserHealthService.API/Controllers/UsersController.cs
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using UserHealthService.Application.DTOs.Users;
 using UserHealthService.Application.DTOs.UserProfiles;
 using UserHealthService.Application.Interfaces;
+using UserHealthService.Domain.Entities;
+using UserHealthService.Domain.Enums;
+using UserHealthService.Infrastructure.Data;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -14,11 +18,19 @@ namespace UserHealthService.API.Controllers
     public class UsersController : ControllerBase
     {
         private readonly IUserService _userService;
+        private readonly IUserRepository _userRepository;
+        private readonly UserHealthDbContext _context; 
         private readonly ILogger<UsersController> _logger;
 
-        public UsersController(IUserService userService, ILogger<UsersController> logger)
+        public UsersController(
+            IUserService userService,
+            IUserRepository userRepository, 
+            UserHealthDbContext context, 
+            ILogger<UsersController> logger)
         {
             _userService = userService;
+            _userRepository = userRepository; 
+            _context = context; 
             _logger = logger;
         }
 
@@ -37,21 +49,23 @@ namespace UserHealthService.API.Controllers
                 return StatusCode(500, "An error occurred while retrieving users");
             }
         }
-      [HttpGet("available-doctors")]
-[Authorize]
-public async Task<ActionResult<List<DoctorDto>>> GetAvailableDoctors()
-{
-    try
-    {
-        var doctors = await _userService.GetDoctorsAsync();
-        return Ok(doctors.Where(d => d.IsActive).ToList()); // Filtro vetëm aktivët
-    }
-    catch (Exception ex)
-    {
-        _logger.LogError(ex, "Error retrieving available doctors");
-        return StatusCode(500, "An error occurred while retrieving doctors");
-    }
-}
+
+        [HttpGet("available-doctors")]
+        [Authorize]
+        public async Task<ActionResult<List<DoctorDto>>> GetAvailableDoctors()
+        {
+            try
+            {
+                var doctors = await _userService.GetDoctorsAsync();
+                return Ok(doctors.Where(d => d.IsActive).ToList());
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving available doctors");
+                return StatusCode(500, "An error occurred while retrieving doctors");
+            }
+        }
+
         [HttpGet("{id}")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -72,7 +86,8 @@ public async Task<ActionResult<List<DoctorDto>>> GetAvailableDoctors()
                 return StatusCode(500, "An error occurred while retrieving the user");
             }
         }
-              [HttpGet("{userId}/dashboard")]
+
+        [HttpGet("{userId}/dashboard")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
@@ -94,69 +109,170 @@ public async Task<ActionResult<List<DoctorDto>>> GetAvailableDoctors()
                 return StatusCode(500, "An error occurred while retrieving the user dashboard");
             }
         }
+
         [HttpGet("doctors")]
-[Authorize]
-[ProducesResponseType(StatusCodes.Status200OK)]
-[ProducesResponseType(StatusCodes.Status401Unauthorized)]
-public async Task<ActionResult<List<DoctorDto>>> GetDoctors()
+        [Authorize]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        public async Task<ActionResult<List<DoctorDto>>> GetDoctors()
+        {
+            try
+            {
+                var doctors = await _userService.GetDoctorsAsync();
+                return Ok(doctors);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving doctors");
+                return StatusCode(500, "An error occurred while retrieving doctors");
+            }
+        }
+
+        [HttpPost("assign-assistant")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> AssignAssistantToDoctor([FromBody] AssignAssistantDto dto)
+        {
+            try
+            {
+         
+                var doctor = await _userRepository.GetByIdAsync(dto.DoctorId);
+                if (doctor == null || doctor.Type != UserType.HealthcareProvider)
+                {
+                    return BadRequest("Doctor not found");
+                }
+
+                var assistant = await _userRepository.GetByIdAsync(dto.AssistantId);
+                if (assistant == null || assistant.Type != UserType.Assistant)
+                {
+                    return BadRequest("Assistant not found");
+                }
+
+                var assignment = new DoctorAssistant
+                {
+                    Id = Guid.NewGuid(),
+                    DoctorId = dto.DoctorId,
+                    AssistantId = dto.AssistantId,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                _context.DoctorAssistants.Add(assignment);
+                await _context.SaveChangesAsync();
+
+                return Ok(new { message = "Assistant assigned to doctor successfully" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error assigning assistant to doctor");
+                return StatusCode(500, "Error assigning assistant to doctor");
+            }
+        }
+
+        [HttpGet("assistant/{assistantId}/doctors")]
+        [Authorize(Roles = "Admin,Assistant")]
+        public async Task<ActionResult<List<DoctorDto>>> GetAssistantDoctors(Guid assistantId)
+        {
+            try
+            {
+                // Tani përdor tabelën e vërtetë
+                var doctorAssignments = await _context.DoctorAssistants
+                    .Where(da => da.AssistantId == assistantId && da.IsActive)
+                    .Include(da => da.Doctor)
+                    .ToListAsync();
+
+                var doctors = doctorAssignments.Select(da => new DoctorDto
+                {
+                    Id = da.Doctor.Id,
+                    Name = $"{da.Doctor.FirstName} {da.Doctor.LastName}",
+                    Email = da.Doctor.Email,
+                    PhoneNumber = da.Doctor.PhoneNumber,
+                    Specialty = "General Practitioner",
+                    IsActive = da.Doctor.IsActive
+                }).ToList();
+
+                return Ok(doctors);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving assistant doctors");
+                return StatusCode(500, "Error retrieving doctors");
+            }
+        }
+[HttpGet("assistants")]
+[Authorize(Roles = "Admin")]
+public async Task<ActionResult<List<UserResponseDto>>> GetAllAssistants()
 {
     try
     {
-        var doctors = await _userService.GetDoctorsAsync();
-        return Ok(doctors);
+        var assistants = await _context.Users
+            .Where(u => u.Type == UserType.Assistant && u.IsActive)
+            .Select(u => new UserResponseDto
+            {
+                Id = u.Id,
+                Email = u.Email,
+                FirstName = u.FirstName,
+                LastName = u.LastName,
+                PhoneNumber = u.PhoneNumber,
+                Type = u.Type,
+                IsActive = u.IsActive,
+                CreatedAt = u.CreatedAt
+            })
+            .ToListAsync();
+
+        return Ok(assistants);
     }
     catch (Exception ex)
     {
-        _logger.LogError(ex, "Error retrieving doctors");
-        return StatusCode(500, "An error occurred while retrieving doctors");
+        _logger.LogError(ex, "Error retrieving assistants");
+        return StatusCode(500, "Error retrieving assistants");
     }
 }
 
-[HttpGet("doctor/{doctorId}/patients")]
-[Authorize]
-public async Task<ActionResult<List<PatientDto>>> GetDoctorPatients(Guid doctorId)
-{
-    try
-    {
-        Console.WriteLine($"🔍 GetDoctorPatients called with doctorId: {doctorId}");
-        
-        // Kjo duhet të implementohet në UserService
-        var patients = await _userService.GetDoctorPatientsAsync(doctorId);
-        
-        Console.WriteLine($"✅ Returning {patients.Count} patients for doctor {doctorId}");
-        return Ok(patients);
-    }
-    catch (KeyNotFoundException ex)
-    {
-        _logger.LogWarning(ex, "Doctor with ID {DoctorId} not found", doctorId);
-        return NotFound($"Doctor with ID '{doctorId}' not found");
-    }
-    catch (Exception ex)
-    {
-        _logger.LogError(ex, "Error retrieving patients for doctor {DoctorId}", doctorId);
-        Console.WriteLine($"❌ ERROR in GetDoctorPatients: {ex.Message}");
-        Console.WriteLine($"❌ Stack Trace: {ex.StackTrace}");
-        return StatusCode(500, $"An error occurred while retrieving patients: {ex.Message}");
-    }
-}
+        [HttpGet("doctor/{doctorId}/patients")]
+        [Authorize]
+        public async Task<ActionResult<List<PatientDto>>> GetDoctorPatients(Guid doctorId)
+        {
+            try
+            {
+                Console.WriteLine($"🔍 GetDoctorPatients called with doctorId: {doctorId}");
+                
+                var patients = await _userService.GetDoctorPatientsAsync(doctorId);
+                
+                Console.WriteLine($"✅ Returning {patients.Count} patients for doctor {doctorId}");
+                return Ok(patients);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                _logger.LogWarning(ex, "Doctor with ID {DoctorId} not found", doctorId);
+                return NotFound($"Doctor with ID '{doctorId}' not found");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving patients for doctor {DoctorId}", doctorId);
+                Console.WriteLine($"❌ ERROR in GetDoctorPatients: {ex.Message}");
+                Console.WriteLine($"❌ Stack Trace: {ex.StackTrace}");
+                return StatusCode(500, $"An error occurred while retrieving patients: {ex.Message}");
+            }
+        }
 
-[HttpGet("patients")]
-[Authorize]
-[ProducesResponseType(StatusCodes.Status200OK)]
-[ProducesResponseType(StatusCodes.Status401Unauthorized)]
-public async Task<ActionResult<List<PatientDto>>> GetAllPatients()
-{
-    try
-    {
-        var patients = await _userService.GetAllPatientsAsync();
-        return Ok(patients);
-    }
-    catch (Exception ex)
-    {
-        _logger.LogError(ex, "Error retrieving patients");
-        return StatusCode(500, "An error occurred while retrieving patients");
-    }
-}
+        [HttpGet("patients")]
+        [Authorize]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        public async Task<ActionResult<List<PatientDto>>> GetAllPatients()
+        {
+            try
+            {
+                var patients = await _userService.GetAllPatientsAsync();
+                return Ok(patients);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving patients");
+                return StatusCode(500, "An error occurred while retrieving patients");
+            }
+        }
+
         [HttpGet("email/{email}")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -266,7 +382,6 @@ public async Task<ActionResult<List<PatientDto>>> GetAllPatients()
                 return StatusCode(500, "An error occurred while updating the user");
             }
         }
-        
 
         [HttpPut("{id}/profile")]
         [ProducesResponseType(StatusCodes.Status200OK)]
@@ -333,24 +448,32 @@ public async Task<ActionResult<List<PatientDto>>> GetAllPatients()
                 return StatusCode(500, "An error occurred while retrieving users count");
             }
         }
-        // DTO classes for doctors and patients
-public class DoctorDto
-{
-    public Guid Id { get; set; }
-    public string Name { get; set; } = string.Empty;
-    public string Email { get; set; } = string.Empty;
-    public string? PhoneNumber { get; set; }
-    public string? Specialty { get; set; }
-}
 
-public class PatientDto
-{
-    public Guid Id { get; set; }
-    public string Name { get; set; } = string.Empty;
-    public string Email { get; set; } = string.Empty;
-    public string? PhoneNumber { get; set; }
-    public DateTime? LastAppointment { get; set; }
-    public int TotalAppointments { get; set; }
-}
+      
+        public class DoctorDto
+        {
+            public Guid Id { get; set; }
+            public string Name { get; set; } = string.Empty;
+            public string Email { get; set; } = string.Empty;
+            public string? PhoneNumber { get; set; }
+            public string? Specialty { get; set; }
+            public bool IsActive { get; set; } 
+        }
+
+        public class PatientDto
+        {
+            public Guid Id { get; set; }
+            public string Name { get; set; } = string.Empty;
+            public string Email { get; set; } = string.Empty;
+            public string? PhoneNumber { get; set; }
+            public DateTime? LastAppointment { get; set; }
+            public int TotalAppointments { get; set; }
+        }
+
+        public class AssignAssistantDto
+        {
+            public Guid DoctorId { get; set; }
+            public Guid AssistantId { get; set; }
+        }
     }
 }

@@ -1,3 +1,4 @@
+// components/UserDashboard.jsx
 "use client";
 import ChatInbox from '../components/ChatInbox';
 import { MessageCircle } from 'lucide-react';
@@ -463,102 +464,102 @@ const UserDashboard = () => {
     setter((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleScheduleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      if (!user?.id) {
-        throw new Error("User ID is not available");
-      }
-
-      if (!appointmentForm.doctorId) {
-        throw new Error("Please select a doctor");
-      }
-
-      const appointmentDate = new Date(appointmentForm.appointmentDate);
-      if (isNaN(appointmentDate.getTime())) {
-         toast.error("Invalid appointment date");
-        return;
-      }
-        const [startHour, startMinute] = appointmentForm.startTime
-        .split(":")
-        .map(Number);
-      const [endHour, endMinute] = appointmentForm.endTime
-        .split(":")
-        .map(Number);
-      const durationInMinutes =
-        endHour * 60 + endMinute - (startHour * 60 + startMinute);
-
-      if (durationInMinutes !== 30) {
-        toast.error("Appointments must be exactly 30 minutes long");
-        return;
-      }
-
-      // Check if the time is within business hours (8 AM to 8 PM)
-      if (startHour < 8 || startHour >= 20 || endHour < 8 || endHour > 20) {
-        toast.error("Appointments must be between 8:00 AM and 8:00 PM");
-        return;
-      }
-
-      // Check if the appointment date is in the past
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      if (appointmentDate < today) {
-        toast.error("Cannot schedule appointments in the past");
-        return;
-      }
-      const formattedDate = appointmentDate.toISOString().split("T")[0];
-      const selectedDoctor = doctors.find(
-        (d) => d.id === appointmentForm.doctorId
-      );
-      const doctorName = selectedDoctor
-        ? `${selectedDoctor.firstName} ${selectedDoctor.lastName}`
-        : "";
-
-      const appointmentData = {
-        userId: user.id,
-        doctorId: appointmentForm.doctorId,
-         doctorName: doctorName,
-        appointmentDate: formattedDate,
-        startTime: appointmentForm.startTime.includes(":00")
-          ? appointmentForm.startTime
-          : appointmentForm.startTime + ":00",
-        endTime: appointmentForm.endTime.includes(":00")
-          ? appointmentForm.endTime
-          : appointmentForm.endTime + ":00",
-        purpose: appointmentForm.purpose?.trim() || "",
-        notes: appointmentForm.notes?.trim() || "",
-        status: 8,
-      };
-
-      const response = await api.post("/appointments", appointmentData);
-
-      if (response.data) {
-        setShowScheduleForm(false);
-        setAppointmentForm({
-          doctorId: "",
-          appointmentDate: "",
-          startTime: "",
-          endTime: "",
-          purpose: "",
-          notes: "",
-        });
-        const [appointments, count] = await Promise.all([
-          userService.getUserAppointments(user.id),
-          userService.getUpcomingAppointmentsCount(user.id),
-        ]);
-        setUserAppointments(appointments);
-        setUpcomingAppointmentsCount(count);
-               toast.success("Appointment scheduled! Waiting for admin approval.");
-      }
-    } catch (err) {
-      console.error("Appointment scheduling error:", err.response?.data || err);
- toast.error(
-        err.response?.data?.message ||
-          err.message ||
-          "Failed to schedule appointment"
-      );
+const handleScheduleSubmit = async (e) => {
+  e.preventDefault();
+  try {
+    if (!user?.id) {
+      throw new Error("User ID is not available");
     }
-  };
+
+    if (!appointmentForm.doctorId) {
+      throw new Error("Please select a doctor");
+    }
+
+    const appointmentDate = new Date(appointmentForm.appointmentDate);
+    if (isNaN(appointmentDate.getTime())) {
+      toast.error("Invalid appointment date");
+      return;
+    }
+
+    const [startHour, startMinute] = appointmentForm.startTime
+      .split(":")
+      .map(Number);
+    const [endHour, endMinute] = appointmentForm.endTime
+      .split(":")
+      .map(Number);
+    const durationInMinutes =
+      endHour * 60 + endMinute - (startHour * 60 + startMinute);
+
+    if (durationInMinutes !== 30) {
+      toast.error("Appointments must be exactly 30 minutes long");
+      return;
+    }
+
+    if (startHour < 8 || startHour >= 20 || endHour < 8 || endHour > 20) {
+      toast.error("Appointments must be between 8:00 AM and 8:00 PM");
+      return;
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (appointmentDate < today) {
+      toast.error("Cannot schedule appointments in the past");
+      return;
+    }
+
+    const formattedDate = appointmentDate.toISOString().split("T")[0];
+    const selectedDoctor = doctors.find(
+      (d) => d.id === appointmentForm.doctorId
+    );
+    const doctorName = selectedDoctor
+      ? `Dr. ${selectedDoctor.firstName} ${selectedDoctor.lastName}`
+      : "";
+
+    const appointmentData = {
+      userId: user.id,
+      doctorName: doctorName, 
+      specialty: selectedDoctor?.specialty || "General",
+      appointmentDate: formattedDate,
+      startTime: appointmentForm.startTime.includes(":00")
+        ? appointmentForm.startTime
+        : appointmentForm.startTime + ":00",
+      endTime: appointmentForm.endTime.includes(":00")
+        ? appointmentForm.endTime
+        : appointmentForm.endTime + ":00",
+      purpose: appointmentForm.purpose?.trim() || "",
+      notes: appointmentForm.notes?.trim() || "",
+      status: 8,
+    };
+
+    const response = await api.post("/appointments", appointmentData);
+
+    if (response.data) {
+      setShowScheduleForm(false);
+      setAppointmentForm({
+        doctorId: "",
+        appointmentDate: "",
+        startTime: "",
+        endTime: "",
+        purpose: "",
+        notes: "",
+      });
+      const [appointments, count] = await Promise.all([
+        userService.getUserAppointments(user.id),
+        userService.getUpcomingAppointmentsCount(user.id),
+      ]);
+      setUserAppointments(appointments);
+      setUpcomingAppointmentsCount(count);
+      toast.success("Appointment scheduled! Waiting for assistant approval.");
+    }
+  } catch (err) {
+    console.error("Appointment scheduling error:", err.response?.data || err);
+    toast.error(
+      err.response?.data?.message ||
+        err.message ||
+        "Failed to schedule appointment"
+    );
+  }
+};
 
   const handleMedicationSubmit = async (e) => {
     e.preventDefault();
@@ -571,7 +572,6 @@ const UserDashboard = () => {
         return;
       }
 
-      // Final allergy check
       if (showAllergyWarning && !acknowledgeWarning) {
         alert("❌ Please acknowledge the allergy warning before proceeding");
         return;
@@ -582,10 +582,9 @@ const UserDashboard = () => {
         alert("❌ Please enter a valid dosage number");
         return;
       }
-      
-      // Create new medication
+    
       const newMedication = {
-        id: "med-" + Date.now(), // Generate unique ID
+        id: "med-" + Date.now(), 
         name: medicationForm.name.trim(),
         dosage: dosageValue,
         dosageUnit: medicationForm.dosageUnit,
@@ -622,11 +621,9 @@ const UserDashboard = () => {
         ...prev,
         selfAdded: [savedMedication, ...prev.selfAdded]
       }));
-      
-      // Save to localStorage
+     
       localStorage.setItem(`userMedications_${user.id}`, JSON.stringify(updatedMedications));
-      
-      // Reset form and close modal
+ 
       setShowMedicationForm(false);
       setMedicationForm({
         name: "",

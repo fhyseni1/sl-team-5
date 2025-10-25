@@ -34,20 +34,18 @@ public async Task<IActionResult> RegisterDoctor([FromBody] RegisterDto dto, Canc
 {
     try
     {
-        // Sigurohu që vetëm admin mund të regjistrojë doktorë
+      
         var currentUser = await _authService.GetCurrentUserAsync();
         if (currentUser.Type != UserType.Admin)
         {
             return Forbid("Only administrators can register doctors");
         }
 
-        // Kontrollo nëse password-i është dhënë
         if (string.IsNullOrEmpty(dto.Password))
         {
             return BadRequest(new { message = "Password is required" });
         }
 
-        // Regjistro user-in si HealthcareProvider me password-in e dhënë
         var registerDto = dto with { 
             Type = UserType.HealthcareProvider
         };
@@ -55,13 +53,10 @@ public async Task<IActionResult> RegisterDoctor([FromBody] RegisterDto dto, Canc
         var tokens = await _authService.RegisterAsync(registerDto, ct);
         var user = await _userRepository.GetByEmailAsync(dto.Email);
 
-        // Kontrollo nëse user është null
         if (user == null)
         {
             return BadRequest(new { message = "Failed to create user" });
         }
-
-        // Krijo rekordin e doktorit
         var doctor = new Doctor
         {
             Name = $"{dto.FirstName} {dto.LastName}",
@@ -97,7 +92,56 @@ public async Task<IActionResult> RegisterDoctor([FromBody] RegisterDto dto, Canc
     }
 }
 
-// Metodë për të krijuar password të rastësishëm
+[HttpPost("register-assistant")]
+[Authorize(Roles = "Admin")]
+public async Task<IActionResult> RegisterAssistant([FromBody] RegisterDto dto, CancellationToken ct)
+{
+    try
+    {
+        var currentUser = await _authService.GetCurrentUserAsync();
+        if (currentUser.Type != UserType.Admin)
+        {
+            return Forbid("Only administrators can register assistants");
+        }
+
+        if (string.IsNullOrEmpty(dto.Password))
+        {
+            return BadRequest(new { message = "Password is required" });
+        }
+
+        var registerDto = dto with { 
+            Type = UserType.Assistant
+        };
+
+        var tokens = await _authService.RegisterAsync(registerDto, ct);
+        var user = await _userRepository.GetByEmailAsync(dto.Email);
+
+        if (user == null)
+        {
+            return BadRequest(new { message = "Failed to create user" });
+        }
+
+        SetAuthCookies(tokens);
+
+        return Ok(new
+        {
+            id = user.Id,
+            email = user.Email,
+            firstName = user.FirstName,
+            lastName = user.LastName,
+            type = user.Type.ToString(),
+            phoneNumber = user.PhoneNumber,
+            isActive = user.IsActive,
+            fullName = $"{user.FirstName} {user.LastName}",
+            tokens
+        });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return BadRequest(new { message = ex.Message });
+    }
+}
+
 private string GenerateRandomPassword()
 {
     const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";

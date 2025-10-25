@@ -79,11 +79,14 @@ namespace UserHealthService.Infrastructure.Repositories
         {
             return await _context.Users.CountAsync(ct);
         }
+
 public async Task<List<DoctorDto>> GetDoctorsAsync(CancellationToken ct = default)
 {
     try
     {
         Console.WriteLine("🔍 UserRepository: Getting doctors from database");
+        
+      
         var doctors = await _context.Users
             .FromSqlRaw(@"SELECT * FROM ""Users"" WHERE ""Type"" IN ('Doctor', 'HealthcareProvider') AND ""IsActive"" = true")
             .Select(u => new DoctorDto
@@ -110,6 +113,7 @@ public async Task<List<PatientDto>> GetDoctorPatientsAsync(Guid doctorId, Cancel
 {
     try
     {
+       
         var doctorExists = await _context.Users
             .FromSqlRaw(@"SELECT * FROM ""Users"" WHERE ""Id"" = {0} AND ""Type"" IN ('Doctor', 'HealthcareProvider')", doctorId)
             .AnyAsync(ct);
@@ -118,6 +122,7 @@ public async Task<List<PatientDto>> GetDoctorPatientsAsync(Guid doctorId, Cancel
         {
             throw new KeyNotFoundException($"Doctor with ID '{doctorId}' not found");
         }
+
         var patients = await _context.Users
             .FromSqlRaw(@"SELECT * FROM ""Users"" WHERE ""Type"" = 'Patient' AND ""IsActive"" = true")
             .Select(u => new PatientDto
@@ -152,7 +157,7 @@ public async Task<List<PatientDto>> GetDoctorPatientsAsync(Guid doctorId, Cancel
                         Name = $"{u.FirstName} {u.LastName}",
                         Email = u.Email,
                         PhoneNumber = u.PhoneNumber,
-                        LastAppointment = null, 
+                         LastAppointment = null, 
                         TotalAppointments = 0   
                     })
                     .ToListAsync(ct);

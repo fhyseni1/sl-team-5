@@ -15,16 +15,18 @@ namespace UserHealthService.API.Controllers
         private readonly IAppointmentRepository _appointmentRepository;
         private readonly IUserService _userService;
         private readonly ILogger<AppointmentsController> _logger;
-
+         private readonly IAuthService _authService; 
         public AppointmentsController(
             IAppointmentService appointmentService,
             IAppointmentRepository appointmentRepository,
             IUserService userService,
+            IAuthService authService, 
             ILogger<AppointmentsController> logger)
         {
             _appointmentService = appointmentService;
             _appointmentRepository = appointmentRepository;
             _userService = userService;
+              _authService = authService; 
             _logger = logger;
         }
 
@@ -141,6 +143,69 @@ namespace UserHealthService.API.Controllers
                 return StatusCode(500, "Error retrieving pending appointments");
             }
         }
+       
+[HttpGet("approved")]
+[Authorize(Roles = "Admin")]
+public async Task<ActionResult<List<AppointmentResponseDto>>> GetApprovedAppointments()
+{
+    try
+    {
+        var appointments = await _appointmentRepository.GetApprovedAppointmentsAsync();
+
+        var approvedDtos = appointments.Select(a => new AppointmentResponseDto
+        {
+            Id = a.Id,
+            UserId = a.UserId,
+            UserName = a.User != null ? $"{a.User.FirstName} {a.User.LastName}" : "Unknown User",
+            DoctorName = a.DoctorName ?? string.Empty,
+            Specialty = a.Specialty ?? string.Empty,
+            AppointmentDate = a.AppointmentDate,
+            StartTime = a.StartTime,
+            EndTime = a.EndTime,
+            Purpose = a.Purpose ?? string.Empty,
+            Status = a.Status
+        }).ToList();
+
+        return Ok(approvedDtos);
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Error retrieving approved appointments");
+        return StatusCode(500, "Error retrieving approved appointments");
+    }
+}
+
+[HttpGet("rejected")]
+[Authorize(Roles = "Admin")]
+public async Task<ActionResult<List<AppointmentResponseDto>>> GetRejectedAppointments()
+{
+    try
+    {
+        var appointments = await _appointmentRepository.GetRejectedAppointmentsAsync();
+
+        var rejectedDtos = appointments.Select(a => new AppointmentResponseDto
+        {
+            Id = a.Id,
+            UserId = a.UserId,
+            UserName = a.User != null ? $"{a.User.FirstName} {a.User.LastName}" : "Unknown User",
+            DoctorName = a.DoctorName ?? string.Empty,
+            Specialty = a.Specialty ?? string.Empty,
+            AppointmentDate = a.AppointmentDate,
+            StartTime = a.StartTime,
+            EndTime = a.EndTime,
+            Purpose = a.Purpose ?? string.Empty,
+            Status = a.Status,
+            RejectionReason = a.RejectionReason 
+        }).ToList();
+
+        return Ok(rejectedDtos);
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Error retrieving rejected appointments");
+        return StatusCode(500, "Error retrieving rejected appointments");
+    }
+}
 
         [HttpGet("user/{userId}/upcoming/count")]
         public async Task<ActionResult<int>> GetUpcomingCount(Guid userId)
@@ -173,22 +238,161 @@ namespace UserHealthService.API.Controllers
                 return StatusCode(500, "Error approving appointment");
             }
         }
+    [HttpGet("assistant/pending")]
+[Authorize(Roles = "Assistant")]
+public async Task<ActionResult<List<AppointmentResponseDto>>> GetAssistantPendingAppointments()
+{
+    try
+    {
+        var currentUser = await _authService.GetCurrentUserAsync();
+        
+        var appointments = await _appointmentRepository.GetPendingAppointmentsForAssistantAsync(currentUser.Id);
+        
+        var appointmentDtos = appointments.Select(a => new AppointmentResponseDto
+        {
+            Id = a.Id,
+            UserId = a.UserId,
+            UserName = a.User != null ? $"{a.User.FirstName} {a.User.LastName}" : "Unknown User",
+            DoctorName = a.DoctorName ?? string.Empty,
+            Specialty = a.Specialty ?? string.Empty,
+            AppointmentDate = a.AppointmentDate,
+            StartTime = a.StartTime,
+            EndTime = a.EndTime,
+            Purpose = a.Purpose ?? string.Empty,
+            Status = a.Status
+        }).ToList();
 
-        [HttpPut("{id}/reject")]
-        [Authorize(Roles = "Admin")]
-        public async Task<ActionResult> Reject(Guid id)
+        return Ok(appointmentDtos);
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Error retrieving assistant pending appointments");
+        return StatusCode(500, "Error retrieving appointments");
+    }
+}
+
+
+[HttpGet("assistant/{assistantId}/pending")]
+[Authorize(Roles = "Assistant")]
+public async Task<ActionResult<List<AppointmentResponseDto>>> GetAssistantPendingAppointments(Guid assistantId)
+{
+    try
+    {
+        var currentUser = await _authService.GetCurrentUserAsync();
+        
+        if (currentUser.Id != assistantId)
+        {
+            return Forbid("You can only view your own appointments");
+        }
+
+        var appointments = await _appointmentRepository.GetPendingAppointmentsForAssistantAsync(assistantId);
+        
+        var appointmentDtos = appointments.Select(a => new AppointmentResponseDto
+        {
+            Id = a.Id,
+            UserId = a.UserId,
+            UserName = a.User != null ? $"{a.User.FirstName} {a.User.LastName}" : "Unknown User",
+            DoctorName = a.DoctorName ?? string.Empty,
+            Specialty = a.Specialty ?? string.Empty,
+            AppointmentDate = a.AppointmentDate,
+            StartTime = a.StartTime,
+            EndTime = a.EndTime,
+            Purpose = a.Purpose ?? string.Empty,
+            Status = a.Status
+        }).ToList();
+
+        return Ok(appointmentDtos);
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Error retrieving assistant pending appointments");
+        return StatusCode(500, "Error retrieving appointments");
+    }
+}
+
+[HttpGet("assistant/{assistantId}/approved")]
+[Authorize(Roles = "Assistant")]
+public async Task<ActionResult<List<AppointmentResponseDto>>> GetAssistantApprovedAppointments(Guid assistantId)
+{
+    try
+    {
+        var currentUser = await _authService.GetCurrentUserAsync();
+       
+        if (currentUser.Id != assistantId)
+        {
+            return Forbid("You can only view your own appointments");
+        }
+
+        var appointments = await _appointmentRepository.GetApprovedAppointmentsForAssistantAsync(assistantId);
+        
+        var appointmentDtos = appointments.Select(a => new AppointmentResponseDto
+        {
+            Id = a.Id,
+            UserId = a.UserId,
+            UserName = a.User != null ? $"{a.User.FirstName} {a.User.LastName}" : "Unknown User",
+            DoctorName = a.DoctorName ?? string.Empty,
+            Specialty = a.Specialty ?? string.Empty,
+            AppointmentDate = a.AppointmentDate,
+            StartTime = a.StartTime,
+            EndTime = a.EndTime,
+            Purpose = a.Purpose ?? string.Empty,
+            Status = a.Status
+        }).ToList();
+
+        return Ok(appointmentDtos);
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Error retrieving assistant approved appointments");
+        return StatusCode(500, "Error retrieving appointments");
+    }
+}
+
+        [HttpPut("{id}/assistant-approve")]
+        [Authorize(Roles = "Assistant")]
+        public async Task<ActionResult> AssistantApprove(Guid id)
         {
             try
             {
-                var result = await _appointmentRepository.RejectAsync(id);
-                if (!result) return NotFound();
+                var currentUser = await _authService.GetCurrentUserAsync(); // Tani do të funksionojë
+                var result = await _appointmentRepository.AssistantApproveAsync(id, currentUser.Id);
+                
+                if (!result) 
+                    return BadRequest("Not authorized to approve this appointment or appointment not found");
+
                 return NoContent();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error rejecting appointment {AppointmentId}", id);
-                return StatusCode(500, "Error rejecting appointment");
+                _logger.LogError(ex, "Error approving appointment {AppointmentId}", id);
+                return StatusCode(500, "Error approving appointment");
             }
         }
+
+ [HttpPut("{id}/assistant-reject")]
+[Authorize(Roles = "Assistant")]
+public async Task<ActionResult> AssistantReject(Guid id, [FromBody] RejectAppointmentDto rejectDto)
+{
+    try
+    {
+        var currentUser = await _authService.GetCurrentUserAsync();
+        var result = await _appointmentRepository.AssistantRejectAsync(id, currentUser.Id, rejectDto.RejectionReason);
+        
+        if (!result) 
+            return BadRequest("Not authorized to reject this appointment or appointment not found");
+
+        return NoContent();
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Error rejecting appointment {AppointmentId}", id);
+        return StatusCode(500, "Error rejecting appointment");
+    }
+}
+
+public class RejectAppointmentDto
+{
+    public string RejectionReason { get; set; } = string.Empty;
+}
     }
 }
