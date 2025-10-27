@@ -11,5 +11,6 @@ namespace UserHealthService.Application.Interfaces
         Task<NotificationResponseDto> CreateAsync(NotificationCreateDto dto);
         Task<bool> MarkAsReadAsync(Guid id);
         Task<bool> DeleteAsync(Guid id);
+        Task<IEnumerable<NotificationResponseDto>> GetByCaregiverIdAsync(Guid caregiverId);
     }
 }

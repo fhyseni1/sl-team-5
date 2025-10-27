@@ -9,11 +9,13 @@ namespace UserHealthService.Application.Services
     {
         private readonly INotificationRepository _repository;
         private readonly IMapper _mapper;
+        private readonly IUserRelationshipService _relationshipService;
 
-        public NotificationService(INotificationRepository repository, IMapper mapper)
+        public NotificationService(INotificationRepository repository, IMapper mapper, IUserRelationshipService relationshipService)
         {
             _repository = repository;
             _mapper = mapper;
+            _relationshipService = relationshipService;
         }
 
         public async Task<IEnumerable<NotificationResponseDto>> GetAllAsync()
@@ -45,6 +47,7 @@ namespace UserHealthService.Application.Services
             var entity = _mapper.Map<Notification>(dto);
             entity.CreatedAt = DateTime.UtcNow;
             await _repository.AddAsync(entity);
+            await DistributeToCaregiversAsync(entity);
             await _repository.SaveChangesAsync();
             return _mapper.Map<NotificationResponseDto>(entity);
         }
@@ -68,6 +71,59 @@ namespace UserHealthService.Application.Services
             await _repository.DeleteAsync(entity);
             await _repository.SaveChangesAsync();
             return true;
+        }
+
+        public async Task<IEnumerable<NotificationResponseDto>> GetByCaregiverIdAsync(Guid caregiverId)
+        {
+            var relationships = await _relationshipService.GetCaregiversByUserIdAsync(caregiverId);
+            
+            var allNotifications = new List<NotificationResponseDto>();
+            
+            foreach (var relationship in relationships)
+            {
+                if (!relationship.IsActive) continue;
+                
+                var patientNotifications = await _repository.GetByUserIdAsync(relationship.UserId);
+                var mappedNotifications = _mapper.Map<IEnumerable<NotificationResponseDto>>(patientNotifications);
+                allNotifications.AddRange(mappedNotifications);
+            }
+            
+            var caregiverDirectNotifications = await _repository.GetByUserIdAsync(caregiverId);
+            var mappedCaregiverNotifications = _mapper.Map<IEnumerable<NotificationResponseDto>>(caregiverDirectNotifications);
+            allNotifications.AddRange(mappedCaregiverNotifications);
+            
+            return allNotifications.OrderByDescending(n => n.CreatedAt).ToList();
+        }
+
+        private async Task DistributeToCaregiversAsync(Notification notification)
+        {
+            try
+            {
+                var relationships = await _relationshipService.GetCaregiversByUserIdAsync(notification.UserId);
+                
+                foreach (var relationship in relationships)
+                {
+                    if (!relationship.IsActive) continue;
+                    
+                    var caregiverNotification = new Notification
+                    {
+                        UserId = relationship.RelatedUserId,
+                        Type = notification.Type,
+                        Title = $"[{relationship.UserName}] {notification.Title}",
+                        Message = notification.Message,
+                        ScheduledTime = notification.ScheduledTime,
+                        ActionUrl = notification.ActionUrl,
+                        Priority = notification.Priority,
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    
+                    await _repository.AddAsync(caregiverNotification);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error distributing notification to caregivers: {ex.Message}");
+            }
         }
     }
 }
