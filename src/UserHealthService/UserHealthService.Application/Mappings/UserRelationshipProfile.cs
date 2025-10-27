@@ -14,8 +14,8 @@ namespace UserHealthService.Application.Mappings
         public UserRelationshipProfile()
         {
             CreateMap<UserRelationship, UserRelationshipResponseDto>()
-                    .ForMember(dest => dest.UserName, opt => opt.MapFrom(src => src.User != null ? src.User.FirstName : string.Empty))
-                    .ForMember(dest => dest.RelatedUserName, opt => opt.MapFrom(src => src.RelatedUser != null ? src.RelatedUser.FirstName : string.Empty));
+                    .ForMember(dest => dest.UserName, opt => opt.MapFrom(src => src.User != null ? $"{src.User.FirstName} {src.User.LastName}".Trim() : string.Empty))
+                    .ForMember(dest => dest.RelatedUserName, opt => opt.MapFrom(src => src.RelatedUser != null ? $"{src.RelatedUser.FirstName} {src.RelatedUser.LastName}".Trim() : string.Empty));
 
             CreateMap<UserRelationshipCreateDto, UserRelationship>()
                 .ForMember(dest => dest.Id, opt => opt.Ignore())

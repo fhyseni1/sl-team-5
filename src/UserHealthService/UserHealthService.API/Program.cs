@@ -47,7 +47,9 @@ builder.Services.AddAutoMapper(
     typeof(AllergyProfile),
     typeof(AppointmentProfile), 
     typeof(HealthMetricProfile), 
-    typeof(SymptomLogProfile)
+    typeof(SymptomLogProfile),
+    typeof(NotificationProfile),
+    typeof(UserRelationshipProfile)
 );
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -88,7 +90,9 @@ builder.Services.AddCors(options =>
         policy
             .WithOrigins(
                 "http://localhost:3000",
-                "https://localhost:3000")
+                "https://localhost:3000",
+                "http://localhost:3002",
+                "https://localhost:3002")
             .AllowAnyMethod()
             .AllowAnyHeader()
             .AllowCredentials()
