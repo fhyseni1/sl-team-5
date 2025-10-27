@@ -34,6 +34,10 @@ namespace UserHealthService.API.Controllers
         public async Task<IActionResult> GetUnread(Guid userId) =>
             Ok(await _service.GetUnreadByUserIdAsync(userId));
 
+        [HttpGet("caregiver/{caregiverId}")]
+        public async Task<IActionResult> GetForCaregiver(Guid caregiverId) =>
+            Ok(await _service.GetByCaregiverIdAsync(caregiverId));
+
         [HttpPost]
         public async Task<IActionResult> Create(NotificationCreateDto dto)
         {
