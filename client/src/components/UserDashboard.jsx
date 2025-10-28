@@ -1,6 +1,7 @@
 // components/UserDashboard.jsx
 "use client";
 import ChatInbox from '../components/ChatInbox';
+import NotificationCenter from '../components/NotificationCenter';
 import { MessageCircle } from 'lucide-react';
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -754,6 +755,8 @@ const handleScheduleSubmit = async (e) => {
             
             {/* Profile and Logout Buttons */}
             <div className="flex items-center space-x-4">
+              {user && <NotificationCenter currentUser={user} />}
+              
               <button
                 onClick={() => router.push("/profile")}
                 className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold shadow-xl hover:shadow-blue-500/50 transition-all"
