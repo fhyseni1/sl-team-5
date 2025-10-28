@@ -33,6 +33,7 @@ import {
 import { userService } from "../../services/userService";
 import { authService, api } from "../../services/authService";
 import AppointmentCalendar from "./AppointmentCalendar";
+import NotificationCenter from "./NotificationCenter";
 
 const AdminDashboard = () => {
   const [user, setUser] = useState(null);
@@ -445,12 +446,16 @@ const handleAddUserSubmit = async (e) => {
                 <p className="text-slate-400">MediTrack Management</p>
               </div>
             </div>
-            <button
-              onClick={handleLogout}
-              className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl font-bold shadow-xl"
-            >
-              <LogOut className="w-5 h-5" /> Logout
-            </button>
+            <div className="flex items-center space-x-4">
+              <NotificationCenter currentUser={user} />
+              
+              <button
+                onClick={handleLogout}
+                className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl font-bold shadow-xl"
+              >
+                <LogOut className="w-5 h-5" /> Logout
+              </button>
+            </div>
           </div>
         </div>
       </header>
