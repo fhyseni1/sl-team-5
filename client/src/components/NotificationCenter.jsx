@@ -18,6 +18,7 @@ const NotificationCenter = ({ currentUser }) => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [activeFilter, setActiveFilter] = useState('all');
 
   useEffect(() => {
     if (currentUser?.id) {
@@ -87,6 +88,33 @@ const NotificationCenter = ({ currentUser }) => {
     } catch (error) {
       console.error('Error marking all as read:', error);
     }
+  };
+
+  const filterNotifications = (items) => {
+    if (activeFilter === 'all') return items;
+    if (activeFilter === 'medication') {
+      return items.filter(n => String(n.type) === 'MedicationReminder');
+    }
+    if (activeFilter === 'appointment') {
+      return items.filter(n => String(n.type) === 'AppointmentReminder');
+    }
+    if (activeFilter === 'urgent') {
+      return items.filter(n => String(n.priority) === 'Urgent');
+    }
+    return items;
+  };
+
+  const separateNotifications = (items) => {
+    const now = Date.now();
+    const cutoffHours = 48;
+    const isRecent = (dt) => ((now - new Date(dt).getTime()) / (1000 * 60 * 60)) < cutoffHours;
+
+    const active = [];
+    const archived = [];
+    for (const n of items) {
+      if (isRecent(n.createdAt)) active.push(n); else archived.push(n);
+    }
+    return { active, archived };
   };
 
   const deleteNotification = async (notificationId) => {
@@ -176,17 +204,44 @@ const NotificationCenter = ({ currentUser }) => {
               </div>
             )}
 
+            {/* Filters */}
+            {notifications.length > 0 && (
+              <div className="px-3 py-2 border-b border-slate-700/50">
+                <div className="flex items-center gap-2">
+                  {[
+                    { key: 'all', label: 'All' },
+                    { key: 'medication', label: 'Medications' },
+                    { key: 'appointment', label: 'Appointments' },
+                    { key: 'urgent', label: 'Urgent' }
+                  ].map(tab => (
+                    <button
+                      key={tab.key}
+                      onClick={() => setActiveFilter(tab.key)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                        activeFilter === tab.key
+                          ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                          : 'bg-slate-700/40 text-slate-300 hover:bg-slate-700/60 border border-slate-600/40'
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Notifications List */}
             <div className="flex-1 overflow-y-auto">
               {loading ? (
                 <div className="flex items-center justify-center p-8">
                   <Loader2 className="w-8 h-8 animate-spin text-blue-400" />
                 </div>
-              ) : notifications.length > 0 ? (
-                <div className="p-2">
-                  {notifications
-                    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-                    .map((notification) => {
+              ) : notifications.length > 0 ? (() => {
+                const filtered = filterNotifications(
+                  [...notifications].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+                );
+                const { active, archived } = separateNotifications(filtered);
+                const renderList = (list) => list.map((notification) => {
                       const patientName = parsePatientName(notification.title);
                       const isCaregiverNotification = patientName !== null;
 
@@ -257,9 +312,31 @@ const NotificationCenter = ({ currentUser }) => {
                           </div>
                         </div>
                       );
-                    })}
-                </div>
-              ) : (
+                    });
+
+                return (
+                  <div className="p-2">
+                    {active.length > 0 && (
+                      <div className="mb-3">
+                        <div className="px-2 py-1 text-xs uppercase tracking-wide text-slate-400">Recent</div>
+                        {renderList(active)}
+                      </div>
+                    )}
+                    {archived.length > 0 && (
+                      <div className="mt-4">
+                        <div className="px-2 py-1 text-xs uppercase tracking-wide text-slate-500">Archived</div>
+                        {renderList(archived)}
+                      </div>
+                    )}
+                    {active.length === 0 && archived.length === 0 && (
+                      <div className="flex flex-col items-center justify-center p-8 text-center">
+                        <Bell className="w-16 h-16 text-slate-600 mb-4" />
+                        <p className="text-slate-400 text-sm">No notifications match this filter</p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })() : (
                 <div className="flex flex-col items-center justify-center p-8 text-center">
                   <Bell className="w-16 h-16 text-slate-600 mb-4" />
                   <p className="text-slate-400 text-sm">No notifications yet</p>
