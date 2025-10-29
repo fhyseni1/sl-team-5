@@ -4,13 +4,14 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System;
 using System.Text;
-using UserHealthService.Domain.Entities;
-using UserHealthService.Application.DTOs.Relationships;
+using UserHealthService.Application.DTOs.Clinics;
 using UserHealthService.Application.DTOs.Doctors;
+using UserHealthService.Application.DTOs.Relationships;
 using UserHealthService.Application.Interfaces;
 using UserHealthService.Application.Mappings;
 using UserHealthService.Application.Options;
 using UserHealthService.Application.Services;
+using UserHealthService.Domain.Entities;
 using UserHealthService.Infrastructure.Data;
 using UserHealthService.Infrastructure.Repositories;
 
@@ -40,7 +41,9 @@ builder.Services.AddScoped<IDoctorRepository, DoctorRepository>();
 builder.Services.AddScoped<IUserRelationshipRepository, UserRelationshipRepository>();
 builder.Services.AddScoped<IUserRelationshipService, UserRelationshipService>();
 builder.Services.AddScoped<IChatService, ChatService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IChatRepository, ChatRepository>();
+builder.Services.AddScoped<IClinicRepository, ClinicRepository>();
 
 builder.Services.AddAutoMapper(
     typeof(UserHealthService.Application.Mappings.UserProfile), 

@@ -7,25 +7,13 @@ namespace UserHealthService.Domain.Entities
     [Table("Doctors")]
     public class Doctor
     {
-        [Key]
-        public int Id { get; set; }
-
-        [Required, MaxLength(100)]
-        public string Name { get; set; } = string.Empty;
-
-        [Required, MaxLength(50)]
-        public string Specialty { get; set; } = string.Empty;
-
-        [MaxLength(100)]
+        public Guid Id { get; set; }
+        public string Name { get; set; }
+        public string Specialty { get; set; }
         public string? ClinicName { get; set; }
-
-        [MaxLength(200)]
-        public string? Address { get; set; }
-
-        [MaxLength(20)]
+        public Guid? ClinicId { get; set; }
         public string? PhoneNumber { get; set; }
-
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-        public bool IsActive { get; set; } = true;
+        public DateTime CreatedAt { get; set; }
+        public bool IsActive { get; set; }
     }
 }

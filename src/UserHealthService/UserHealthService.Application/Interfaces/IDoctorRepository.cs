@@ -7,9 +7,10 @@ namespace UserHealthService.Application.DTOs.Doctors
     public interface IDoctorRepository
     {
         Task<List<Doctor>> GetAllAsync();
-        Task<Doctor?> GetByIdAsync(int id);
+        Task<List<Doctor>> GetByClinicIdAsync(Guid clinicId);
+        Task<Doctor?> GetByIdAsync(Guid id);
         Task<Doctor> CreateAsync(DoctorCreateDto dto);
-        Task<Doctor?> UpdateAsync(int id, DoctorUpdateDto dto);
-        Task<bool> DeleteAsync(int id);
+        Task<Doctor?> UpdateAsync(Guid id, DoctorUpdateDto dto);
+        Task<bool> DeleteAsync(Guid id);
     }
 }

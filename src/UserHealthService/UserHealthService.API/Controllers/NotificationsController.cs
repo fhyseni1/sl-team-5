@@ -27,16 +27,39 @@ namespace UserHealthService.API.Controllers
         }
 
         [HttpGet("user/{userId}")]
-        public async Task<IActionResult> GetByUser(Guid userId) =>
-            Ok(await _service.GetByUserIdAsync(userId));
+        public async Task<IActionResult> GetByUser(Guid userId)
+        {
+            try
+            {
+                var notifications = await _service.GetByUserIdAsync(userId);
+                return Ok(notifications);
+            }
+            catch (Exception ex)
+            {
+               
+                Console.WriteLine($"Error in GetByUser for userId {userId}: {ex.Message}");
+                return StatusCode(500, "An error occurred while fetching user notifications.");
+            }
+        }
 
         [HttpGet("user/{userId}/unread")]
         public async Task<IActionResult> GetUnread(Guid userId) =>
             Ok(await _service.GetUnreadByUserIdAsync(userId));
 
         [HttpGet("caregiver/{caregiverId}")]
-        public async Task<IActionResult> GetForCaregiver(Guid caregiverId) =>
-            Ok(await _service.GetByCaregiverIdAsync(caregiverId));
+        public async Task<IActionResult> GetForCaregiver(Guid caregiverId)
+        {
+            try
+            {
+                var notifications = await _service.GetByCaregiverIdAsync(caregiverId);
+                return Ok(notifications);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in GetForCaregiver for caregiverId {caregiverId}: {ex.Message}");
+                return StatusCode(500, "An error occurred while fetching caregiver notifications.");
+            }
+        }
 
         [HttpPost]
         public async Task<IActionResult> Create(NotificationCreateDto dto)

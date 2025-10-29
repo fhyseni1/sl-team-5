@@ -52,10 +52,10 @@ namespace UserHealthService.API.Controllers
 
         [HttpGet("available-doctors")]
         [Authorize]
-        public async Task<ActionResult<List<DoctorDto>>> GetAvailableDoctors()
+        public async Task<ActionResult<List<DoctorPatientDto>>> GetAvailableDoctors()
         {
             try
-            {
+            {               
                 var doctors = await _userService.GetDoctorsAsync();
                 return Ok(doctors.Where(d => d.IsActive).ToList());
             }
@@ -64,7 +64,7 @@ namespace UserHealthService.API.Controllers
                 _logger.LogError(ex, "Error retrieving available doctors");
                 return StatusCode(500, "An error occurred while retrieving doctors");
             }
-        }
+        }       
 
         [HttpGet("{id}")]
         [ProducesResponseType(StatusCodes.Status200OK)]
@@ -114,7 +114,7 @@ namespace UserHealthService.API.Controllers
         [Authorize]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        public async Task<ActionResult<List<DoctorDto>>> GetDoctors()
+        public async Task<ActionResult<List<DoctorPatientDto>>> GetDoctors()
         {
             try
             {
@@ -170,7 +170,7 @@ namespace UserHealthService.API.Controllers
 
         [HttpGet("assistant/{assistantId}/doctors")]
         [Authorize(Roles = "Admin,Assistant")]
-        public async Task<ActionResult<List<DoctorDto>>> GetAssistantDoctors(Guid assistantId)
+        public async Task<ActionResult<List<DoctorPatientDto>>> GetAssistantDoctors(Guid assistantId)
         {
             try
             {
@@ -180,7 +180,7 @@ namespace UserHealthService.API.Controllers
                     .Include(da => da.Doctor)
                     .ToListAsync();
 
-                var doctors = doctorAssignments.Select(da => new DoctorDto
+                var doctors = doctorAssignments.Select(da => new DoctorPatientDto
                 {
                     Id = da.Doctor.Id,
                     Name = $"{da.Doctor.FirstName} {da.Doctor.LastName}",
@@ -449,31 +449,6 @@ public async Task<ActionResult<List<UserResponseDto>>> GetAllAssistants()
             }
         }
 
-      
-        public class DoctorDto
-        {
-            public Guid Id { get; set; }
-            public string Name { get; set; } = string.Empty;
-            public string Email { get; set; } = string.Empty;
-            public string? PhoneNumber { get; set; }
-            public string? Specialty { get; set; }
-            public bool IsActive { get; set; } 
-        }
 
-        public class PatientDto
-        {
-            public Guid Id { get; set; }
-            public string Name { get; set; } = string.Empty;
-            public string Email { get; set; } = string.Empty;
-            public string? PhoneNumber { get; set; }
-            public DateTime? LastAppointment { get; set; }
-            public int TotalAppointments { get; set; }
-        }
-
-        public class AssignAssistantDto
-        {
-            public Guid DoctorId { get; set; }
-            public Guid AssistantId { get; set; }
-        }
     }
 }

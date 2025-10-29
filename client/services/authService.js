@@ -1,6 +1,7 @@
+// client/src/services/authService.js
 import axios from "axios";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://localhost:7108/api";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5029";
 
 const api = axios.create({
   baseURL: API_URL,
@@ -16,21 +17,10 @@ api.interceptors.request.use((config) => {
     .split("; ")
     .find((row) => row.startsWith("access_token="))
     ?.split("=")[1];
-
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
-  return config;
-});
-
-api.interceptors.request.use((config) => {
-  const token = document.cookie
-    .split("; ")
-    .find((row) => row.startsWith("access_token="))
-    ?.split("=")[1];
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
+  console.log("Request headers:", config.headers);
   return config;
 });
 
@@ -38,15 +28,28 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
-
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Skip retry for refresh-token endpoint
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry &&
+      originalRequest.url !== `${API_URL}/auth/refresh-token`
+    ) {
       originalRequest._retry = true;
-
       try {
-        await api.post("/auth/refresh-token", {}, { withCredentials: true });
-
+        console.log("Attempting to refresh token");
+        const response = await api.post(
+          "/auth/refresh-token",
+          {},
+          { withCredentials: true }
+        );
+        console.log("Token refreshed:", response.data);
+        // Note: Cookies are set by the backend, no need to set them here
         return api(originalRequest);
       } catch (refreshError) {
+        console.error(
+          "Refresh token failed:",
+          refreshError.response?.data || refreshError.message
+        );
         document.cookie =
           "access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
         document.cookie =
@@ -55,7 +58,7 @@ api.interceptors.response.use(
         return Promise.reject(refreshError);
       }
     }
-
+    console.error("Request failed:", error.response?.data || error.message);
     return Promise.reject(error);
   }
 );
@@ -69,7 +72,6 @@ export const authService = {
   async login(credentials) {
     try {
       const res = await api.post("/auth/login", credentials);
-
       if (res.data && res.data.type) {
         localStorage.setItem("userType", res.data.type);
       }
@@ -101,6 +103,15 @@ export const authService = {
   async changePassword(data) {
     const res = await api.post("/auth/change-password", data);
     return res.data;
+  },
+
+  async refreshToken() {
+    const response = await api.post(
+      "/auth/refresh-token",
+      {},
+      { withCredentials: true }
+    );
+    return response.data;
   },
 };
 
