@@ -22,7 +22,8 @@ namespace UserHealthService.Infrastructure.Data
         public DbSet<UserRelationship> UserRelationships { get; set; }
         public DbSet<SymptomLog> SymptomLogs { get; set; }
         public DbSet<Doctor> Doctors { get; set; }
-           public DbSet<DoctorAssistant> DoctorAssistants { get; set; }
+        public DbSet<Clinic> Clinics { get; set; }
+        public DbSet<DoctorAssistant> DoctorAssistants { get; set; }
 
 public DbSet<ChatMessage> ChatMessages { get; set; } = null!;
         public DbSet<RefreshToken> RefreshTokens { get; set; } = null!;

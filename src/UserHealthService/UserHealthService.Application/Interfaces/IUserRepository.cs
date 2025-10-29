@@ -28,8 +28,8 @@ namespace UserHealthService.Application.Interfaces
         Task<int> GetAllUsersCountAsync(CancellationToken ct = default);
 
         // Metodat e reja për doktorët dhe pacientët
-        Task<List<DoctorDto>> GetDoctorsAsync(CancellationToken ct = default);
-        Task<List<PatientDto>> GetDoctorPatientsAsync(Guid doctorId, CancellationToken ct = default);
+        Task<List<DoctorPatientDto>> GetDoctorsAsync(CancellationToken ct = default);
+        Task<List<PatientDto>> GetDoctorPatientsAsync(Guid  doctorId, CancellationToken ct = default);
         Task<List<PatientDto>> GetAllPatientsAsync(CancellationToken ct = default);
     }
 }

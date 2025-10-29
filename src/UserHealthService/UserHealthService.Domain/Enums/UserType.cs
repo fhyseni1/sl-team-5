@@ -8,7 +8,8 @@ namespace UserHealthService.Domain.Enums
         HealthcareProvider = 4,
         Admin = 5,
         Doctor = 6,
-        Assistant = 7
+        Assistant = 7,
+        ClinicAdmin = 8
 
     }
 }

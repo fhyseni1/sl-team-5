@@ -78,20 +78,20 @@ namespace UserHealthService.Application.Services
             // Get all relationships and filter for ones where caregiverId is the RelatedUserId (caregiver)
             var allRelationships = await _relationshipService.GetAllAsync();
             var relationships = allRelationships.Where(r => r.RelatedUserId == caregiverId && r.IsActive);
-            
+
             var allNotifications = new List<NotificationResponseDto>();
-            
+
             foreach (var relationship in relationships)
             {
                 var patientNotifications = await _repository.GetByUserIdAsync(relationship.UserId);
                 var mappedNotifications = _mapper.Map<IEnumerable<NotificationResponseDto>>(patientNotifications);
                 allNotifications.AddRange(mappedNotifications);
             }
-            
+
             var caregiverDirectNotifications = await _repository.GetByUserIdAsync(caregiverId);
             var mappedCaregiverNotifications = _mapper.Map<IEnumerable<NotificationResponseDto>>(caregiverDirectNotifications);
             allNotifications.AddRange(mappedCaregiverNotifications);
-            
+
             return allNotifications.OrderByDescending(n => n.CreatedAt).ToList();
         }
 
@@ -100,11 +100,11 @@ namespace UserHealthService.Application.Services
             try
             {
                 var relationships = await _relationshipService.GetCaregiversByUserIdAsync(notification.UserId);
-                
+
                 foreach (var relationship in relationships)
                 {
                     if (!relationship.IsActive) continue;
-                    
+
                     var caregiverNotification = new Notification
                     {
                         UserId = relationship.RelatedUserId,
@@ -116,7 +116,7 @@ namespace UserHealthService.Application.Services
                         Priority = notification.Priority,
                         CreatedAt = DateTime.UtcNow
                     };
-                    
+
                     await _repository.AddAsync(caregiverNotification);
                 }
             }

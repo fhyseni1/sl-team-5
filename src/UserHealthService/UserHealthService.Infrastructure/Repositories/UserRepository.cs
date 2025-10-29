@@ -80,7 +80,7 @@ namespace UserHealthService.Infrastructure.Repositories
             return await _context.Users.CountAsync(ct);
         }
 
-public async Task<List<DoctorDto>> GetDoctorsAsync(CancellationToken ct = default)
+public async Task<List<DoctorPatientDto>> GetDoctorsAsync(CancellationToken ct = default)
 {
     try
     {
@@ -89,7 +89,7 @@ public async Task<List<DoctorDto>> GetDoctorsAsync(CancellationToken ct = defaul
       
         var doctors = await _context.Users
             .FromSqlRaw(@"SELECT * FROM ""Users"" WHERE ""Type"" IN ('Doctor', 'HealthcareProvider') AND ""IsActive"" = true")
-            .Select(u => new DoctorDto
+            .Select(u => new DoctorPatientDto
             {
                 Id = u.Id,
                 Name = $"{u.FirstName} {u.LastName}",

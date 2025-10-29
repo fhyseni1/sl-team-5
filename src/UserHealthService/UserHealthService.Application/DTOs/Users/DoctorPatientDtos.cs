@@ -1,7 +1,7 @@
 // UserHealthService.Application/DTOs/Users/DoctorPatientDtos.cs
 namespace UserHealthService.Application.DTOs.Users
 {
-    public class DoctorDto
+    public class DoctorPatientDto
     {
         public Guid Id { get; set; }
         public string Name { get; set; } = string.Empty;

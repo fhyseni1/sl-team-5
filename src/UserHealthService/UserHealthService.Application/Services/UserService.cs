@@ -244,7 +244,7 @@ namespace UserHealthService.Application.Services
             return await _userRepository.CountAsync(ct);
         }
 
-public async Task<List<DoctorDto>> GetDoctorsAsync()
+public async Task<List<DoctorPatientDto>> GetDoctorsAsync()
 {
     try
     {
@@ -259,7 +259,7 @@ public async Task<List<DoctorDto>> GetDoctorsAsync()
         var doctors = users.Where(u => 
             u.Type == Domain.Enums.UserType.HealthcareProvider && 
             u.IsActive
-        ).Select(u => new DoctorDto
+        ).Select(u => new DoctorPatientDto
         {
             Id = u.Id,
             Name = $"{u.FirstName} {u.LastName}",
