@@ -75,14 +75,14 @@ namespace UserHealthService.Application.Services
 
         public async Task<IEnumerable<NotificationResponseDto>> GetByCaregiverIdAsync(Guid caregiverId)
         {
-            var relationships = await _relationshipService.GetCaregiversByUserIdAsync(caregiverId);
+            // Get all relationships and filter for ones where caregiverId is the RelatedUserId (caregiver)
+            var allRelationships = await _relationshipService.GetAllAsync();
+            var relationships = allRelationships.Where(r => r.RelatedUserId == caregiverId && r.IsActive);
             
             var allNotifications = new List<NotificationResponseDto>();
             
             foreach (var relationship in relationships)
             {
-                if (!relationship.IsActive) continue;
-                
                 var patientNotifications = await _repository.GetByUserIdAsync(relationship.UserId);
                 var mappedNotifications = _mapper.Map<IEnumerable<NotificationResponseDto>>(patientNotifications);
                 allNotifications.AddRange(mappedNotifications);
