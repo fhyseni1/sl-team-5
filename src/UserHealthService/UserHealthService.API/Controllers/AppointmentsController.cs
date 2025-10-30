@@ -15,18 +15,21 @@ namespace UserHealthService.API.Controllers
         private readonly IAppointmentRepository _appointmentRepository;
         private readonly IUserService _userService;
         private readonly ILogger<AppointmentsController> _logger;
-         private readonly IAuthService _authService; 
+        private readonly IAuthService _authService; 
+          private readonly IPDFReportService _pdfReportService; 
         public AppointmentsController(
             IAppointmentService appointmentService,
             IAppointmentRepository appointmentRepository,
             IUserService userService,
-            IAuthService authService, 
+            IAuthService authService,
+  IPDFReportService pdfReportService, 
             ILogger<AppointmentsController> logger)
         {
             _appointmentService = appointmentService;
             _appointmentRepository = appointmentRepository;
             _userService = userService;
-              _authService = authService; 
+            _authService = authService; 
+              _pdfReportService = pdfReportService;
             _logger = logger;
         }
 
@@ -36,7 +39,45 @@ namespace UserHealthService.API.Controllers
             var appointments = await _appointmentService.GetAllAsync();
             return Ok(appointments);
         }
+        
+ [HttpGet("test-pdf")]
+        [AllowAnonymous] 
+        public async Task<IActionResult> TestPDF()
+        {
+            try
+            {
+              
+                var sampleReport = new AppointmentReportResponseDto
+                {
+                    Id = Guid.NewGuid(),
+                    AppointmentId = Guid.NewGuid(),
+                    UserId = Guid.NewGuid(),
+                    UserName = "Valza Mustafa",
+                    DoctorId = Guid.NewGuid(),
+                    DoctorName = "Dr. Valza",
+                    Specialty = "Cardiology",
+                    ReportDate = DateTime.UtcNow,
+                    Diagnosis = "Hypertension Stage 1",
+                    Symptoms = "Elevated blood pressure, occasional headaches, dizziness",
+                    Treatment = "Lifestyle modifications and medication management",
+                    Medications = "Lisinopril 10mg daily, Aspirin 81mg daily",
+                    Notes = "Patient advised to reduce sodium intake, exercise regularly (30 mins daily), and monitor blood pressure at home.",
+                    Recommendations = "Follow up in 3 months for blood pressure check. Return immediately if experiencing chest pain or severe headaches.",
+                    CreatedAt = DateTime.UtcNow.AddDays(-1),
+                    UpdatedAt = DateTime.UtcNow
+                };
 
+                var pdfBytes = await _pdfReportService.GenerateAppointmentReportPDFAsync(sampleReport);
+                var fileName = _pdfReportService.GetReportFileName(sampleReport);
+               
+                return File(pdfBytes, "application/pdf", fileName);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error generating test PDF");
+                return StatusCode(500, $"Error generating PDF: {ex.Message}");
+            }
+        }
         [HttpGet("{id}")]
         public async Task<ActionResult<AppointmentResponseDto>> GetById(Guid id)
         {
