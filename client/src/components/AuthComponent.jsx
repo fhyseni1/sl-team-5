@@ -79,7 +79,7 @@ const AuthComponent = () => {
         userData.type === "HealthcareProvider"
       ) {
         targetRoute = "/dashboard/doctor-dashboard";
-      } else if (userData.type === 6 || userData.type === "Assistant") {
+      } else if (userData.type === 7 || userData.type === "Assistant") {
         targetRoute = "/dashboard/assistant-dashboard";
       } else if (userData.type === 8 || userData.type === "ClinicAdmin") {
         targetRoute = "/dashboard/clinic-dashboard";

@@ -86,7 +86,7 @@ namespace UserHealthService.API.Controllers
                 };
                 _context.Doctors.Add(doctor);
                 await _context.SaveChangesAsync(ct);
-                SetAuthCookies(tokens);
+             
                 return Ok(new
                 {
                     id = user.Id,
@@ -152,7 +152,7 @@ namespace UserHealthService.API.Controllers
                 };
                 _context.Clinics.Add(clinic);
                 await _context.SaveChangesAsync(ct);
-                SetAuthCookies(tokens);
+                
                 return Ok(new
                 {
                     id = user.Id,
@@ -172,51 +172,112 @@ namespace UserHealthService.API.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
-
-        [HttpPost("register-assistant")]
-        [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> RegisterAssistant([FromBody] RegisterDto dto, CancellationToken ct)
+[HttpPost("register-clinic-assistant")]
+[Authorize(Roles = "ClinicAdmin")]
+public async Task<IActionResult> RegisterClinicAssistant([FromBody] RegisterDto dto, CancellationToken ct)
+{
+    try
+    {
+        var currentUser = await _authService.GetCurrentUserAsync();
+        
+        // Verify the clinic admin has a clinic
+        var clinic = await _context.Clinics.FirstOrDefaultAsync(c => c.AdminUserId == currentUser.Id, ct);
+        if (clinic == null)
         {
-            try
-            {
-                var currentUser = await _authService.GetCurrentUserAsync();
-                if (currentUser.Type != UserType.Admin)
-                {
-                    return Forbid("Only administrators can register assistants");
-                }
-                if (string.IsNullOrEmpty(dto.Password))
-                {
-                    return BadRequest(new { message = "Password is required" });
-                }
-                var registerDto = dto with
-                {
-                    Type = UserType.Assistant
-                };
-                var tokens = await _authService.RegisterAsync(registerDto, ct);
-                var user = await _userRepository.GetByEmailAsync(dto.Email);
-                if (user == null)
-                {
-                    return BadRequest(new { message = "Failed to create user" });
-                }
-                SetAuthCookies(tokens);
-                return Ok(new
-                {
-                    id = user.Id,
-                    email = user.Email,
-                    firstName = user.FirstName,
-                    lastName = user.LastName,
-                    type = user.Type.ToString(),
-                    phoneNumber = user.PhoneNumber,
-                    isActive = user.IsActive,
-                    fullName = $"{user.FirstName} {user.LastName}",
-                    tokens
-                });
-            }
-            catch (InvalidOperationException ex)
-            {
-                return BadRequest(new { message = ex.Message });
-            }
+            return BadRequest(new { message = "Clinic not found for this admin" });
         }
+
+        if (string.IsNullOrEmpty(dto.Password))
+        {
+            return BadRequest(new { message = "Password is required" });
+        }
+        
+        // Set type to Assistant automatically
+        var registerDto = dto with
+        {
+            Type = UserType.Assistant
+        };
+        
+        var tokens = await _authService.RegisterAsync(registerDto, ct);
+        var user = await _userRepository.GetByEmailAsync(dto.Email);
+        
+        if (user == null)
+        {
+            return BadRequest(new { message = "Failed to create user" });
+        }
+       
+        return Ok(new
+        {
+            id = user.Id,
+            email = user.Email,
+            firstName = user.FirstName,
+            lastName = user.LastName,
+            type = user.Type.ToString(),
+            phoneNumber = user.PhoneNumber,
+            isActive = user.IsActive,
+            fullName = $"{user.FirstName} {user.LastName}",
+            clinicId = clinic.Id,
+            tokens
+        });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return BadRequest(new { message = ex.Message });
+    }
+}
+       // In AuthController.cs - update the RegisterAssistant endpoint
+[HttpPost("register-assistant")]
+[Authorize(Roles = "Admin,ClinicAdmin")] // Add ClinicAdmin here
+public async Task<IActionResult> RegisterAssistant([FromBody] RegisterDto dto, CancellationToken ct)
+{
+    try
+    {
+        var currentUser = await _authService.GetCurrentUserAsync();
+        
+        // If ClinicAdmin, ensure they can only register assistants for their clinic
+        if (currentUser.Type == UserType.ClinicAdmin)
+        {
+            // You can add clinic-specific logic here if needed
+            // For now, just allow them to register assistants
+        }
+
+        if (string.IsNullOrEmpty(dto.Password))
+        {
+            return BadRequest(new { message = "Password is required" });
+        }
+        
+        var registerDto = dto with
+        {
+            Type = UserType.Assistant
+        };
+        
+        var tokens = await _authService.RegisterAsync(registerDto, ct);
+        var user = await _userRepository.GetByEmailAsync(dto.Email);
+        
+        if (user == null)
+        {
+            return BadRequest(new { message = "Failed to create user" });
+        }
+        
+       
+        return Ok(new
+        {
+            id = user.Id,
+            email = user.Email,
+            firstName = user.FirstName,
+            lastName = user.LastName,
+            type = user.Type.ToString(),
+            phoneNumber = user.PhoneNumber,
+            isActive = user.IsActive,
+            fullName = $"{user.FirstName} {user.LastName}",
+            tokens
+        });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return BadRequest(new { message = ex.Message });
+    }
+}
 
         private string GenerateRandomPassword()
         {
