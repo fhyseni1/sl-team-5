@@ -1,4 +1,4 @@
-﻿﻿using BCrypt.Net;
+﻿using BCrypt.Net;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -86,7 +86,7 @@ namespace UserHealthService.API.Controllers
                 };
                 _context.Doctors.Add(doctor);
                 await _context.SaveChangesAsync(ct);
-                SetAuthCookies(tokens);
+             
                 return Ok(new
                 {
                     id = user.Id,
@@ -152,7 +152,7 @@ namespace UserHealthService.API.Controllers
                 };
                 _context.Clinics.Add(clinic);
                 await _context.SaveChangesAsync(ct);
-                SetAuthCookies(tokens);
+                
                 return Ok(new
                 {
                     id = user.Id,
@@ -172,104 +172,32 @@ namespace UserHealthService.API.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
-
-        [HttpPost("register-clinic-assistant")]
-        [Authorize(Roles = "ClinicAdmin")]
-        public async Task<IActionResult> RegisterClinicAssistant([FromBody] RegisterDto dto, CancellationToken ct)
-        {
-            try
-            {
-                var currentUser = await _authService.GetCurrentUserAsync();
-                
-                // Verify the clinic admin has a clinic
-                var clinic = await _context.Clinics.FirstOrDefaultAsync(c => c.AdminUserId == currentUser.Id, ct);
-                if (clinic == null)
-                {
-                    return BadRequest(new { message = "Clinic not found for this admin" });
-                }
-
-                if (string.IsNullOrEmpty(dto.Password))
-                {
-                    return BadRequest(new { message = "Password is required" });
-                }
-                
-                // Set type to Assistant automatically
-                var registerDto = dto with
-                {
-                    Type = UserType.Assistant
-                };
-                
-                var tokens = await _authService.RegisterAsync(registerDto, ct);
-                var user = await _userRepository.GetByEmailAsync(dto.Email);
-                
-                if (user == null)
-                {
-                    return BadRequest(new { message = "Failed to create user" });
-                }
-                
-                SetAuthCookies(tokens);
-                return Ok(new
-                {
-                    id = user.Id,
-                    email = user.Email,
-                    firstName = user.FirstName,
-                    lastName = user.LastName,
-                    type = user.Type.ToString(),
-                    phoneNumber = user.PhoneNumber,
-                    isActive = user.IsActive,
-                    fullName = $"{user.FirstName} {user.LastName}",
-                    clinicId = clinic.Id,
-                    tokens
-                });
-            }
-            catch (InvalidOperationException ex)
-            {
-                return BadRequest(new { message = ex.Message });
-            }
-        }
-
-    [HttpPost("register-assistant")]
+[HttpPost("register-clinic-assistant")]
 [Authorize(Roles = "ClinicAdmin")]
-public async Task<IActionResult> RegisterAssistant([FromBody] RegisterDto dto, CancellationToken ct)
+public async Task<IActionResult> RegisterClinicAssistant([FromBody] RegisterDto dto, CancellationToken ct)
 {
     try
     {
         var currentUser = await _authService.GetCurrentUserAsync();
-    
-        if (currentUser.Type != UserType.ClinicAdmin)
-        {
-            return Forbid("Only clinic admins can register assistants");
-        }
-
+        
+        // Verify the clinic admin has a clinic
         var clinic = await _context.Clinics.FirstOrDefaultAsync(c => c.AdminUserId == currentUser.Id, ct);
         if (clinic == null)
         {
-            return BadRequest("Clinic admin does not have a clinic assigned");
-        }
-
-        var existingUser = await _userRepository.GetByEmailAsync(dto.Email);
-        if (existingUser != null)
-        {
-            return BadRequest(new { message = "User with this email already exists" });
+            return BadRequest(new { message = "Clinic not found for this admin" });
         }
 
         if (string.IsNullOrEmpty(dto.Password))
         {
             return BadRequest(new { message = "Password is required" });
         }
-
-        var registerDto = new RegisterDto(
-            Email: dto.Email,
-            Password: dto.Password,
-            FirstName: dto.FirstName,
-            LastName: dto.LastName,
-            PhoneNumber: dto.PhoneNumber,
-            Type: UserType.Assistant, 
-            Specialty: null,
-            ClinicName: null,
-            Address: null
-        );
-
+        
+        // Set type to Assistant automatically
+        var registerDto = dto with
+        {
+            Type = UserType.Assistant
+        };
+        
         var tokens = await _authService.RegisterAsync(registerDto, ct);
         var user = await _userRepository.GetByEmailAsync(dto.Email);
         
@@ -277,10 +205,7 @@ public async Task<IActionResult> RegisterAssistant([FromBody] RegisterDto dto, C
         {
             return BadRequest(new { message = "Failed to create user" });
         }
-
-        Console.WriteLine($"✅ ASSISTANT CREATED - ID: {user.Id}, Email: {user.Email}, Type: {user.Type}, IsActive: {user.IsActive}");
-
-        SetAuthCookies(tokens);
+       
         return Ok(new
         {
             id = user.Id,
@@ -299,14 +224,61 @@ public async Task<IActionResult> RegisterAssistant([FromBody] RegisterDto dto, C
     {
         return BadRequest(new { message = ex.Message });
     }
-    catch (Exception ex)
+}
+       // In AuthController.cs - update the RegisterAssistant endpoint
+[HttpPost("register-assistant")]
+[Authorize(Roles = "Admin,ClinicAdmin")] // Add ClinicAdmin here
+public async Task<IActionResult> RegisterAssistant([FromBody] RegisterDto dto, CancellationToken ct)
+{
+    try
     {
-     
-        Console.WriteLine($"❌ ERROR REGISTERING ASSISTANT: {ex.Message}");
-        Console.WriteLine($"❌ STACK TRACE: {ex.StackTrace}");
-        return StatusCode(500, new { message = "An error occurred while registering the assistant" });
+        var currentUser = await _authService.GetCurrentUserAsync();
+        
+        // If ClinicAdmin, ensure they can only register assistants for their clinic
+        if (currentUser.Type == UserType.ClinicAdmin)
+        {
+            // You can add clinic-specific logic here if needed
+            // For now, just allow them to register assistants
+        }
+
+        if (string.IsNullOrEmpty(dto.Password))
+        {
+            return BadRequest(new { message = "Password is required" });
+        }
+        
+        var registerDto = dto with
+        {
+            Type = UserType.Assistant
+        };
+        
+        var tokens = await _authService.RegisterAsync(registerDto, ct);
+        var user = await _userRepository.GetByEmailAsync(dto.Email);
+        
+        if (user == null)
+        {
+            return BadRequest(new { message = "Failed to create user" });
+        }
+        
+       
+        return Ok(new
+        {
+            id = user.Id,
+            email = user.Email,
+            firstName = user.FirstName,
+            lastName = user.LastName,
+            type = user.Type.ToString(),
+            phoneNumber = user.PhoneNumber,
+            isActive = user.IsActive,
+            fullName = $"{user.FirstName} {user.LastName}",
+            tokens
+        });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return BadRequest(new { message = ex.Message });
     }
 }
+
         private string GenerateRandomPassword()
         {
             const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";
@@ -347,48 +319,33 @@ public async Task<IActionResult> RegisterAssistant([FromBody] RegisterDto dto, C
         }
 
         [HttpPost("login")]
-public async Task<IActionResult> Login([FromBody] LoginDto dto, CancellationToken ct)
-{
-    try
-    {
-        var user = await _userRepository.GetByEmailAsync(dto.Email);
-   
-        if (user == null || !BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash))
+        public async Task<IActionResult> Login([FromBody] LoginDto dto, CancellationToken ct)
         {
-            return Unauthorized(new { message = "Invalid credentials" });
+            try
+            {
+                var user = await _userRepository.GetByEmailAsync(dto.Email);
+                if (user == null || !BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash))
+                    return Unauthorized(new { message = "Invalid credentials" });
+                var tokens = await _authService.LoginAsync(dto, ct);
+                SetAuthCookies(tokens);
+                return Ok(new
+                {
+                    id = user.Id,
+                    email = user.Email,
+                    firstName = user.FirstName,
+                    lastName = user.LastName,
+                    type = user.Type.ToString(),
+                    phoneNumber = user.PhoneNumber,
+                    isActive = user.IsActive,
+                    fullName = $"{user.FirstName} {user.LastName}",
+                    tokens
+                });
+            }
+            catch
+            {
+                return Unauthorized(new { message = "Invalid credentials" });
+            }
         }
-
-        if (!user.IsActive)
-        {
-            return Unauthorized(new { message = "Account is deactivated" });
-        }
-
-        Console.WriteLine($"🟡 LOGIN ATTEMPT - Email: {dto.Email}, Type: {user.Type}, IsActive: {user.IsActive}");
-
-        var tokens = await _authService.LoginAsync(dto, ct);
-    
-        SetAuthCookies(tokens);
-
-        return Ok(new
-        {
-            id = user.Id,
-            email = user.Email,
-            firstName = user.FirstName,
-            lastName = user.LastName,
-            type = (int)user.Type, 
-            typeName = user.Type.ToString(),
-            phoneNumber = user.PhoneNumber,
-            isActive = user.IsActive,
-            fullName = $"{user.FirstName} {user.LastName}",
-            tokens
-        });
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"❌ LOGIN ERROR: {ex.Message}");
-        return Unauthorized(new { message = "Invalid credentials" });
-    }
-}
 
         [AllowAnonymous]
         [HttpPost("refresh-token")]
@@ -500,15 +457,15 @@ public async Task<IActionResult> Login([FromBody] LoginDto dto, CancellationToke
             var accessCookieOptions = new CookieOptions
             {
                 HttpOnly = true,
-                Secure = false, 
-                SameSite = SameSiteMode.Lax, 
+                Secure = false, // Development only
+                SameSite = SameSiteMode.Lax, // Changed from None to Lax
                 Expires = DateTime.UtcNow.AddMinutes(15)
             };
             var refreshCookieOptions = new CookieOptions
             {
                 HttpOnly = true,
-                Secure = false, 
-                SameSite = SameSiteMode.Lax, 
+                Secure = false, // Development only
+                SameSite = SameSiteMode.Lax, // Changed from None to Lax
                 Expires = DateTime.UtcNow.AddDays(7)
             };
             Console.WriteLine($"Setting access_token: {tokens.AccessToken.Substring(0, 20)}...");
