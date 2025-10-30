@@ -45,6 +45,8 @@ builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IChatRepository, ChatRepository>();
 builder.Services.AddScoped<IClinicRepository, ClinicRepository>();
 builder.Services.AddScoped<IPDFReportService, PDFReportService>();
+builder.Services.AddScoped<IAppointmentReportRepository, AppointmentReportRepository>();
+builder.Services.AddScoped<IAppointmentReportService, AppointmentReportService>();
 builder.Services.AddAutoMapper(
     typeof(UserHealthService.Application.Mappings.UserProfile), 
     typeof(AllergyProfile),
