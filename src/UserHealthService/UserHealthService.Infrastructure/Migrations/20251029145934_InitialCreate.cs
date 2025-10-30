@@ -1,6 +1,5 @@
 ﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
-using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
@@ -13,16 +12,32 @@ namespace UserHealthService.Infrastructure.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
+                name: "Clinics",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    ClinicName = table.Column<string>(type: "text", nullable: false),
+                    PhoneNumber = table.Column<string>(type: "text", nullable: true),
+                    Address = table.Column<string>(type: "text", nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    IsActive = table.Column<bool>(type: "boolean", nullable: false),
+                    AdminUserId = table.Column<Guid>(type: "uuid", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Clinics", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Doctors",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    Name = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
-                    Specialty = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
-                    ClinicName = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
-                    Address = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
-                    PhoneNumber = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: true),
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    Name = table.Column<string>(type: "text", nullable: false),
+                    Specialty = table.Column<string>(type: "text", nullable: false),
+                    ClinicName = table.Column<string>(type: "text", nullable: true),
+                    ClinicId = table.Column<Guid>(type: "uuid", nullable: true),
+                    PhoneNumber = table.Column<string>(type: "text", nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     IsActive = table.Column<bool>(type: "boolean", nullable: false)
                 },
@@ -98,6 +113,7 @@ namespace UserHealthService.Infrastructure.Migrations
                     Notes = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
                     PhoneNumber = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: true),
                     ReminderSent = table.Column<bool>(type: "boolean", nullable: false),
+                    RejectionReason = table.Column<string>(type: "text", nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
@@ -145,6 +161,33 @@ namespace UserHealthService.Infrastructure.Migrations
                         principalTable: "chatmessages",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "DoctorAssistants",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    DoctorId = table.Column<Guid>(type: "uuid", nullable: false),
+                    AssistantId = table.Column<Guid>(type: "uuid", nullable: false),
+                    IsActive = table.Column<bool>(type: "boolean", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_DoctorAssistants", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_DoctorAssistants_Users_AssistantId",
+                        column: x => x.AssistantId,
+                        principalTable: "Users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_DoctorAssistants_Users_DoctorId",
+                        column: x => x.DoctorId,
+                        principalTable: "Users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -344,6 +387,16 @@ namespace UserHealthService.Infrastructure.Migrations
                 column: "senderid");
 
             migrationBuilder.CreateIndex(
+                name: "IX_DoctorAssistants_AssistantId",
+                table: "DoctorAssistants",
+                column: "AssistantId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_DoctorAssistants_DoctorId",
+                table: "DoctorAssistants",
+                column: "DoctorId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_HealthMetrics_UserId",
                 table: "HealthMetrics",
                 column: "UserId");
@@ -392,6 +445,12 @@ namespace UserHealthService.Infrastructure.Migrations
 
             migrationBuilder.DropTable(
                 name: "chatmessages");
+
+            migrationBuilder.DropTable(
+                name: "Clinics");
+
+            migrationBuilder.DropTable(
+                name: "DoctorAssistants");
 
             migrationBuilder.DropTable(
                 name: "Doctors");
