@@ -190,7 +190,15 @@ public async Task<List<Appointment>> GetPendingAppointmentsForAssistantAsync(Gui
         throw;
     }
 }
-
+public async Task<IEnumerable<Appointment>> GetByDoctorIdAsync(Guid doctorId)
+{
+    return await _context.Appointments
+        .Include(a => a.User)
+        .Where(a => a.DoctorId == doctorId && a.Status == AppointmentStatus.Approved) 
+        .OrderByDescending(a => a.AppointmentDate)
+        .ThenBy(a => a.StartTime)
+        .ToListAsync();
+}
 public async Task<List<Appointment>> GetApprovedAppointmentsForAssistantAsync(Guid assistantId)
 {
     try
@@ -236,20 +244,21 @@ public async Task<List<Appointment>> GetRejectedAppointmentsAsync()
         .ToListAsync();
 }
 
-public async Task<List<Appointment>> GetApprovedAppointmentsAsync()
-{
-    return await _context.Appointments
-        .Include(a => a.User)
-        .Where(a => a.Status == AppointmentStatus.Approved)
-        .OrderByDescending(a => a.AppointmentDate)
-        .ThenBy(a => a.StartTime)
-        .ToListAsync();
-}
+        public async Task<List<Appointment>> GetApprovedAppointmentsAsync()
+        {
+            return await _context.Appointments
+                .Include(a => a.User)
+                .Where(a => a.Status == AppointmentStatus.Approved)
+                .OrderByDescending(a => a.AppointmentDate)
+                .ThenBy(a => a.StartTime)
+                .ToListAsync();
+        } 
+        
         public async Task<bool> AssistantApproveAsync(Guid id, Guid assistantId)
         {
             try
             {
-                
+
                 var appointment = await _context.Appointments
                     .FirstOrDefaultAsync(a => a.Id == id && a.Status == AppointmentStatus.Pending);
 
@@ -291,6 +300,26 @@ public async Task<List<Appointment>> GetApprovedAppointmentsAsync()
                 return false;
             }
         }
+        public async Task<bool> CanAssistantAccessAppointmentAsync(Guid assistantId, Guid appointmentId)
+{
+    var appointment = await _context.Appointments
+        .Include(a => a.User)
+        .FirstOrDefaultAsync(a => a.Id == appointmentId);
+
+    if (appointment == null) return false;
+
+    var doctor = await _context.Doctors
+        .FirstOrDefaultAsync(d => d.Name.Contains(appointment.DoctorName));
+
+    if (doctor == null) return false;
+
+    var assignment = await _context.DoctorAssistants
+        .FirstOrDefaultAsync(da => da.AssistantId == assistantId && 
+                                  da.DoctorId == doctor.Id && 
+                                  da.IsActive);
+
+    return assignment != null;
+}
 public async Task<bool> AssistantRejectAsync(Guid id, Guid assistantId, string rejectionReason)
 {
     try

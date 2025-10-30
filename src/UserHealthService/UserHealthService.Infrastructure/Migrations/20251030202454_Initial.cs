@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace UserHealthService.Infrastructure.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialCreate : Migration
+    public partial class Initial : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -37,6 +37,7 @@ namespace UserHealthService.Infrastructure.Migrations
                     Specialty = table.Column<string>(type: "text", nullable: false),
                     ClinicName = table.Column<string>(type: "text", nullable: true),
                     ClinicId = table.Column<Guid>(type: "uuid", nullable: true),
+                    Email = table.Column<string>(type: "text", nullable: true),
                     PhoneNumber = table.Column<string>(type: "text", nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     IsActive = table.Column<bool>(type: "boolean", nullable: false)
@@ -101,6 +102,7 @@ namespace UserHealthService.Infrastructure.Migrations
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     UserId = table.Column<Guid>(type: "uuid", nullable: false),
+                    DoctorId = table.Column<Guid>(type: "uuid", nullable: false),
                     DoctorName = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
                     Specialty = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
                     ClinicName = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
@@ -361,9 +363,65 @@ namespace UserHealthService.Infrastructure.Migrations
                         onDelete: ReferentialAction.Restrict);
                 });
 
+            migrationBuilder.CreateTable(
+                name: "AppointmentReports",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    AppointmentId = table.Column<Guid>(type: "uuid", nullable: false),
+                    UserId = table.Column<Guid>(type: "uuid", nullable: false),
+                    DoctorId = table.Column<Guid>(type: "uuid", nullable: false),
+                    ReportDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    Diagnosis = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: false),
+                    Symptoms = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: false),
+                    Treatment = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: false),
+                    Medications = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: false),
+                    Notes = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: false),
+                    Recommendations = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_AppointmentReports", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_AppointmentReports_Appointments_AppointmentId",
+                        column: x => x.AppointmentId,
+                        principalTable: "Appointments",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_AppointmentReports_Doctors_DoctorId",
+                        column: x => x.DoctorId,
+                        principalTable: "Doctors",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_AppointmentReports_Users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "Users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
             migrationBuilder.CreateIndex(
                 name: "IX_Allergies_UserId",
                 table: "Allergies",
+                column: "UserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AppointmentReports_AppointmentId",
+                table: "AppointmentReports",
+                column: "AppointmentId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AppointmentReports_DoctorId",
+                table: "AppointmentReports",
+                column: "DoctorId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AppointmentReports_UserId",
+                table: "AppointmentReports",
                 column: "UserId");
 
             migrationBuilder.CreateIndex(
@@ -441,7 +499,7 @@ namespace UserHealthService.Infrastructure.Migrations
                 name: "Allergies");
 
             migrationBuilder.DropTable(
-                name: "Appointments");
+                name: "AppointmentReports");
 
             migrationBuilder.DropTable(
                 name: "chatmessages");
@@ -451,9 +509,6 @@ namespace UserHealthService.Infrastructure.Migrations
 
             migrationBuilder.DropTable(
                 name: "DoctorAssistants");
-
-            migrationBuilder.DropTable(
-                name: "Doctors");
 
             migrationBuilder.DropTable(
                 name: "HealthMetrics");
@@ -472,6 +527,12 @@ namespace UserHealthService.Infrastructure.Migrations
 
             migrationBuilder.DropTable(
                 name: "UserRelationships");
+
+            migrationBuilder.DropTable(
+                name: "Appointments");
+
+            migrationBuilder.DropTable(
+                name: "Doctors");
 
             migrationBuilder.DropTable(
                 name: "Users");

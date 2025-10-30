@@ -93,7 +93,11 @@ namespace UserHealthService.Application.Services
             await _appointmentRepository.UpdateAsync(appointment);
             return true;
         }
-
+        public async Task<IEnumerable<AppointmentResponseDto>> GetByDoctorIdAsync(Guid doctorId)
+{
+    var appointments = await _appointmentRepository.GetByDoctorIdAsync(doctorId);
+    return _mapper.Map<IEnumerable<AppointmentResponseDto>>(appointments);
+}
         public async Task<bool> DeleteAsync(Guid id)
         {
             return await _appointmentRepository.DeleteAsync(id);

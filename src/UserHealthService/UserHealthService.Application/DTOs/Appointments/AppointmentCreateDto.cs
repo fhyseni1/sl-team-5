@@ -4,6 +4,7 @@ namespace UserHealthService.Application.DTOs.Appointments
     public class AppointmentCreateDto
     {
         public Guid UserId { get; set; }
+        public Guid DoctorId { get; set; } 
         public string DoctorName { get; set; } = string.Empty;
         public string Specialty { get; set; } = string.Empty;
         public string? ClinicName { get; set; }
