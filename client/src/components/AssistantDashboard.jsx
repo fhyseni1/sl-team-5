@@ -32,31 +32,49 @@ const AssistantDashboard = () => {
   const itemsPerPage = 5;
   const router = useRouter();
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const userData = await authService.getMe();
-        
-        const isAssistant = userData.type === 7; // Assistant
-        if (!isAssistant) {
-          toast.error("Access denied. Assistant privileges required.");
-          router.push("/dashboard/dashboard");
-          return;
-        }
 
-        setUser(userData);
-        await loadAssistantData(userData.id);
-      } catch (err) {
-        console.error("Assistant dashboard error:", err);
-        if (err.response?.status === 401) router.push("/login");
-      } finally {
-        setLoading(false);
+useEffect(() => {
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const userData = await authService.getMe();
+      
+      const isAssistant = userData.type === 7; // Assistant
+      if (!isAssistant) {
+        toast.error("Access denied. Assistant privileges required.");
+        router.push("/dashboard/dashboard");
+        return;
       }
-    };
 
-    fetchData();
-  }, [router]);
+      setUser(userData);
+      await loadAssistantData(userData.id);
+    } catch (err) {
+      console.error("Assistant dashboard error:", err);
+      
+      // More specific error handling
+      if (err.response?.status === 401) {
+        console.log("🔄 Token expired, attempting refresh...");
+        try {
+          // Try to refresh token once
+          await authService.refreshToken();
+          // Retry getting user data
+          const userData = await authService.getMe();
+          setUser(userData);
+          await loadAssistantData(userData.id);
+        } catch (refreshError) {
+          console.error("❌ Refresh failed, redirecting to login");
+          router.push("/login");
+        }
+      } else {
+        toast.error("Failed to load dashboard data");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchData();
+}, [router]);
 
 const loadAssistantData = async (assistantId) => {
   try {

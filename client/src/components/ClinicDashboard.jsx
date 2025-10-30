@@ -11,6 +11,7 @@ import {
   Loader2,
   Plus,
   X,
+  UserCheck,
   Check,
   Search,
   Trash,
@@ -38,10 +39,26 @@ const ClinicDashboard = () => {
     specialty: "",
     phoneNumber: "",
   });
+  const [assistantRefresh, setAssistantRefresh] = useState(0);
+  const [showAddAssistantForm, setShowAddAssistantForm] = useState(false);
+const [showAssignAssistantModal, setShowAssignAssistantModal] = useState(false);
+const [assistantForm, setAssistantForm] = useState({
+  firstName: "",
+  lastName: "",
+  email: "",
+  password: "",
+  phoneNumber: "",
+});
+const [assignForm, setAssignForm] = useState({
+  doctorId: "",
+  assistantId: "",
+});
+const [assistants, setAssistants] = useState([]);
+const [assistantPage, setAssistantPage] = useState(1);
   const [doctorPage, setDoctorPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState({ id: null, name: "" });
+  const [deleteTarget, setDeleteTarget] = useState({ id: null, name: "",type: "" });
   const itemsPerPage = 5;
   const router = useRouter();
 
@@ -112,6 +129,69 @@ const ClinicDashboard = () => {
     fetchDoctors();
   }, [clinic]);
 
+useEffect(() => {
+  const fetchAssistants = async () => {
+    try {
+      console.log("🟡 Fetching assistants...");
+  
+      const allUsersRes = await api.get("/users");
+      const allUsers = allUsersRes.data || [];
+   
+      const assistantsList = allUsers.filter(user => 
+        user.type === 7 || user.type === 'Assistant' // 7 = Assistant type
+      );
+      
+      console.log(`✅ Found ${assistantsList.length} assistants`);
+      setAssistants(assistantsList);
+      
+    } catch (err) {
+      console.error("❌ Error fetching assistants:", err);
+   
+      setAssistants([]);
+    }
+  };
+  
+  fetchAssistants();
+}, [assistantRefresh]);
+useEffect(() => {
+  const fetchDoctorsWithUserIds = async () => {
+    if (clinic?.id) {
+      try {
+        // Get doctors from your clinic
+        const doctorsRes = await api.get(`/doctors/clinic/${clinic.id}`);
+        const clinicDoctors = doctorsRes.data || [];
+        
+        // Get all users to find the corresponding user IDs for doctors
+        const usersRes = await api.get("/users");
+        const allUsers = usersRes.data || [];
+        
+        // Map doctors to include their user ID
+        const doctorsWithUserIds = clinicDoctors.map(doctor => {
+          // Find the user that corresponds to this doctor
+          // This assumes doctors have users with matching names or emails
+          const doctorUser = allUsers.find(user => 
+            user.type === 4 && // HealthcareProvider type
+            (
+              user.email.toLowerCase().includes(doctor.name.toLowerCase().replace(' ', '.')) ||
+              `${user.firstName} ${user.lastName}`.toLowerCase() === doctor.name.toLowerCase()
+            )
+          );
+          
+          return {
+            ...doctor,
+            userId: doctorUser?.id // This is what we need for assignment
+          };
+        });
+        
+        setDoctors(doctorsWithUserIds);
+      } catch (err) {
+        console.error("Error fetching doctors with user data:", err);
+      }
+    }
+  };
+  
+  fetchDoctorsWithUserIds();
+}, [clinic]);
   const handleLogout = async () => {
     await authService.logout();
     router.push("/");
@@ -178,33 +258,125 @@ const ClinicDashboard = () => {
 
   const handleConfirmDelete = async () => {
     try {
-      await api.delete(`/doctors/${deleteTarget.id}`);
-      try {
+      if (deleteTarget.type === 'assistant') {
+      
         await api.delete(`/users/${deleteTarget.id}`);
-      } catch (userDeleteErr) {
-        console.warn(
-          "User delete failed, continuing with doctor deletion:",
-          userDeleteErr
-        );
+        setAssistants(prev => prev.filter(a => a.id !== deleteTarget.id));
+        toast.success("Assistant deleted successfully!");
+      } else {
+       
+        await api.delete(`/doctors/${deleteTarget.id}`);
+        try {
+          await api.delete(`/users/${deleteTarget.id}`);
+        } catch (userDeleteErr) {
+          console.warn(
+            "User delete failed, continuing with doctor deletion:",
+            userDeleteErr
+          );
+        }
+        setDoctors(prev => prev.filter(d => d.id !== deleteTarget.id));
+        toast.success("Doctor deleted successfully!");
       }
-      setDoctors((prev) => prev.filter((d) => d.id !== deleteTarget.id));
-      toast.success("Doctor deleted successfully!");
       setShowDeleteModal(false);
     } catch (err) {
-      console.error("Error deleting doctor:", err.response?.data || err);
-      toast.error(err.response?.data?.message || "Failed to delete doctor");
+      console.error("Error deleting:", err.response?.data || err);
+      if (err.response?.status === 403) {
+        toast.error("Permission denied: You can only delete assistants");
+      } else {
+        toast.error(err.response?.data?.message || "Failed to delete");
+      }
     }
   };
 
-  const handleInputChange = (e, setter) => {
-    const { name, value } = e.target;
-    setter((prev) => ({ ...prev, [name]: value }));
-  };
+const handleDeleteAssistant = async (assistant) => {
+  setDeleteTarget({
+    id: assistant.id,
+    name: `${assistant.firstName} ${assistant.lastName}`,
+    type: 'assistant' 
+  });
+  setShowDeleteModal(true);
+};
+
+
 
   const filteredDoctors = doctors.filter((d) =>
     d.name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+const handleAddAssistantSubmit = async (e) => {
+  e.preventDefault();
+  try {
+    console.log("🟡 === STARTING ASSISTANT REGISTRATION ===");
+    
+    const payload = {
+      email: assistantForm.email,
+      password: assistantForm.password,
+      firstName: assistantForm.firstName,
+      lastName: assistantForm.lastName,
+      phoneNumber: assistantForm.phoneNumber || "",
+    };
 
+    console.log("🟡 Sending to /auth/register-assistant:", payload);
+  
+    const response = await api.post("/auth/register-assistant", payload);
+    
+    console.log("✅ Assistant registered:", response.data);
+
+    setShowAddAssistantForm(false);
+    setAssistantForm({
+      firstName: "", lastName: "", email: "", password: "", phoneNumber: ""
+    });
+    
+    setAssistantRefresh(prev => prev + 1);
+    toast.success("Assistant created successfully!");
+    
+  } catch (err) {
+    console.error("❌ Error:", err.response?.data || err);
+    toast.error(err.response?.data?.message || "Failed to create assistant");
+  }
+};
+const handleAssignAssistant = async (e) => {
+  e.preventDefault();
+  try {
+    console.log("🟡 ===== STARTING ASSISTANT ASSIGNMENT =====");
+    
+    const selectedDoctor = doctors.find(d => d.id === assignForm.doctorId);
+    
+    if (!selectedDoctor || !selectedDoctor.userId) {
+      toast.error("Doctor user information not found. Please make sure the doctor has a corresponding user account.");
+      return;
+    }
+
+    const payload = {
+      doctorId: selectedDoctor.userId,
+      assistantId: assignForm.assistantId
+    };
+
+    console.log("🟡 Sending payload with User ID:", payload);
+    
+    const response = await api.post("/users/assign-assistant", payload);
+    
+    console.log("✅ SUCCESS - Assistant assigned:", response.data);
+    
+    setShowAssignAssistantModal(false);
+    setAssignForm({ doctorId: "", assistantId: "" });
+    toast.success("Assistant assigned to doctor successfully!");
+    
+  } catch (err) {
+    console.error("❌ Error:", err.response?.data);
+    
+    if (err.response?.status === 400) {
+      const errorMsg = err.response?.data?.message || "Invalid data";
+      toast.error(`Assignment failed: ${errorMsg}`);
+    } else {
+      toast.error(err.response?.data?.message || "Failed to assign assistant");
+    }
+  }
+};
+
+const handleInputChange = (e, setter) => {
+  const { name, value } = e.target;
+  setter((prev) => ({ ...prev, [name]: value }));
+};
   if (loading)
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -547,6 +719,229 @@ const ClinicDashboard = () => {
           </div>
         </div>
       )}
+     
+
+      {/* Assistants Section - NOW PROPERLY INSIDE MAIN */}
+        <div className="bg-slate-800/50 backdrop-blur-xl rounded-3xl border border-slate-700/50 p-8 mb-8">
+          <div className="flex items-center justify-between mb-8">
+            <h2 className="text-3xl font-bold text-white flex items-center gap-3">
+              <UserCheck className="w-8 h-8 text-purple-400" />
+              Registered Assistants ({assistants.length})
+            </h2>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowAssignAssistantModal(true)}
+                className="bg-gradient-to-r from-orange-600 to-amber-600 text-white px-6 py-3 rounded-xl font-bold hover:shadow-orange-500/50 transition-all"
+              >
+                Assign Assistant
+              </button>
+ <button
+  onClick={() => setShowAddAssistantForm(true)}
+  className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-3 rounded-xl font-bold hover:shadow-purple-500/50 transition-all"
+>
+  + Add Assistant
+</button>
+            </div>
+          </div>
+          
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+  <thead>
+    <tr className="border-b border-slate-700/50">
+      <th className="py-4 px-6 font-semibold text-slate-300">Name</th>
+      <th className="py-4 px-6 font-semibold text-slate-300">Email</th>
+      <th className="py-4 px-6 font-semibold text-slate-300">Phone</th>
+      <th className="py-4 px-6 font-semibold text-slate-300">Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {paginate(assistants, assistantPage).map((assistant) => (
+      <tr key={assistant.id} className="border-b border-slate-700/30 hover:bg-slate-700/30">
+        <td className="py-4 px-6 font-medium text-white">
+          {assistant.firstName} {assistant.lastName}
+        </td>
+        <td className="py-4 px-6 text-slate-300">{assistant.email}</td>
+        <td className="py-4 px-6 text-slate-300">{assistant.phoneNumber}</td>
+        <td className="py-4 px-6">
+          <button
+            onClick={() => handleDeleteAssistant(assistant)}
+            className="p-2 bg-red-500/20 hover:bg-red-500/40 text-red-400 rounded-lg transition-all"
+            title="Delete Assistant"
+          >
+            <Trash className="w-5 h-5" />
+          </button>
+        </td>
+      </tr>
+    ))}
+    {assistants.length === 0 && (
+      <tr>
+        <td colSpan={4} className="py-12 text-center text-slate-400"> 
+          No assistants registered yet
+        </td>
+      </tr>
+    )}
+  </tbody>
+</table>
+            
+            {assistants.length > itemsPerPage && (
+              <div className="flex justify-center items-center mt-4 space-x-4">
+                <button
+                  onClick={() => setAssistantPage((p) => Math.max(p - 1, 1))}
+                  className="px-4 py-2 bg-slate-700/50 rounded-lg text-white disabled:opacity-50"
+                  disabled={assistantPage === 1}
+                >
+                  Prev
+                </button>
+                <span className="text-slate-300">
+                  Page {assistantPage} of {Math.ceil(assistants.length / itemsPerPage)}
+                </span>
+                <button
+                  onClick={() => setAssistantPage((p) => p < Math.ceil(assistants.length / itemsPerPage) ? p + 1 : p)}
+                  className="px-4 py-2 bg-slate-700/50 rounded-lg text-white disabled:opacity-50"
+                  disabled={assistantPage === Math.ceil(assistants.length / itemsPerPage)}
+                >
+                  Next
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+{/* Add Assistant Modal */}
+{showAddAssistantForm && (
+  <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div className="bg-slate-800/95 backdrop-blur-xl rounded-3xl max-w-md w-full p-8 border border-slate-700/50">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-bold text-white">Add Assistant</h2>
+        <button
+          onClick={() => setShowAddAssistantForm(false)}
+          className="p-2 hover:bg-slate-700 rounded-xl"
+        >
+          <X className="w-6 h-6" />
+        </button>
+      </div>
+      
+      <form onSubmit={handleAddAssistantSubmit} className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <input
+            name="firstName"
+            placeholder="First Name *"
+            value={assistantForm.firstName}
+            onChange={(e) => handleInputChange(e, setAssistantForm)}
+            className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
+            required
+          />
+          <input
+            name="lastName"
+            placeholder="Last Name *"
+            value={assistantForm.lastName}
+            onChange={(e) => handleInputChange(e, setAssistantForm)}
+            className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
+            required
+          />
+        </div>
+        <input
+          name="email"
+          type="email"
+          placeholder="Email *"
+          value={assistantForm.email}
+          onChange={(e) => handleInputChange(e, setAssistantForm)}
+          className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
+          required
+        />
+        <input
+          name="password"
+          type="password"
+          placeholder="Password *"
+          value={assistantForm.password}
+          onChange={(e) => handleInputChange(e, setAssistantForm)}
+          className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
+          required
+          minLength="6"
+        />
+        <input
+          name="phoneNumber"
+          placeholder="Phone Number (optional)"
+          value={assistantForm.phoneNumber}
+          onChange={(e) => handleInputChange(e, setAssistantForm)}
+          className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
+        />
+        <button
+          type="submit"
+          className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-4 rounded-xl font-bold hover:shadow-purple-500/50 transition-all"
+        >
+          Add Assistant
+        </button>
+      </form>
+    </div>
+  </div>
+)}
+
+{/* Assign Assistant Modal */}
+{showAssignAssistantModal && (
+  <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div className="bg-slate-800/95 backdrop-blur-xl rounded-3xl max-w-md w-full p-8 border border-slate-700/50">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-bold text-white">
+          Assign Assistant to Doctor
+        </h2>
+        <button
+          onClick={() => setShowAssignAssistantModal(false)}
+          className="p-2 hover:bg-slate-700 rounded-xl"
+        >
+          <X className="w-6 h-6" />
+        </button>
+      </div>
+      <form onSubmit={handleAssignAssistant} className="space-y-4">
+       {/* In the assign assistant modal */}
+<select
+  name="doctorId"
+  value={assignForm.doctorId}
+  onChange={(e) => handleInputChange(e, setAssignForm)}
+  className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
+  required
+>
+  <option value="">Select Doctor *</option>
+  {Array.isArray(doctors) &&
+    doctors.map((doctor) => (
+      <option 
+        key={doctor.id} 
+        value={doctor.id}
+        disabled={!doctor.userId} 
+      >
+        Dr. {doctor.name} {doctor.userId ? "" : "(No User Account)"}
+      </option>
+    ))}
+</select>
+        <select
+          name="assistantId"
+          value={assignForm.assistantId}
+          onChange={(e) => handleInputChange(e, setAssignForm)}
+          className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
+          required
+        >
+          <option value="">Select Assistant *</option>
+          {Array.isArray(assistants) && assistants.length > 0 ? (
+            assistants.map((assistant) => (
+              <option key={assistant.id} value={assistant.id}>
+                {assistant.firstName} {assistant.lastName} ({assistant.email})
+              </option>
+            ))
+          ) : (
+            <option value="" disabled>
+              No assistants available
+            </option>
+          )}
+        </select>
+        <button
+          type="submit"
+          className="w-full bg-gradient-to-r from-orange-600 to-amber-600 text-white py-4 rounded-xl font-bold hover:shadow-orange-500/50 transition-all"
+        >
+          Assign Assistant
+        </button>
+      </form>
+    </div>
+  </div>
+)}
       {showDeleteModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-800/95 backdrop-blur-xl rounded-3xl max-w-md w-full p-8 border border-slate-700/50">
@@ -558,8 +953,13 @@ const ClinicDashboard = () => {
                 Confirm Deletion
               </h2>
               <p className="text-slate-300 text-center">
-                Are you sure you want to delete {deleteTarget.name}? This action
-                cannot be undone.
+                Are you sure you want to delete <strong>{deleteTarget.name}</strong>? 
+                <br />
+                {deleteTarget.type === 'assistant' 
+                  ? 'This assistant will be permanently removed from the system.' 
+                  : 'This doctor will be permanently removed from the system.'}
+                <br />
+                This action cannot be undone.
               </p>
               <div className="flex gap-4 w-full">
                 <button
@@ -572,7 +972,7 @@ const ClinicDashboard = () => {
                   onClick={handleConfirmDelete}
                   className="flex-1 py-3 px-4 bg-red-600 hover:bg-red-700 text-white rounded-xl transition-all"
                 >
-                  Delete
+                  Delete {deleteTarget.type === 'assistant' ? 'Assistant' : 'Doctor'}
                 </button>
               </div>
             </div>

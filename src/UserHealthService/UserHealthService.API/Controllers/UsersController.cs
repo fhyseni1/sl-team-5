@@ -19,19 +19,22 @@ namespace UserHealthService.API.Controllers
     {
         private readonly IUserService _userService;
         private readonly IUserRepository _userRepository;
-        private readonly UserHealthDbContext _context; 
+        private readonly UserHealthDbContext _context;
         private readonly ILogger<UsersController> _logger;
+        private readonly IAuthService _authService;
 
         public UsersController(
             IUserService userService,
             IUserRepository userRepository, 
             UserHealthDbContext context, 
-            ILogger<UsersController> logger)
+            ILogger<UsersController> logger, 
+            IAuthService authService)
         {
             _userService = userService;
             _userRepository = userRepository; 
-            _context = context; 
+            _context = context;
             _logger = logger;
+            _authService = authService;
         }
 
         [HttpGet]
@@ -129,22 +132,88 @@ namespace UserHealthService.API.Controllers
         }
 
         [HttpPost("assign-assistant")]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "ClinicAdmin")] 
         public async Task<IActionResult> AssignAssistantToDoctor([FromBody] AssignAssistantDto dto)
         {
             try
             {
-         
-                var doctor = await _userRepository.GetByIdAsync(dto.DoctorId);
-                if (doctor == null || doctor.Type != UserType.HealthcareProvider)
+                Console.WriteLine($"🟡 === STARTING ASSIGNMENT ===");
+                Console.WriteLine($"🟡 Received - DoctorId: {dto.DoctorId}, AssistantId: {dto.AssistantId}");
+
+                // Get current user
+                var currentUser = await _authService.GetCurrentUserAsync();
+                Console.WriteLine($"🟡 Current user: {currentUser.Id} ({currentUser.Email}), Type: {currentUser.Type}");
+
+                if (currentUser.Type != UserType.ClinicAdmin)
                 {
+                    return Forbid("Only clinic admins can assign assistants");
+                }
+
+                var clinic = await _context.Clinics
+                    .FirstOrDefaultAsync(c => c.AdminUserId == currentUser.Id);
+                    
+                if (clinic == null)
+                {
+                    Console.WriteLine($"❌ Clinic not found for admin {currentUser.Id}");
+                    return StatusCode(403, "Clinic not found for this admin");
+                }
+
+                Console.WriteLine($"🟡 Found clinic: {clinic.ClinicName} (ID: {clinic.Id})");
+
+                var doctorUser = await _context.Users
+                    .FirstOrDefaultAsync(u => u.Id == dto.DoctorId && u.Type == UserType.HealthcareProvider);
+                    
+                if (doctorUser == null)
+                {
+                    Console.WriteLine($"❌ Doctor user not found: {dto.DoctorId}");
                     return BadRequest("Doctor not found");
                 }
 
-                var assistant = await _userRepository.GetByIdAsync(dto.AssistantId);
-                if (assistant == null || assistant.Type != UserType.Assistant)
+                var doctorInClinic = await _context.Doctors
+                    .FirstOrDefaultAsync(d => d.ClinicId == clinic.Id && 
+                             (d.Name.Contains(doctorUser.FirstName) || 
+                              d.Name.Contains(doctorUser.LastName) ||
+                              doctorUser.Email.Contains(d.Name.ToLower().Replace(" ", "."))));
+                
+                if (doctorInClinic == null)
                 {
+                    Console.WriteLine($"❌ DOCTOR VALIDATION FAILED:");
+                    Console.WriteLine($"❌ Doctor {dto.DoctorId} not found in clinic {clinic.Id}");
+               
+                    var clinicDoctors = await _context.Doctors
+                        .Where(d => d.ClinicId == clinic.Id)
+                        .Select(d => new { d.Id, d.Name })
+                        .ToListAsync();
+                        
+                    Console.WriteLine($"🟡 Available doctors in clinic {clinic.Id}:");
+                    foreach (var doc in clinicDoctors)
+                    {
+                        Console.WriteLine($"   - {doc.Id}: {doc.Name}");
+                    }
+                    
+                    return StatusCode(403, "You can only assign assistants to doctors in your clinic");
+                }
+
+                Console.WriteLine($"✅ Doctor validation passed: {doctorInClinic.Name}");
+
+                var assistantUser = await _context.Users
+                    .FirstOrDefaultAsync(u => u.Id == dto.AssistantId && u.Type == UserType.Assistant);
+                    
+                if (assistantUser == null)
+                {
+                    Console.WriteLine($"❌ Assistant user not found: {dto.AssistantId}");
                     return BadRequest("Assistant not found");
+                }
+
+                Console.WriteLine($"✅ Assistant user found: {assistantUser.FirstName} {assistantUser.LastName}");
+
+                var existingAssignment = await _context.DoctorAssistants
+                    .FirstOrDefaultAsync(da => da.DoctorId == dto.DoctorId && da.AssistantId == dto.AssistantId && da.IsActive);
+                    
+                if (existingAssignment != null)
+                {
+                    Console.WriteLine("❌ Assignment already exists");
+                    return BadRequest("This assistant is already assigned to this doctor");
                 }
 
                 var assignment = new DoctorAssistant
@@ -159,22 +228,108 @@ namespace UserHealthService.API.Controllers
                 _context.DoctorAssistants.Add(assignment);
                 await _context.SaveChangesAsync();
 
+                Console.WriteLine($"✅ ASSIGNMENT SUCCESSFUL: {assignment.Id}");
+                Console.WriteLine($"🟡 === ASSIGNMENT COMPLETE ===");
+
+                return Ok(new { 
+                    message = "Assistant assigned to doctor successfully",
+                    assignmentId = assignment.Id
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ === ASSIGNMENT ERROR ===");
+                Console.WriteLine($"❌ Error: {ex.Message}");
+                Console.WriteLine($"❌ StackTrace: {ex.StackTrace}");
+                return StatusCode(500, "Error assigning assistant to doctor");
+            }
+        }
+
+        [HttpPost("assign-clinic-assistant")]
+        [Authorize(Roles = "ClinicAdmin")]
+        public async Task<IActionResult> AssignClinicAssistant([FromBody] AssignAssistantDto dto)
+        {
+            try
+            {
+                var currentUser = await _authService.GetCurrentUserAsync();
+                
+                Console.WriteLine($"🟡 ClinicAdmin {currentUser.Id} trying to assign assistant {dto.AssistantId} to doctor {dto.DoctorId}");
+
+                var clinic = await _context.Clinics
+                    .FirstOrDefaultAsync(c => c.AdminUserId == currentUser.Id);
+                    
+                if (clinic == null)
+                {
+                    Console.WriteLine("❌ Clinic not found for admin");
+                    return StatusCode(403, "Clinic not found for this admin");
+                }
+
+                Console.WriteLine($"🟡 Found clinic: {clinic.ClinicName} (ID: {clinic.Id})");
+
+                var doctor = await _context.Doctors
+                    .FirstOrDefaultAsync(d => d.Id == dto.DoctorId && d.ClinicId == clinic.Id);
+                    
+                if (doctor == null)
+                {
+                    Console.WriteLine($"❌ Doctor {dto.DoctorId} not found in clinic {clinic.Id}");
+                    return StatusCode(403, "You can only assign assistants to doctors in your clinic");
+                }
+
+                Console.WriteLine($"🟡 Found doctor: {doctor.Name} in clinic");
+
+                var doctorUser = await _userRepository.GetByIdAsync(dto.DoctorId);
+                if (doctorUser == null || doctorUser.Type != UserType.HealthcareProvider)
+                {
+                    return BadRequest("Doctor not found");
+                }
+
+                var assistant = await _userRepository.GetByIdAsync(dto.AssistantId);
+                if (assistant == null || assistant.Type != UserType.Assistant)
+                {
+                    return BadRequest("Assistant not found");
+                }
+
+                Console.WriteLine($"🟡 Both doctor and assistant users found");
+
+                var existingAssignment = await _context.DoctorAssistants
+                    .FirstOrDefaultAsync(da => da.DoctorId == dto.DoctorId && da.AssistantId == dto.AssistantId && da.IsActive);
+                    
+                if (existingAssignment != null)
+                {
+                    return BadRequest("This assistant is already assigned to this doctor");
+                }
+
+                var assignment = new DoctorAssistant
+                {
+                    Id = Guid.NewGuid(),
+                    DoctorId = dto.DoctorId,
+                    AssistantId = dto.AssistantId,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                _context.DoctorAssistants.Add(assignment);
+                await _context.SaveChangesAsync();
+
+                Console.WriteLine($"✅ Assistant assigned successfully");
+
                 return Ok(new { message = "Assistant assigned to doctor successfully" });
             }
             catch (Exception ex)
             {
+                Console.WriteLine($"❌ Error in AssignClinicAssistant: {ex.Message}");
                 _logger.LogError(ex, "Error assigning assistant to doctor");
                 return StatusCode(500, "Error assigning assistant to doctor");
             }
         }
 
         [HttpGet("assistant/{assistantId}/doctors")]
-        [Authorize(Roles = "Admin,Assistant")]
+        [Authorize(Roles = "Assistant")]
         public async Task<ActionResult<List<DoctorPatientDto>>> GetAssistantDoctors(Guid assistantId)
         {
             try
             {
-                // Tani përdor tabelën e vërtetë
+              
                 var doctorAssignments = await _context.DoctorAssistants
                     .Where(da => da.AssistantId == assistantId && da.IsActive)
                     .Include(da => da.Doctor)
@@ -198,35 +353,88 @@ namespace UserHealthService.API.Controllers
                 return StatusCode(500, "Error retrieving doctors");
             }
         }
-[HttpGet("assistants")]
-[Authorize(Roles = "Admin")]
-public async Task<ActionResult<List<UserResponseDto>>> GetAllAssistants()
-{
-    try
-    {
-        var assistants = await _context.Users
-            .Where(u => u.Type == UserType.Assistant && u.IsActive)
-            .Select(u => new UserResponseDto
-            {
-                Id = u.Id,
-                Email = u.Email,
-                FirstName = u.FirstName,
-                LastName = u.LastName,
-                PhoneNumber = u.PhoneNumber,
-                Type = u.Type,
-                IsActive = u.IsActive,
-                CreatedAt = u.CreatedAt
-            })
-            .ToListAsync();
 
-        return Ok(assistants);
-    }
-    catch (Exception ex)
-    {
-        _logger.LogError(ex, "Error retrieving assistants");
-        return StatusCode(500, "Error retrieving assistants");
-    }
-}
+     
+        [HttpGet("assistants")]
+        [Authorize(Roles = "ClinicAdmin")] 
+        public async Task<ActionResult<List<UserResponseDto>>> GetAllAssistants()
+        {
+            try
+            {
+                var currentUser = await _authService.GetCurrentUserAsync();
+               
+                var clinic = await _context.Clinics
+                    .FirstOrDefaultAsync(c => c.AdminUserId == currentUser.Id);
+                    
+                if (clinic == null)
+                {
+                    return BadRequest("Clinic admin does not have a clinic assigned");
+                }
+
+                var assistants = await _context.Users
+                    .Where(u => u.Type == UserType.Assistant && u.IsActive)
+                 
+                    .Select(u => new UserResponseDto
+                    {
+                        Id = u.Id,
+                        Email = u.Email,
+                        FirstName = u.FirstName,
+                        LastName = u.LastName,
+                        PhoneNumber = u.PhoneNumber,
+                        Type = u.Type,
+                        IsActive = u.IsActive,
+                        CreatedAt = u.CreatedAt
+                    })
+                    .ToListAsync();
+
+                return Ok(assistants);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving assistants");
+                return StatusCode(500, "Error retrieving assistants");
+            }
+        }
+
+        [HttpGet("clinics/{clinicId}/assistants")]
+        [Authorize(Roles = "ClinicAdmin")]
+        public async Task<ActionResult<List<UserResponseDto>>> GetClinicAssistants(Guid clinicId)
+        {
+            try
+            {
+                var currentUser = await _authService.GetCurrentUserAsync();
+         
+                var clinic = await _context.Clinics
+                    .FirstOrDefaultAsync(c => c.Id == clinicId && c.AdminUserId == currentUser.Id);
+                    
+                if (clinic == null)
+                {
+                    return Forbid("You can only view assistants from your own clinic");
+                }
+
+                var assistants = await _context.Users
+                    .Where(u => u.Type == UserType.Assistant && u.IsActive)
+                    .Select(u => new UserResponseDto
+                    {
+                        Id = u.Id,
+                        Email = u.Email,
+                        FirstName = u.FirstName,
+                        LastName = u.LastName,
+                        PhoneNumber = u.PhoneNumber,
+                        Type = u.Type,
+                        IsActive = u.IsActive,
+                        CreatedAt = u.CreatedAt
+                    })
+                    .ToListAsync();
+
+                return Ok(assistants);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving clinic assistants");
+                return StatusCode(500, "Error retrieving clinic assistants");
+            }
+        }
 
         [HttpGet("doctor/{doctorId}/patients")]
         [Authorize]
@@ -412,17 +620,33 @@ public async Task<ActionResult<List<UserResponseDto>>> GetAllAssistants()
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin,ClinicAdmin")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
         public async Task<IActionResult> DeleteUser(Guid id)
         {
             try
             {
+                var currentUser = await _authService.GetCurrentUserAsync();
+                var userToDelete = await _userRepository.GetByIdAsync(id);
+                
+                if (userToDelete == null)
+                {
+                    return NotFound($"User with ID '{id}' not found");
+                }
+                
+                if (currentUser.Type == UserType.ClinicAdmin && userToDelete.Type != UserType.Assistant)
+                {
+                    return Forbid("Clinic admins can only delete assistants");
+                }
+                
                 var result = await _userService.DeleteUserAsync(id);
                 if (!result)
                 {
                     return NotFound($"User with ID '{id}' not found");
                 }
+                
                 return NoContent();
             }
             catch (Exception ex)
@@ -448,7 +672,5 @@ public async Task<ActionResult<List<UserResponseDto>>> GetAllAssistants()
                 return StatusCode(500, "An error occurred while retrieving users count");
             }
         }
-
-
     }
 }

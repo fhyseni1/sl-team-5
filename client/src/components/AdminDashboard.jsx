@@ -47,26 +47,20 @@ const AdminDashboard = () => {
   const [approvedPage, setApprovedPage] = useState(1);
   const [userAppointments, setUserAppointments] = useState([]);
   const [userPage, setUserPage] = useState(1);
-  const [assistants, setAssistants] = useState([]);
-  const [assistantPage, setAssistantPage] = useState(1);
+ 
   const [generatedPassword, setGeneratedPassword] = useState("");
   const [clinics, setClinics] = useState([]);
   const [registrationType, setRegistrationType] = useState(null);
   const [rejectedAppointments, setRejectedAppointments] = useState([]);
   const [rejectedPage, setRejectedPage] = useState(1);
-  const [showAddAssistantForm, setShowAddAssistantForm] = useState(false);
+  
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [newClinicData, setNewClinicData] = useState({
     email: "",
     clinicName: "",
     password: "",
   });
-  const [showAssignAssistantModal, setShowAssignAssistantModal] =
-    useState(false);
-  const [assignForm, setAssignForm] = useState({
-    doctorId: "",
-    assistantId: "",
-  });
+ 
   const [clinicForm, setClinicForm] = useState({
     name: "",
     email: "",
@@ -75,13 +69,7 @@ const AdminDashboard = () => {
     address: "",
     phoneNumber: "",
   });
-  const [assistantForm, setAssistantForm] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
-    password: "",
-    phoneNumber: "",
-  });
+ 
   const [userForm, setUserForm] = useState({
     email: "",
     password: "",
@@ -148,140 +136,81 @@ const AdminDashboard = () => {
   };
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const userData = await authService.getMe();
-        const isAdmin = userData.type === 5;
-        if (!isAdmin) {
-          await authService.logout();
-          router.push("/dashboard/dashboard");
-          return;
-        }
-        setUser(userData);
-        const results = await Promise.allSettled([
-          api.get("/users/count"),
-          api.get("/users"),
-          api.get("/appointments/pending"),
-          api.get("/appointments/approved"),
-          api.get("/appointments/releted"),
-          api.get("/users").then((res) => {
-            const allUsers = res.data || [];
-            return allUsers.filter((user) => user.type === 4); // Doctors
-          }),
-          api.get("/users").then((res) => {
-            const allUsers = res.data || [];
-            return allUsers.filter((user) => user.type === 7); // Assistants
-          }),
-          api.get("/clinics").then((res) => res.data || []), // Fetch clinics
-        ]);
-
-        const usersCount =
-          results[0].status === "fulfilled" ? results[0].value.data : 0;
-        const allUsers =
-          results[1].status === "fulfilled" ? results[1].value.data : [];
-        const pendingAppts =
-          results[2].status === "fulfilled" ? results[2].value.data : [];
-        const approvedAppts =
-          results[3].status === "fulfilled" ? results[3].value.data : [];
-        const rejectedAppts =
-          results[4].status === "fulfilled" ? results[4].value.data : [];
-        const healthcareProviders =
-          results[5].status === "fulfilled" ? results[5].value : [];
-        const assistantsData =
-          results[6].status === "fulfilled" ? results[6].value : [];
-        const clinicsData =
-          results[7].status === "fulfilled" ? results[7].value : [];
-
-        setUsers(allUsers);
-        setDoctors(healthcareProviders);
-        setAssistants(Array.isArray(assistantsData) ? assistantsData : []);
-        setPendingAppointments(pendingAppts);
-        setApprovedAppointments(approvedAppts);
-        setRejectedAppointments(rejectedAppts);
-        setClinics(clinicsData);
-        setStats({
-          totalUsers: usersCount || 0,
-          totalAppointments:
-            (pendingAppts.length || 0) +
-            (approvedAppts.length || 0) +
-            (rejectedAppts.length || 0),
-          pendingAppointments: pendingAppts.length || 0,
-          approvedAppointments: approvedAppts.length || 0,
-          rejectedAppointments: rejectedAppts.length || 0,
-          totalDoctors: healthcareProviders.length || 0,
-          totalAssistants: Array.isArray(assistantsData)
-            ? assistantsData.length
-            : 0,
-          totalClinics: clinicsData.length || 0,
-        });
-      } catch (err) {
-        console.error("Admin dashboard error:", err);
-        setError(err.response?.data?.message || "Failed to load dashboard");
-        if (err.response?.status === 401) router.push("/login");
-      } finally {
-        setLoading(false);
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const userData = await authService.getMe();
+      const isAdmin = userData.type === 5;
+      if (!isAdmin) {
+        await authService.logout();
+        router.push("/dashboard/dashboard");
+        return;
       }
-    };
-    fetchData();
-  }, [router]);
+      setUser(userData);
+      const results = await Promise.allSettled([
+        api.get("/users/count"),
+        api.get("/users"),
+        api.get("/appointments/pending"),
+        api.get("/appointments/approved"),
+        api.get("/appointments/releted"),
+        api.get("/users").then((res) => {
+          const allUsers = res.data || [];
+          return allUsers.filter((user) => user.type === 4); // Doctors
+        }),
+        api.get("/clinics").then((res) => res.data || []), // Fetch clinics
+      ]);
+
+      const usersCount =
+        results[0].status === "fulfilled" ? results[0].value.data : 0;
+      const allUsers =
+        results[1].status === "fulfilled" ? results[1].value.data : [];
+      const pendingAppts =
+        results[2].status === "fulfilled" ? results[2].value.data : [];
+      const approvedAppts =
+        results[3].status === "fulfilled" ? results[3].value.data : [];
+      const rejectedAppts =
+        results[4].status === "fulfilled" ? results[4].value.data : [];
+      const healthcareProviders =
+        results[5].status === "fulfilled" ? results[5].value : [];
+      const clinicsData =
+        results[6].status === "fulfilled" ? results[6].value : []; 
+
+      setUsers(allUsers);
+      setDoctors(healthcareProviders);
+      setPendingAppointments(pendingAppts);
+      setApprovedAppointments(approvedAppts);
+      setRejectedAppointments(rejectedAppts);
+      setClinics(clinicsData);
+      setStats({
+        totalUsers: usersCount || 0,
+        totalAppointments:
+          (pendingAppts.length || 0) +
+          (approvedAppts.length || 0) +
+          (rejectedAppts.length || 0),
+        pendingAppointments: pendingAppts.length || 0,
+        approvedAppointments: approvedAppts.length || 0,
+        rejectedAppointments: rejectedAppts.length || 0,
+        totalDoctors: healthcareProviders.length || 0,
+        totalAssistants: 0, // Vendos 0
+        totalClinics: clinicsData.length || 0,
+      });
+    } catch (err) {
+      console.error("Admin dashboard error:", err);
+      setError(err.response?.data?.message || "Failed to load dashboard");
+      if (err.response?.status === 401) router.push("/login");
+    } finally {
+      setLoading(false);
+    }
+  };
+  fetchData();
+}, [router]);
 
   const handleLogout = async () => {
     await authService.logout();
     router.push("/");
   };
 
-  const handleAddAssistantSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      const response = await api.post("/auth/register-assistant", {
-        email: assistantForm.email,
-        password: assistantForm.password,
-        firstName: assistantForm.firstName,
-        lastName: assistantForm.lastName,
-        phoneNumber: assistantForm.phoneNumber || "",
-        type: 6, // Assistant
-      });
-      if (response.data) {
-        setShowAddAssistantForm(false);
-        setAssistantForm({
-          firstName: "",
-          lastName: "",
-          email: "",
-          password: "",
-          phoneNumber: "",
-        });
-        const usersRes = await api.get("/users");
-        setUsers(usersRes.data || []);
-        toast.success("Assistant created successfully!");
-      }
-    } catch (err) {
-      console.error("Error creating assistant:", err.response?.data || err);
-      toast.error(
-        err.response?.data?.message ||
-          err.response?.data?.error ||
-          "Failed to create assistant"
-      );
-    }
-  };
 
-  const handleAssignAssistant = async (e) => {
-    e.preventDefault();
-    try {
-      console.log("🟡 Assigning assistant:", assignForm);
-      await api.post("/users/assign-assistant", assignForm);
-      setShowAssignAssistantModal(false);
-      setAssignForm({ doctorId: "", assistantId: "" });
-      toast.success("Assistant assigned to doctor successfully!");
-      const usersRes = await api.get("/users");
-      setUsers(usersRes.data || []);
-      const assistantsRes = await api.get("/users/assistants");
-      setAssistants(assistantsRes.data || []);
-    } catch (err) {
-      console.error("❌ Error assigning assistant:", err.response?.data || err);
-      toast.error(err.response?.data?.message || "Failed to assign assistant");
-    }
-  };
 
   const handleAddClinicSubmit = async (e) => {
     e.preventDefault();
@@ -485,12 +414,7 @@ const AdminDashboard = () => {
               icon: Stethoscope,
               color: "from-emerald-500",
             },
-            {
-              label: "Total Assistants",
-              value: stats.totalAssistants,
-              icon: UserCheck,
-              color: "from-purple-500",
-            },
+          
             {
               label: "Total Clinics",
               value: stats.totalClinics,
@@ -602,90 +526,7 @@ const AdminDashboard = () => {
             )}
           </div>
         </div>
-        <div className="bg-slate-800/50 backdrop-blur-xl rounded-3xl border border-slate-700/50 p-8 mb-8">
-          <div className="flex items-center justify-between mb-8">
-            <h2 className="text-3xl font-bold text-white flex items-center gap-3">
-              <UserCheck className="w-8 h-8 text-purple-400" />
-              Registered Assistants ({assistants.length})
-            </h2>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="border-b border-slate-700/50">
-                  <th className="py-4 px-6 font-semibold text-slate-300">
-                    Name
-                  </th>
-                  <th className="py-4 px-6 font-semibold text-slate-300">
-                    Email
-                  </th>
-                  <th className="py-4 px-6 font-semibold text-slate-300">
-                    Phone
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {paginate(assistants, assistantPage).map((assistant) => (
-                  <tr
-                    key={assistant.id}
-                    className="border-b border-slate-700/30 hover:bg-slate-700/30"
-                  >
-                    <td className="py-4 px-6 font-medium text-white">
-                      {assistant.firstName} {assistant.lastName}
-                    </td>
-                    <td className="py-4 px-6 text-slate-300">
-                      {assistant.email}
-                    </td>
-                    <td className="py-4 px-6 text-slate-300">
-                      {assistant.phoneNumber}
-                    </td>
-                  </tr>
-                ))}
-                {assistants.length === 0 && (
-                  <tr>
-                    <td
-                      colSpan={3}
-                      className="py-12 text-center text-slate-400"
-                    >
-                      No assistants registered yet
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-            {assistants.length > itemsPerPage && (
-              <div className="flex justify-center items-center mt-4 space-x-4">
-                <button
-                  onClick={() => setAssistantPage((p) => Math.max(p - 1, 1))}
-                  className="px-4 py-2 bg-slate-700/50 rounded-lg text-white disabled:opacity-50"
-                  disabled={assistantPage === 1}
-                >
-                  Prev
-                </button>
-                <span className="text-slate-300">
-                  Page {assistantPage} of{" "}
-                  {Math.ceil(assistants.length / itemsPerPage)}
-                </span>
-                <button
-                  onClick={() =>
-                    setAssistantPage((p) =>
-                      p < Math.ceil(assistants.length / itemsPerPage)
-                        ? p + 1
-                        : p
-                    )
-                  }
-                  className="px-4 py-2 bg-slate-700/50 rounded-lg text-white disabled:opacity-50"
-                  disabled={
-                    assistantPage ===
-                    Math.ceil(assistants.length / itemsPerPage)
-                  }
-                >
-                  Next
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
+       
         <div className="mb-12">
           <AppointmentCalendar
             appointments={allAppointments}
@@ -1015,20 +856,7 @@ const AdminDashboard = () => {
             <Shield className="w-12 h-12 group-hover:scale-110 transition-transform" />
             <span className="text-xl">Add Clinic</span>
           </button>
-          <button
-            onClick={() => setShowAssignAssistantModal(true)}
-            className="group bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-white p-8 rounded-3xl font-bold shadow-xl hover:shadow-orange-500/50 transition-all hover:scale-105 flex flex-col items-center gap-4"
-          >
-            <UserCheck className="w-12 h-12 group-hover:scale-110 transition-transform" />
-            <span className="text-xl">Assign Assistant</span>
-          </button>
-          <button
-            onClick={() => setShowAddAssistantForm(true)}
-            className="group bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white p-8 rounded-3xl font-bold shadow-xl hover:shadow-purple-500/50 transition-all hover:scale-105 flex flex-col items-center gap-4"
-          >
-            <UserPlus className="w-12 h-12 group-hover:scale-110 transition-transform" />
-            <span className="text-xl">Add Assistant</span>
-          </button>
+        
           <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-8 rounded-3xl shadow-xl hover:shadow-blue-500/50 transition-all hover:scale-105">
             <BarChart3 className="w-12 h-12 mx-auto mb-4" />
             <h3 className="text-xl font-bold mb-2">Analytics</h3>
@@ -1041,134 +869,7 @@ const AdminDashboard = () => {
           </div>
         </div>
       </main>
-      {showAssignAssistantModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-800/95 backdrop-blur-xl rounded-3xl max-w-md w-full p-8 border border-slate-700/50">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-white">
-                Assign Assistant to Doctor
-              </h2>
-              <button
-                onClick={() => setShowAssignAssistantModal(false)}
-                className="p-2 hover:bg-slate-700 rounded-xl"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-            <form onSubmit={handleAssignAssistant} className="space-y-4">
-              <select
-                name="doctorId"
-                value={assignForm.doctorId}
-                onChange={(e) => handleInputChange(e, setAssignForm)}
-                className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
-                required
-              >
-                <option value="">Select Doctor *</option>
-                {Array.isArray(doctors) &&
-                  doctors.map((doctor) => (
-                    <option key={doctor.id} value={doctor.id}>
-                      Dr. {doctor.firstName} {doctor.lastName}
-                    </option>
-                  ))}
-              </select>
-              <select
-                name="assistantId"
-                value={assignForm.assistantId}
-                onChange={(e) => handleInputChange(e, setAssignForm)}
-                className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
-                required
-              >
-                <option value="">Select Assistant *</option>
-                {Array.isArray(assistants) && assistants.length > 0 ? (
-                  assistants.map((assistant) => (
-                    <option key={assistant.id} value={assistant.id}>
-                      {assistant.firstName} {assistant.lastName} (
-                      {assistant.email})
-                    </option>
-                  ))
-                ) : (
-                  <option value="" disabled>
-                    No assistants available
-                  </option>
-                )}
-              </select>
-              <button
-                type="submit"
-                className="w-full bg-gradient-to-r from-orange-600 to-amber-600 text-white py-4 rounded-xl font-bold hover:shadow-orange-500/50 transition-all"
-              >
-                Assign Assistant
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-      {showAddAssistantForm && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-800/95 backdrop-blur-xl rounded-3xl max-w-md w-full p-8 border border-slate-700/50">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-white">Add Assistant</h2>
-              <button
-                onClick={() => setShowAddAssistantForm(false)}
-                className="p-2 hover:bg-slate-700 rounded-xl"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-            <form onSubmit={handleAddAssistantSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <input
-                  name="firstName"
-                  placeholder="First Name *"
-                  value={assistantForm.firstName}
-                  onChange={(e) => handleInputChange(e, setAssistantForm)}
-                  className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
-                  required
-                />
-                <input
-                  name="lastName"
-                  placeholder="Last Name *"
-                  value={assistantForm.lastName}
-                  onChange={(e) => handleInputChange(e, setAssistantForm)}
-                  className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
-                  required
-                />
-              </div>
-              <input
-                name="email"
-                type="email"
-                placeholder="Email *"
-                value={assistantForm.email}
-                onChange={(e) => handleInputChange(e, setAssistantForm)}
-                className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
-                required
-              />
-              <input
-                name="password"
-                type="password"
-                placeholder="Password *"
-                value={assistantForm.password}
-                onChange={(e) => handleInputChange(e, setAssistantForm)}
-                className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
-                required
-                minLength="6"
-              />
-              <input
-                name="phoneNumber"
-                placeholder="Phone Number (optional)"
-                value={assistantForm.phoneNumber}
-                onChange={(e) => handleInputChange(e, setAssistantForm)}
-                className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
-              />
-              <button
-                type="submit"
-                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-4 rounded-xl font-bold hover:shadow-purple-500/50 transition-all"
-              >
-                Add Assistant
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
+     
       {showAddClinicForm && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-800/95 backdrop-blur-xl rounded-3xl max-w-md w-full p-8 border border-slate-700/50">

@@ -12,6 +12,7 @@ namespace UserHealthService.Domain.Entities
         public string Specialty { get; set; }
         public string? ClinicName { get; set; }
         public Guid? ClinicId { get; set; }
+          public string? Email { get; set; }
         public string? PhoneNumber { get; set; }
         public DateTime CreatedAt { get; set; }
         public bool IsActive { get; set; }

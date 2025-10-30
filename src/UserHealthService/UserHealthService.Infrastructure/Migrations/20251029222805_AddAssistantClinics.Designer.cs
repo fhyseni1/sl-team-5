@@ -12,8 +12,8 @@ using UserHealthService.Infrastructure.Data;
 namespace UserHealthService.Infrastructure.Migrations
 {
     [DbContext(typeof(UserHealthDbContext))]
-    [Migration("20251025221037_CreateDoctorAssistantTables")]
-    partial class CreateDoctorAssistantTables
+    [Migration("20251029222805_AddAssistantClinics")]
+    partial class AddAssistantClinics
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -195,21 +195,47 @@ namespace UserHealthService.Infrastructure.Migrations
                     b.ToTable("chatmessages", (string)null);
                 });
 
-            modelBuilder.Entity("UserHealthService.Domain.Entities.Doctor", b =>
+            modelBuilder.Entity("UserHealthService.Domain.Entities.Clinic", b =>
                 {
-                    b.Property<int>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Address")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("AdminUserId")
+                        .HasColumnType("uuid");
 
                     b.Property<string>("ClinicName")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("PhoneNumber")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Clinics");
+                });
+
+            modelBuilder.Entity("UserHealthService.Domain.Entities.Doctor", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ClinicId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ClinicName")
+                        .HasColumnType("text");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -219,17 +245,14 @@ namespace UserHealthService.Infrastructure.Migrations
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                        .HasColumnType("text");
 
                     b.Property<string>("PhoneNumber")
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
+                        .HasColumnType("text");
 
                     b.Property<string>("Specialty")
                         .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                        .HasColumnType("text");
 
                     b.HasKey("Id");
 
