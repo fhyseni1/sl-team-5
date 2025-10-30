@@ -17,6 +17,7 @@ namespace UserHealthService.Infrastructure.Data
         public DbSet<UserProfile> UserProfiles { get; set; }
         public DbSet<Allergy> Allergies { get; set; }
         public DbSet<Appointment> Appointments { get; set; }
+        public DbSet<AppointmentReport> AppointmentReports { get; set; }
         public DbSet<HealthMetric> HealthMetrics { get; set; }
         public DbSet<Notification> Notifications { get; set; }
         public DbSet<UserRelationship> UserRelationships { get; set; }
@@ -162,6 +163,35 @@ public DbSet<ChatMessage> ChatMessages { get; set; } = null!;
                 entity.Property(e => e.Status)
                     .HasConversion(new EnumToStringConverter<AppointmentStatus>())
                     .HasColumnType("varchar(50)");
+            });
+
+            // ✅ APPOINTMENT REPORT
+            modelBuilder.Entity<AppointmentReport>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Id).ValueGeneratedOnAdd();
+
+                entity.Property(e => e.Diagnosis).IsRequired().HasMaxLength(1000);
+                entity.Property(e => e.Symptoms).HasMaxLength(1000);
+                entity.Property(e => e.Treatment).HasMaxLength(1000);
+                entity.Property(e => e.Medications).HasMaxLength(1000);
+                entity.Property(e => e.Notes).HasMaxLength(1000);
+                entity.Property(e => e.Recommendations).HasMaxLength(1000);
+
+                entity.HasOne(e => e.Appointment)
+                    .WithMany()
+                    .HasForeignKey(e => e.AppointmentId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.User)
+                    .WithMany()
+                    .HasForeignKey(e => e.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.Doctor)
+                    .WithMany()
+                    .HasForeignKey(e => e.DoctorId)
+                    .OnDelete(DeleteBehavior.Restrict);
             });
 
             // ✅ HEALTH METRIC
