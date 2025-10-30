@@ -24,5 +24,7 @@ namespace UserHealthService.Application.Interfaces
             Task<List<Appointment>> GetRejectedAppointmentsAsync();
     Task<List<Appointment>> GetApprovedAppointmentsAsync();
         Task<bool> AssistantApproveAsync(Guid id, Guid assistantId);
+        Task<IEnumerable<Appointment>> GetByDoctorIdAsync(Guid doctorId);
+            Task<bool> CanAssistantAccessAppointmentAsync(Guid assistantId, Guid appointmentId);
     }
 }

@@ -225,20 +225,18 @@ public async Task<IActionResult> RegisterClinicAssistant([FromBody] RegisterDto 
         return BadRequest(new { message = ex.Message });
     }
 }
-       // In AuthController.cs - update the RegisterAssistant endpoint
+      
 [HttpPost("register-assistant")]
-[Authorize(Roles = "Admin,ClinicAdmin")] // Add ClinicAdmin here
+[Authorize(Roles = "Admin,ClinicAdmin")] 
 public async Task<IActionResult> RegisterAssistant([FromBody] RegisterDto dto, CancellationToken ct)
 {
     try
     {
         var currentUser = await _authService.GetCurrentUserAsync();
         
-        // If ClinicAdmin, ensure they can only register assistants for their clinic
         if (currentUser.Type == UserType.ClinicAdmin)
         {
-            // You can add clinic-specific logic here if needed
-            // For now, just allow them to register assistants
+           
         }
 
         if (string.IsNullOrEmpty(dto.Password))
@@ -457,15 +455,15 @@ public async Task<IActionResult> RegisterAssistant([FromBody] RegisterDto dto, C
             var accessCookieOptions = new CookieOptions
             {
                 HttpOnly = true,
-                Secure = false, // Development only
-                SameSite = SameSiteMode.Lax, // Changed from None to Lax
+                Secure = false,
+                SameSite = SameSiteMode.Lax, 
                 Expires = DateTime.UtcNow.AddMinutes(15)
             };
             var refreshCookieOptions = new CookieOptions
             {
                 HttpOnly = true,
-                Secure = false, // Development only
-                SameSite = SameSiteMode.Lax, // Changed from None to Lax
+                Secure = false, 
+                SameSite = SameSiteMode.Lax, 
                 Expires = DateTime.UtcNow.AddDays(7)
             };
             Console.WriteLine($"Setting access_token: {tokens.AccessToken.Substring(0, 20)}...");

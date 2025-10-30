@@ -2,8 +2,9 @@
 using Microsoft.AspNetCore.Mvc;
 using UserHealthService.Application.DTOs.Appointments;
 using UserHealthService.Application.Interfaces;
+using UserHealthService.Domain.Entities;
 using UserHealthService.Domain.Enums;
-
+using AutoMapper;
 namespace UserHealthService.API.Controllers
 {
     [ApiController]
@@ -15,21 +16,27 @@ namespace UserHealthService.API.Controllers
         private readonly IAppointmentRepository _appointmentRepository;
         private readonly IUserService _userService;
         private readonly ILogger<AppointmentsController> _logger;
-        private readonly IAuthService _authService; 
-          private readonly IPDFReportService _pdfReportService; 
+        private readonly IAuthService _authService;
+        private readonly IPDFReportService _pdfReportService; 
+         private readonly IMapper _mapper;
+           private readonly IAppointmentReportService _reportService;
         public AppointmentsController(
             IAppointmentService appointmentService,
             IAppointmentRepository appointmentRepository,
             IUserService userService,
             IAuthService authService,
-  IPDFReportService pdfReportService, 
-            ILogger<AppointmentsController> logger)
+  IPDFReportService pdfReportService,
+IAppointmentReportService reportService,
+
+            ILogger<AppointmentsController> logger ,IMapper mapper) 
         {
             _appointmentService = appointmentService;
             _appointmentRepository = appointmentRepository;
             _userService = userService;
-            _authService = authService; 
-              _pdfReportService = pdfReportService;
+            _authService = authService;
+            _pdfReportService = pdfReportService;
+            _reportService = reportService;
+                _mapper = mapper;
             _logger = logger;
         }
 
@@ -39,7 +46,53 @@ namespace UserHealthService.API.Controllers
             var appointments = await _appointmentService.GetAllAsync();
             return Ok(appointments);
         }
+        [HttpGet("doctor/{doctorId}")]
+        [Authorize]
+        public async Task<ActionResult<IEnumerable<AppointmentResponseDto>>> GetAppointmentsByDoctor(Guid doctorId)
+        {
+            try
+            {
+                var currentUser = await _authService.GetCurrentUserAsync();
+
+                if (currentUser.Id != doctorId && currentUser.Type != UserHealthService.Domain.Enums.UserType.Assistant)
+                {
+                    return Forbid("You can only view your own appointments");
+                }
+
+                var appointments = await _appointmentService.GetByDoctorIdAsync(doctorId);
+                return Ok(appointments);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving appointments for doctor {DoctorId}", doctorId);
+                return StatusCode(500, "Error retrieving appointments");
+            }
+        }
+
+[HttpGet("doctor/{doctorId}/approved")]
+[Authorize]
+public async Task<ActionResult<IEnumerable<AppointmentResponseDto>>> GetApprovedAppointmentsByDoctor(Guid doctorId)
+{
+    try
+    {
+        var currentUser = await _authService.GetCurrentUserAsync();
         
+        if (currentUser.Id != doctorId && currentUser.Type != UserHealthService.Domain.Enums.UserType.Assistant)
+        {
+            return Forbid("You can only view your own appointments");
+        }
+
+        var appointments = await _appointmentRepository.GetByDoctorIdAsync(doctorId);
+        var approvedAppointments = appointments.Where(a => a.Status == AppointmentStatus.Approved);
+        
+        return Ok(_mapper.Map<IEnumerable<AppointmentResponseDto>>(approvedAppointments));
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Error retrieving approved appointments for doctor {DoctorId}", doctorId);
+        return StatusCode(500, "Error retrieving appointments");
+    }
+}
  [HttpGet("test-pdf")]
         [AllowAnonymous] 
         public async Task<IActionResult> TestPDF()
@@ -395,7 +448,7 @@ public async Task<ActionResult<List<AppointmentResponseDto>>> GetAssistantApprov
         {
             try
             {
-                var currentUser = await _authService.GetCurrentUserAsync(); // Tani do të funksionojë
+                var currentUser = await _authService.GetCurrentUserAsync(); 
                 var result = await _appointmentRepository.AssistantApproveAsync(id, currentUser.Id);
                 
                 if (!result) 
@@ -431,9 +484,217 @@ public async Task<ActionResult> AssistantReject(Guid id, [FromBody] RejectAppoin
     }
 }
 
-public class RejectAppointmentDto
+[HttpGet("assistant/{assistantId}/reports")]
+[Authorize(Roles = "Assistant")]
+public async Task<ActionResult<List<AppointmentReportResponseDto>>> GetAssistantAppointmentReports(Guid assistantId)
+{
+    try
+    {
+        var currentUser = await _authService.GetCurrentUserAsync();
+        
+        if (currentUser.Id != assistantId)
+        {
+            return Forbid("You can only view your own reports");
+        }
+
+        return Ok(new List<AppointmentReportResponseDto>());
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Error retrieving assistant appointment reports");
+        return StatusCode(500, "Error retrieving reports");
+    }
+}
+
+[HttpPost("assistant/{assistantId}/reports")]
+[Authorize(Roles = "Assistant")]
+public async Task<ActionResult<AppointmentReport>> CreateAssistantReport(Guid assistantId, [FromBody] AppointmentReport report)
+{
+    try
+    {
+        var currentUser = await _authService.GetCurrentUserAsync();
+        
+        if (currentUser.Id != assistantId)
+        {
+            return Forbid("You can only create reports for your appointments");
+        }
+
+        var createdReport = new AppointmentReport
+        {
+            Id = Guid.NewGuid(),
+            AppointmentId = report.AppointmentId,
+            UserId = report.UserId,
+            DoctorId = currentUser.Id,
+            ReportDate = DateTime.UtcNow,
+            Diagnosis = report.Diagnosis,
+            Symptoms = report.Symptoms,
+            Treatment = report.Treatment,
+            Medications = report.Medications,
+            Notes = report.Notes,
+            Recommendations = report.Recommendations,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+
+        return CreatedAtAction(nameof(GetReportById), new { id = createdReport.Id }, createdReport);
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Error creating assistant report");
+        return StatusCode(500, "Error creating report");
+    }
+}
+        [HttpGet("reports/{id}")]
+        [Authorize]
+        public async Task<ActionResult<AppointmentReport>> GetReportById(Guid id)
+        {
+            try
+            {
+                var report = await _reportService.GetByIdAsync(id);
+                if (report == null)
+                    return NotFound();
+
+                return Ok(report);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving report");
+                return StatusCode(500, "Error retrieving report");
+            }
+        }
+     
+
+[HttpGet("reports-test")]
+[AllowAnonymous]
+public ActionResult<string> ReportsTest()
+{
+    return Ok("Reports functionality is accessible via AppointmentsController!");
+}
+
+    [HttpGet("reports")]
+    [Authorize]
+    public async Task<ActionResult<IEnumerable<AppointmentReport>>> GetReports()
+    {
+        try
+        {
+            var currentUser = await _authService.GetCurrentUserAsync();
+            IEnumerable<AppointmentReport> reports;
+
+            if (currentUser.Type == UserHealthService.Domain.Enums.UserType.HealthcareProvider)
+            {
+                
+                reports = await _reportService.GetByDoctorIdAsync(currentUser.Id);
+            }
+            else if (currentUser.Type == UserHealthService.Domain.Enums.UserType.Assistant)
+            {
+            
+                reports = await _reportService.GetAllAsync();
+            }
+            else
+            {
+                
+                reports = await _reportService.GetByUserIdAsync(currentUser.Id);
+            }
+
+            return Ok(reports);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving reports via appointments controller");
+            return StatusCode(500, "Error retrieving reports");
+        }
+    }
+      
+
+[HttpPut("reports/{id}")]
+[Authorize(Roles = "Doctor,Assistant")]
+public async Task<ActionResult<AppointmentReport>> UpdateReport(Guid id, [FromBody] AppointmentReport report)
+{
+    try
+    {
+        if (id != report.Id)
+            return BadRequest("ID mismatch");
+
+        var currentUser = await _authService.GetCurrentUserAsync();
+        var existingReport = await _reportService.GetByIdAsync(id);
+        
+        if (existingReport == null)
+            return NotFound();
+
+        if (existingReport.DoctorId != currentUser.Id && currentUser.Type != UserHealthService.Domain.Enums.UserType.Assistant)
+        {
+            return Forbid("You can only update your own reports");
+        }
+
+        var updatedReport = await _reportService.UpdateAsync(report);
+        return Ok(updatedReport);
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Error updating report {ReportId}", id);
+        return StatusCode(500, "Error updating report");
+    }
+}
+
+[HttpDelete("reports/{id}")]
+[Authorize(Roles = "Doctor,Assistant")]
+public async Task<ActionResult> DeleteReport(Guid id)
+{
+    try
+    {
+        var currentUser = await _authService.GetCurrentUserAsync();
+        var existingReport = await _reportService.GetByIdAsync(id);
+        
+        if (existingReport == null)
+            return NotFound();
+
+        if (existingReport.DoctorId != currentUser.Id && currentUser.Type != UserHealthService.Domain.Enums.UserType.Assistant)
+        {
+            return Forbid("You can only delete your own reports");
+        }
+
+        var result = await _reportService.DeleteAsync(id);
+        if (!result)
+            return NotFound();
+
+        return NoContent();
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Error deleting report {ReportId}", id);
+        return StatusCode(500, "Error deleting report");
+    }
+}
+
+[HttpGet("reports/{id}/download")]
+[Authorize]
+public async Task<IActionResult> DownloadReportPdf(Guid id)
+{
+    try
+    {
+        var currentUser = await _authService.GetCurrentUserAsync();
+        var report = await _reportService.GetByIdAsync(id);
+        
+        if (report == null)
+            return NotFound();
+
+        if (report.UserId != currentUser.Id && report.DoctorId != currentUser.Id && 
+            currentUser.Type != UserHealthService.Domain.Enums.UserType.Assistant)
+        {
+            return Forbid("You don't have permission to download this report");
+        }
+
+        var pdfBytes = await _reportService.GeneratePdfAsync(id);
+        return File(pdfBytes, "application/pdf", $"appointment-report-{id}.pdf");
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Error generating PDF for report {ReportId}", id);
+        return StatusCode(500, "Error generating PDF");
+    }
+}
+    }public class RejectAppointmentDto
 {
     public string RejectionReason { get; set; } = string.Empty;
 }
     }
-}

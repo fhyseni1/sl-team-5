@@ -18,7 +18,7 @@ namespace UserHealthService.Application.Services
 
         public async Task<AppointmentReport> CreateAsync(AppointmentReport report)
         {
-            // Set creation timestamp and generate ID if not provided
+          
             if (report.Id == Guid.Empty)
                 report.Id = Guid.NewGuid();
                 
@@ -68,13 +68,15 @@ namespace UserHealthService.Application.Services
 
             return GenerateSimplePdf(report);
         }
-
+        public async Task<IEnumerable<AppointmentReport>> GetAllAsync()
+{
+    return await _repository.GetAllAsync();
+}
         private byte[] GenerateSimplePdf(AppointmentReport report)
         {
             using var memoryStream = new MemoryStream();
             using var writer = new StreamWriter(memoryStream);
             
-            // Generate PDF content with all the new fields
             writer.WriteLine("=== APPOINTMENT REPORT ===");
             writer.WriteLine($"Report ID: {report.Id}");
             writer.WriteLine($"Appointment ID: {report.AppointmentId}");

@@ -98,6 +98,9 @@ namespace UserHealthService.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Guid>("DoctorId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("DoctorName")
                         .IsRequired()
                         .HasMaxLength(100)

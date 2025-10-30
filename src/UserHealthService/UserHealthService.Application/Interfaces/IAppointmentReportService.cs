@@ -14,6 +14,8 @@ namespace UserHealthService.Application.Interfaces
         Task<IEnumerable<AppointmentReport>> GetByDoctorIdAsync(Guid doctorId);
         Task<AppointmentReport> UpdateAsync(AppointmentReport report);
         Task<bool> DeleteAsync(Guid id);
+        
+         Task<IEnumerable<AppointmentReport>> GetAllAsync();
         Task<byte[]> GeneratePdfAsync(Guid reportId);
     }
 }

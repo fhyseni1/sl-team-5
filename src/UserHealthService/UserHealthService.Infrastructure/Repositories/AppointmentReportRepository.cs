@@ -69,8 +69,16 @@ namespace UserHealthService.Infrastructure.Repositories
             await _context.SaveChangesAsync();
             return report;
         }
-
-        public async Task<bool> DeleteAsync(Guid id)
+         public async Task<IEnumerable<AppointmentReport>> GetAllAsync()
+        {
+            return await _context.AppointmentReports
+                .Include(r => r.Appointment)
+                .Include(r => r.User)
+                .Include(r => r.Doctor)
+                .OrderByDescending(r => r.ReportDate)
+                .ToListAsync();
+        }
+            public async Task<bool> DeleteAsync(Guid id)
         {
             var report = await _context.AppointmentReports.FindAsync(id);
             if (report == null)
