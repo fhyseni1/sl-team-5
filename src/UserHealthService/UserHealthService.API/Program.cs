@@ -48,7 +48,8 @@ builder.Services.AddScoped<IClinicRepository, ClinicRepository>();
 builder.Services.AddAutoMapper(
     typeof(UserHealthService.Application.Mappings.UserProfile), 
     typeof(AllergyProfile),
-    typeof(AppointmentProfile), 
+    typeof(AppointmentProfile),
+    typeof(AppointmentReportProfile), 
     typeof(HealthMetricProfile), 
     typeof(SymptomLogProfile),
     typeof(NotificationProfile),
