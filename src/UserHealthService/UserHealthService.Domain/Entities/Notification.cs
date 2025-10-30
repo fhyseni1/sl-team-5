@@ -15,8 +15,9 @@ namespace UserHealthService.Domain.Entities
         public string? ActionUrl { get; set; }
         public string? Priority { get; set; } = "Normal";
         public DateTime CreatedAt { get; set; }
-        
+
         public virtual User User { get; set; } = null!;
     }
+   
 }
 

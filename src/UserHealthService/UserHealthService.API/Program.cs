@@ -14,8 +14,24 @@ using UserHealthService.Application.Services;
 using UserHealthService.Domain.Entities;
 using UserHealthService.Infrastructure.Data;
 using UserHealthService.Infrastructure.Repositories;
+using Hangfire;
+using Hangfire.PostgreSql;
+using Hangfire.Dashboard;
 
 var builder = WebApplication.CreateBuilder(args);
+// Add Hangfire services
+builder.Services.AddHangfire(configuration => configuration
+    .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+    .UseSimpleAssemblyNameTypeSerializer()
+    .UseRecommendedSerializerSettings()
+    .UsePostgreSqlStorage(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Add Hangfire server
+builder.Services.AddHangfireServer(options =>
+{
+    options.WorkerCount = 1;
+});
+
 
 builder.Services.AddDbContext<UserHealthDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -47,6 +63,8 @@ builder.Services.AddScoped<IClinicRepository, ClinicRepository>();
 builder.Services.AddScoped<IPDFReportService, PDFReportService>();
 builder.Services.AddScoped<IAppointmentReportRepository, AppointmentReportRepository>();
 builder.Services.AddScoped<IAppointmentReportService, AppointmentReportService>();
+builder.Services.AddScoped<IMedicationReminderJob, MedicationReminderJob>();
+
 builder.Services.AddAutoMapper(
     typeof(UserHealthService.Application.Mappings.UserProfile), 
     typeof(AllergyProfile),
@@ -144,6 +162,26 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 var app = builder.Build();
+// Configure Hangfire dashboard
+app.UseHangfireDashboard("/hangfire", new DashboardOptions
+{
+    Authorization = new[] { new HangfireAuthorizationFilter() },
+    DashboardTitle = "UserHealthService Jobs",
+    DarkModeEnabled = true
+});
+
+// Schedule recurring job
+using (var scope = app.Services.CreateScope())
+{
+    var recurringJobManager = scope.ServiceProvider.GetRequiredService<IRecurringJobManager>();
+    
+    // 
+    //  CHANGE TO CONCRETE CLASS
+    recurringJobManager.AddOrUpdate<MedicationReminderJob>(
+        "medication-reminders",
+        job => job.ProcessReminders(),
+        Cron.Minutely);
+}
 
 if (app.Environment.IsDevelopment())
 {
@@ -162,3 +200,20 @@ app.UseAuthorization();
 app.MapControllers();
 await UserHealthService.Infrastructure.Data.SeedAdmin.EnsureSuperAdminAsync(app.Services);
 app.Run();
+// Hangfire Authorization Filter - MBET NË FUND
+public class HangfireAuthorizationFilter : Hangfire.Dashboard.IDashboardAuthorizationFilter
+{
+    public bool Authorize(Hangfire.Dashboard.DashboardContext context)
+    {
+        var httpContext = context.GetHttpContext();
+        var environment = httpContext.RequestServices.GetRequiredService<Microsoft.AspNetCore.Hosting.IWebHostEnvironment>();
+        
+        if (environment.IsDevelopment())
+        {
+            return true;
+        }
+
+        return httpContext.User.Identity?.IsAuthenticated == true && 
+               httpContext.User.IsInRole("Admin");
+    }
+}
