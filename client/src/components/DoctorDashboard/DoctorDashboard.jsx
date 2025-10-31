@@ -32,7 +32,41 @@ import {
 } from "lucide-react";
 import { authService, api } from "../../../services/authService";
 
+// Shto këto enum në fillim të file DoctorDashboard.jsx
+const MedicationType = {
+  Prescription: 1,
+  OverTheCounter: 2,
+  Supplement: 3,
+  Vitamin: 4,
+  Herbal: 5,
+  Homeopathic: 6
+};
+
+const DosageUnit = {
+  Milligrams: 1,
+  Grams: 2,
+  Milliliters: 3,
+  Liters: 4,
+  Tablets: 5,
+  Capsules: 6,
+  Drops: 7,
+  Puffs: 8,
+  Patches: 9,
+  Units: 10
+};
+
+const MedicationStatus = {
+  Active: 1,
+  Paused: 2,
+  Discontinued: 3,
+  Completed: 4,
+  Expired: 5
+};
+
 const DoctorDashboard = () => {
+ 
+const [selectedPatient, setSelectedPatient] = useState(null);
+const [showPatientSelection, setShowPatientSelection] = useState(false);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -55,13 +89,18 @@ const [showPatientsModal, setShowPatientsModal] = useState(false);
 
   const router = useRouter();
 
-  const [medicationForm, setMedicationForm] = useState({
-    name: "",
-    dosage: "",
-    instructions: "",
-    frequency: "Daily",
-    duration: "",
-  });
+ // Zëvendëso medicationForm state
+const [medicationForm, setMedicationForm] = useState({
+  name: "",
+  genericName: "",
+  dosage: "",
+  dosageUnit: DosageUnit.Milligrams, // Default
+  instructions: "",
+  frequency: "Daily",
+  duration: "",
+  description: "",
+  medicationType: MedicationType.Prescription // Default
+});
 
 const fetchAssistantReports = async (assistantId) => {
   try {
@@ -86,9 +125,17 @@ useEffect(() => {
       console.log('📝 Initialized empty doctorReports in localStorage');
     }
   };
-
   initializeLocalStorage();
 }, []);
+
+useEffect(() => {
+  // Initialize shared storage nëse nuk ekziston
+  if (!localStorage.getItem('doctorPrescribedMedications')) {
+    localStorage.setItem('doctorPrescribedMedications', JSON.stringify([]));
+    console.log('💾 Initialized shared medication storage');
+  }
+}, []);
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -210,37 +257,38 @@ const loadAppointments = async (userData, isDoctor) => {
 };
 const loadMedications = async (userData) => {
   try {
+    console.log('💊 Loading medications for doctor:', userData.id);
+    
+    let allMeds = [];
+    
+    // Marrim ilaqet nga të gjitha burimet
+    try {
+      // Nga API
+      const response = await api.get("/api/medications");
+      allMeds = response.data || [];
+      console.log('✅ Medications from API:', allMeds.length);
+    } catch (apiError) {
+      console.log('❌ API failed, using localStorage');
+    }
 
-    const response = await api.get("/api/medications");
-    const allMeds = response.data || [];
-  
+    // Marrim ilaqet nga localStorage i doktorit
+    const localDoctorMeds = JSON.parse(localStorage.getItem('doctorMedications') || '[]');
+    allMeds = [...allMeds, ...localDoctorMeds];
+    
+    // Filtrojmë vetëm ilaqet e këtij doktori
+    const doctorFullName = `Dr. ${userData.firstName} ${userData.lastName}`;
+    
     const filteredMeds = allMeds.filter(med => 
-      med.prescribedBy === `${userData.firstName} ${userData.lastName}` ||
-      med.prescribedBy === `Dr. ${userData.firstName} ${userData.lastName}` ||
-      med.doctorId === userData.id
+      med.doctorId === userData.id || 
+      med.prescribedBy === doctorFullName
     );
     
+    console.log('🎯 Doctor medications:', filteredMeds.length);
     setMedications(filteredMeds);
-    console.log('💊 Medications loaded:', filteredMeds.length);
-  } catch (error) {
-    console.error('Error loading medications:', error);
     
-    try {
-      const altResponse = await api.get("/medications");
-      const allMeds = altResponse.data || [];
-      
-      const filteredMeds = allMeds.filter(med => 
-        med.prescribedBy === `${userData.firstName} ${userData.lastName}` ||
-        med.prescribedBy === `Dr. ${userData.firstName} ${userData.lastName}` ||
-        med.doctorId === userData.id
-      );
-      
-      setMedications(filteredMeds);
-      console.log('💊 Medications loaded via alternative endpoint:', filteredMeds.length);
-    } catch (altError) {
-      console.error('Both medication endpoints failed');
-      setMedications([]);
-    }
+  } catch (error) {
+    console.error('💊 Error loading medications:', error);
+    setMedications([]);
   }
 };
 
@@ -339,49 +387,92 @@ const loadReports = async (userData) => {
     setPatients(uniquePatients);
   }
 };
- const handleAddMedicationSubmit = async (e) => {
+
+const handleAddMedicationSubmit = async (e) => {
   e.preventDefault();
   try {
- 
-    await api.post("/api/medications", {
-      ...medicationForm,
-      userId: user.id,
+    if (!selectedPatient) {
+      toast.error("Please select a patient first");
+      return;
+    }
+
+    const medicationData = {
+      userId: selectedPatient.id,
+      name: medicationForm.name,
+      genericName: medicationForm.genericName || medicationForm.name,
+      manufacturer: "Unknown Manufacturer",
+      type: parseInt(medicationForm.medicationType),
+      dosage: parseFloat(medicationForm.dosage) || 0,
+      dosageUnit: parseInt(medicationForm.dosageUnit),
+      description: medicationForm.description || medicationForm.instructions,
+      instructions: medicationForm.instructions,
+      status: 1, // Active
+      startDate: new Date().toISOString(),
+      endDate: medicationForm.duration ? 
+        new Date(Date.now() + parseInt(medicationForm.duration) * 24 * 60 * 60 * 1000).toISOString() 
+        : null,
+    };
+
+    console.log('💊 Creating medication for patient:', selectedPatient.id);
+
+    let apiSuccess = false;
+    let createdMedication = null;
+
+    // PROVIMI 1: Ruaj në API
+    try {
+      const response = await api.post("/api/medications", medicationData);
+      createdMedication = response.data;
+      apiSuccess = true;
+      console.log('✅ Medication saved to API');
+    } catch (apiError) {
+      console.error('❌ API save failed:', apiError.message);
+    }
+
+    // PROVIMI 2: Ruaj në localStorage të përbashkët (IMPORTANT)
+    const medicationForPatient = {
+      ...medicationData,
+      id: createdMedication?.id || `doctor-med-${Date.now()}`,
+      prescribedBy: `Dr. ${user.firstName} ${user.lastName}`,
       doctorId: user.id,
-      prescribedBy: `${user.firstName} ${user.lastName}`,
-    });
+      patientName: `${selectedPatient.firstName} ${selectedPatient.lastName}`,
+      patientEmail: selectedPatient.email,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      // Shtojmë informacion shtesë për pacientin
+      isPrescription: true,
+      requiresPrescription: true,
+      source: 'doctor_prescribed'
+    };
+
+    // Ruaj në localStorage të përbashkët për pacientët
+    const existingDoctorMeds = JSON.parse(localStorage.getItem('doctorPrescribedMedications') || '[]');
+    const updatedDoctorMeds = [medicationForPatient, ...existingDoctorMeds];
+    localStorage.setItem('doctorPrescribedMedications', JSON.stringify(updatedDoctorMeds));
     
+    console.log('💾 Medication saved to shared storage for patient:', selectedPatient.id);
+
+    // Ruaj edhe në localStorage të doktorit (si backup)
+    const existingMeds = JSON.parse(localStorage.getItem('doctorMedications') || '[]');
+    localStorage.setItem('doctorMedications', JSON.stringify([medicationForPatient, ...existingMeds]));
+
+    // Update state të doktorit
+    setMedications(prev => [medicationForPatient, ...prev]);
+
+    // Reset form
     setShowAddMedicationForm(false);
     setMedicationForm({
-      name: "", dosage: "", instructions: "", frequency: "Daily", duration: ""
+      name: "", genericName: "", dosage: "", dosageUnit: 1, instructions: "",
+      frequency: "Daily", duration: "", description: "", medicationType: 1
     });
+    setSelectedPatient(null);
 
-    await loadMedications(user);
-    toast.success("Medication added successfully!");
-  } catch (err) {
-    console.error("Error adding medication:", err);
+    toast.success(`💊 Medication prescribed to ${selectedPatient.firstName} successfully!`);
     
-    try {
-      await api.post("/medications", {
-        ...medicationForm,
-        userId: user.id,
-        doctorId: user.id,
-        prescribedBy: `${user.firstName} ${user.lastName}`,
-      });
-      
-      setShowAddMedicationForm(false);
-      setMedicationForm({
-        name: "", dosage: "", instructions: "", frequency: "Daily", duration: ""
-      });
-      
-      await loadMedications(user);
-      toast.success("Medication added successfully!");
-    } catch (altError) {
-      console.error("Both medication endpoints failed");
-      toast.error("Failed to add medication - service unavailable");
-    }
+  } catch (err) {
+    console.error("💊 Unexpected error:", err);
+    toast.error("❌ Failed to add medication");
   }
 };
- 
   const handleCreateReport = async (appointment) => {
   console.log('🎯 Create Report clicked for appointment:', appointment);
   
@@ -1071,72 +1162,254 @@ const handleRejectAppointment = async (appointmentId) => {
     </div>
   </div>
 )}
-      {/* Add Medication Modal */}
-      {showAddMedicationForm && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-800/95 backdrop-blur-xl rounded-3xl max-w-md w-full p-8 border border-slate-700/50">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-white">Add Medication</h2>
-              <button
-                onClick={() => setShowAddMedicationForm(false)}
-                className="p-2 hover:bg-slate-700 rounded-xl"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-            <form onSubmit={handleAddMedicationSubmit} className="space-y-4">
-              <input
-                name="name"
-                placeholder="Medication Name *"
-                value={medicationForm.name}
-                onChange={(e) => handleInputChange(e, setMedicationForm)}
-                className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
-                required
-              />
-              <input
-                name="dosage"
-                placeholder="Dosage (e.g., 100mg) *"
-                value={medicationForm.dosage}
-                onChange={(e) => handleInputChange(e, setMedicationForm)}
-                className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
-                required
-              />
-              <textarea
-                name="instructions"
-                placeholder="Instructions for use"
-                value={medicationForm.instructions}
-                onChange={(e) => handleInputChange(e, setMedicationForm)}
-                rows="3"
-                className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white resize-vertical"
-              />
-              <select
-                name="frequency"
-                value={medicationForm.frequency}
-                onChange={(e) => handleInputChange(e, setMedicationForm)}
-                className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
-              >
-                <option value="Daily">Daily</option>
-                <option value="Weekly">Weekly</option>
-                <option value="Monthly">Monthly</option>
-                <option value="As needed">As needed</option>
-              </select>
-              <input
-                name="duration"
-                placeholder="Duration (e.g., 30 days)"
-                value={medicationForm.duration}
-                onChange={(e) => handleInputChange(e, setMedicationForm)}
-                className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
-              />
-              <button
-                type="submit"
-                className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 text-white py-4 rounded-xl font-bold hover:shadow-emerald-500/50 transition-all"
-              >
-                Add Medication
-              </button>
-            </form>
+   
+
+{showAddMedicationForm && (
+  <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div className="bg-slate-800/95 backdrop-blur-xl rounded-3xl max-w-md w-full p-8 border border-slate-700/50">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-bold text-white">
+          {selectedPatient ? `Add Medication for ${selectedPatient.firstName}` : 'Add Medication'}
+        </h2>
+        <button
+          onClick={() => {
+            setShowAddMedicationForm(false);
+            setSelectedPatient(null);
+          }}
+          className="p-2 hover:bg-slate-700 rounded-xl"
+        >
+          <X className="w-6 h-6" />
+        </button>
+      </div>
+
+      {/* Patient Selection Section */}
+      {!selectedPatient ? (
+        <div className="space-y-4">
+          <div className="text-center py-4">
+            <Users className="w-12 h-12 text-slate-400 mx-auto mb-3" />
+            <h3 className="text-white font-semibold mb-2">Select Patient</h3>
+            <p className="text-slate-400 text-sm mb-4">
+              Choose which patient to prescribe medication for
+            </p>
           </div>
+          
+          <button
+            onClick={() => {
+              fetchDoctorPatients();
+              setShowPatientSelection(true);
+            }}
+            className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-4 rounded-xl font-bold hover:shadow-blue-500/50 transition-all"
+          >
+            Select from My Patients
+          </button>
+          
+          <button
+            onClick={() => setShowPatientSelection(true)}
+            className="w-full bg-slate-700 text-white py-4 rounded-xl font-bold hover:bg-slate-600 transition-all"
+          >
+            Search All Patients
+          </button>
         </div>
+      ) : (
+  <form 
+    onSubmit={handleAddMedicationSubmit} 
+    className="w-full max-w-2xl bg-slate-800/70 rounded-2xl border border-slate-700 shadow-lg p-4 sm:p-6 space-y-3
+               max-h-[90vh] overflow-y-auto"
+  >
+    {/* Patient Info Display */}
+    <div className="bg-slate-700/50 rounded-xl p-3 border border-slate-600 flex items-center justify-between  top-0 z-10">
+      <div>
+        <h4 className="text-white font-semibold text-lg sm:text-xl">
+          {selectedPatient.firstName} {selectedPatient.lastName}
+        </h4>
+        <p className="text-slate-400 text-sm sm:text-base">{selectedPatient.email}</p>
+      </div>
+      <button
+        type="button"
+        onClick={() => setSelectedPatient(null)}
+        className="text-slate-400 hover:text-white transition-colors"
+      >
+        <X className="w-5 h-5 sm:w-6 sm:h-6" />
+      </button>
+    </div>
+
+    {/* Medication Type */}
+    <select
+      name="medicationType"
+      value={medicationForm.medicationType}
+      onChange={(e) => handleInputChange(e, setMedicationForm)}
+      className="w-full p-3 sm:p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
+    >
+      <option value={MedicationType.Prescription}>Prescription</option>
+      <option value={MedicationType.OverTheCounter}>Over the Counter</option>
+      <option value={MedicationType.Supplement}>Supplement</option>
+      <option value={MedicationType.Vitamin}>Vitamin</option>
+      <option value={MedicationType.Herbal}>Herbal</option>
+      <option value={MedicationType.Homeopathic}>Homeopathic</option>
+    </select>
+
+    {/* Brand & Generic Name */}
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <input
+        name="name"
+        placeholder="Brand Name *"
+        value={medicationForm.name}
+        onChange={(e) => handleInputChange(e, setMedicationForm)}
+        className="w-full p-3 sm:p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
+        required
+      />
+      <input
+        name="genericName"
+        placeholder="Generic Name"
+        value={medicationForm.genericName}
+        onChange={(e) => handleInputChange(e, setMedicationForm)}
+        className="w-full p-3 sm:p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
+      />
+    </div>
+
+    {/* Dosage & Unit */}
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <input
+        name="dosage"
+        placeholder="Dosage *"
+        type="number"
+        step="0.1"
+        value={medicationForm.dosage}
+        onChange={(e) => handleInputChange(e, setMedicationForm)}
+        className="w-full p-3 sm:p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
+        required
+      />
+      <select
+        name="dosageUnit"
+        value={medicationForm.dosageUnit}
+        onChange={(e) => handleInputChange(e, setMedicationForm)}
+        className="w-full p-3 sm:p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
+      >
+        <option value={DosageUnit.Milligrams}>Milligrams</option>
+        <option value={DosageUnit.Grams}>Grams</option>
+        <option value={DosageUnit.Milliliters}>Milliliters</option>
+        <option value={DosageUnit.Liters}>Liters</option>
+        <option value={DosageUnit.Tablets}>Tablets</option>
+        <option value={DosageUnit.Capsules}>Capsules</option>
+        <option value={DosageUnit.Drops}>Drops</option>
+        <option value={DosageUnit.Puffs}>Puffs</option>
+        <option value={DosageUnit.Patches}>Patches</option>
+        <option value={DosageUnit.Units}>Units</option>
+      </select>
+    </div>
+
+    {/* Frequency & Duration */}
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <select
+        name="frequency"
+        value={medicationForm.frequency}
+        onChange={(e) => handleInputChange(e, setMedicationForm)}
+        className="w-full p-3 sm:p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
+      >
+        <option value="Daily">Daily</option>
+        <option value="Weekly">Weekly</option>
+        <option value="Monthly">Monthly</option>
+        <option value="As needed">As needed</option>
+        <option value="Twice daily">Twice daily</option>
+        <option value="Three times daily">Three times daily</option>
+      </select>
+      <input
+        name="duration"
+        placeholder="Duration in days"
+        type="number"
+        value={medicationForm.duration}
+        onChange={(e) => handleInputChange(e, setMedicationForm)}
+        className="w-full p-3 sm:p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
+      />
+    </div>
+
+    {/* Description */}
+    <textarea
+      name="description"
+      placeholder="Description (optional)"
+      value={medicationForm.description}
+      onChange={(e) => handleInputChange(e, setMedicationForm)}
+      rows="2"
+      className="w-full p-3 sm:p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white placeholder:text-slate-400 resize-vertical focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
+    />
+
+    {/* Instructions */}
+    <textarea
+      name="instructions"
+      placeholder="Instructions for use *"
+      value={medicationForm.instructions}
+      onChange={(e) => handleInputChange(e, setMedicationForm)}
+      rows="3"
+      className="w-full p-3 sm:p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white placeholder:text-slate-400 resize-vertical focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
+      required
+    />
+
+    {/* Submit Button */}
+    <button
+      type="submit"
+      className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 text-white py-3 sm:py-4 rounded-xl font-bold hover:scale-105 hover:shadow-lg transition-all duration-200"
+    >
+      Prescribe Medication
+    </button>
+  </form>
+
+
       )}
+    </div>
+  </div>
+)}
+{/* Patient Selection Modal */}
+{showPatientSelection && (
+  <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+    <div className="bg-slate-800/95 backdrop-blur-xl rounded-3xl max-w-2xl w-full max-h-[80vh] overflow-hidden border border-slate-700/50">
+      <div className="flex items-center justify-between p-6 border-b border-slate-700/50">
+        <h2 className="text-2xl font-bold text-white">Select Patient</h2>
+        <button
+          onClick={() => setShowPatientSelection(false)}
+          className="p-2 hover:bg-slate-700 rounded-xl"
+        >
+          <X className="w-6 h-6" />
+        </button>
+      </div>
+      
+      <div className="p-6 max-h-96 overflow-y-auto">
+        {patients.length > 0 ? (
+          <div className="grid grid-cols-1 gap-3">
+            {patients.map((patient) => (
+              <div
+                key={patient.id}
+                onClick={() => {
+                  setSelectedPatient(patient);
+                  setShowPatientSelection(false);
+                }}
+                className="bg-slate-700/50 rounded-xl p-4 border border-slate-600/50 hover:border-blue-500/50 cursor-pointer transition-all hover:scale-105"
+              >
+                <h3 className="text-white font-semibold">
+                  {patient.firstName} {patient.lastName}
+                </h3>
+                <p className="text-slate-300 text-sm">{patient.email}</p>
+                {patient.phoneNumber && (
+                  <p className="text-slate-400 text-sm">📞 {patient.phoneNumber}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-8">
+            <Users className="w-16 h-16 text-slate-600 mx-auto mb-4" />
+            <p className="text-slate-400">No patients found</p>
+            <button
+              onClick={fetchDoctorPatients}
+              className="mt-4 text-blue-400 hover:text-blue-300"
+            >
+              Refresh List
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+)}
     </div>
   );
 };
