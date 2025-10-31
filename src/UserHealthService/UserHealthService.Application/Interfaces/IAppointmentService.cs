@@ -14,6 +14,7 @@ namespace UserHealthService.Application.Interfaces
         Task<IEnumerable<AppointmentResponseDto>> GetByDoctorIdAsync(Guid doctorId);
         Task<bool> CancelAsync(Guid id);
         Task<bool> DeleteAsync(Guid id);
+        Task<IEnumerable<AppointmentResponseDto>> GetApprovedAppointmentsByDoctorIdAsync(Guid doctorId);
         Task<int> GetUpcomingCountAsync(Guid userId);
     }
 }

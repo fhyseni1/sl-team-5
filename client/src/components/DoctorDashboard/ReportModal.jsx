@@ -37,10 +37,10 @@ const ReportModal = ({
               </div>
               <div>
                 <h2 className="text-2xl font-bold text-white">
-                  {editingReport ? 'Modifiko Raportin' : 'Krijo Raport të Ri'}
+                  {editingReport ? 'Edit Medical Report' : 'Create New Report'}
                 </h2>
                 <p className="text-slate-300 text-sm">
-                  {editingReport ? 'Përditëso detajet e raportit' : 'Plotëso informacionin mjekësor'}
+                  {editingReport ? 'Update report details' : 'Complete medical information'}
                 </p>
               </div>
             </div>
@@ -54,7 +54,7 @@ const ReportModal = ({
         </div>
 
         <div className="p-6">
-          {/* Appointment Information*/}
+          {/* Appointment Information */}
           {selectedAppointment && (
             <div className="bg-slate-700/30 rounded-2xl p-6 mb-6 border border-slate-600/50">
               <h3 className="text-white font-bold text-lg mb-4 flex items-center gap-2">
@@ -84,16 +84,16 @@ const ReportModal = ({
                     <span className="text-slate-300 text-sm">Date:</span>
                     <span className="text-white font-medium">
                       {selectedAppointment.appointmentDate ? 
-                        new Date(selectedAppointment.appointmentDate).toLocaleDateString('sq-AL') : 
-                        'Nuk është specifikuar'
+                        new Date(selectedAppointment.appointmentDate).toLocaleDateString('en-US') : 
+                        'Not specified'
                       }
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <FileText className="w-4 h-4 text-slate-400" />
-                    <span className="text-slate-300 text-sm">Goal:</span>
+                    <span className="text-slate-300 text-sm">Purpose:</span>
                     <span className="text-white font-medium">
-                      {selectedAppointment.purpose || 'Konsultim i përgjithshëm'}
+                      {selectedAppointment.purpose || 'General consultation'}
                     </span>
                   </div>
                 </div>
@@ -107,46 +107,52 @@ const ReportModal = ({
             {/* Diagnosis */}
             <div className="bg-slate-700/30 rounded-2xl p-6 border border-slate-600/50">
               <label className="text-white font-bold text-lg mb-3 flex items-center gap-2">
-                <i className="fas fa-stethoscope text-red-400"></i>
-                Diagnose *
+                <span className="w-8 h-8 bg-red-500/20 rounded-lg flex items-center justify-center">
+                  <span className="text-red-400 text-sm">🩺</span>
+                </span>
+                Diagnosis *
               </label>
               <textarea
                 name="diagnosis"
                 defaultValue={editingReport?.diagnosis || ''}
-                placeholder="Shkruani diagnozën kryesore..."
+                placeholder="Enter primary diagnosis..."
                 rows="3"
-                className="w-full p-4 bg-slate-600/50 border border-slate-500/50 rounded-xl text-white resize-vertical focus:border-purple-500/50 focus:ring-2 focus:ring-purple-500/20 transition-all"
+                className="w-full p-4 bg-slate-600/50 border border-slate-500/50 rounded-xl text-white placeholder-slate-400 resize-vertical focus:border-purple-500/50 focus:ring-2 focus:ring-purple-500/20 transition-all"
                 required
               />
             </div>
 
-            {/* Symptoms & Treatment - në një rresht */}
+            {/* Symptoms & Treatment */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="bg-slate-700/30 rounded-2xl p-6 border border-slate-600/50">
                 <label className="text-white font-bold text-lg mb-3 flex items-center gap-2">
-                  <i className="fas fa-thermometer-half text-amber-400"></i>
+                  <span className="w-8 h-8 bg-amber-500/20 rounded-lg flex items-center justify-center">
+                    <span className="text-amber-400 text-sm">🌡️</span>
+                  </span>
                   Symptoms
                 </label>
                 <textarea
                   name="symptoms"
                   defaultValue={editingReport?.symptoms || ''}
-                  placeholder="Describe the symptoms..."
+                  placeholder="Describe patient symptoms..."
                   rows="4"
-                  className="w-full p-4 bg-slate-600/50 border border-slate-500/50 rounded-xl text-white resize-vertical focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/20 transition-all"
+                  className="w-full p-4 bg-slate-600/50 border border-slate-500/50 rounded-xl text-white placeholder-slate-400 resize-vertical focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/20 transition-all"
                 />
               </div>
 
               <div className="bg-slate-700/30 rounded-2xl p-6 border border-slate-600/50">
                 <label className="text-white font-bold text-lg mb-3 flex items-center gap-2">
-                  <i className="fas fa-heartbeat text-green-400"></i>
-                  Treatment
+                  <span className="w-8 h-8 bg-green-500/20 rounded-lg flex items-center justify-center">
+                    <span className="text-green-400 text-sm">💗</span>
+                  </span>
+                  Treatment Plan
                 </label>
                 <textarea
                   name="treatment"
                   defaultValue={editingReport?.treatment || ''}
-                  placeholder="Describe the treatment plan..."
+                  placeholder="Describe treatment provided..."
                   rows="4"
-                  className="w-full p-4 bg-slate-600/50 border border-slate-500/50 rounded-xl text-white resize-vertical focus:border-green-500/50 focus:ring-2 focus:ring-green-500/20 transition-all"
+                  className="w-full p-4 bg-slate-600/50 border border-slate-500/50 rounded-xl text-white placeholder-slate-400 resize-vertical focus:border-green-500/50 focus:ring-2 focus:ring-green-500/20 transition-all"
                 />
               </div>
             </div>
@@ -154,15 +160,17 @@ const ReportModal = ({
             {/* Medications */}
             <div className="bg-slate-700/30 rounded-2xl p-6 border border-slate-600/50">
               <label className="text-white font-bold text-lg mb-3 flex items-center gap-2">
-                <i className="fas fa-pills text-blue-400"></i>
-                Perscribed Medications
+                <span className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                  <span className="text-blue-400 text-sm">💊</span>
+                </span>
+                Prescribed Medications
               </label>
               <textarea
                 name="medications"
                 defaultValue={editingReport?.medications || ''}
-                placeholder="List medications, dosages and instructions for use..."
+                placeholder="List medications, dosages, and instructions..."
                 rows="3"
-                className="w-full p-4 bg-slate-600/50 border border-slate-500/50 rounded-xl text-white resize-vertical focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition-all"
+                className="w-full p-4 bg-slate-600/50 border border-slate-500/50 rounded-xl text-white placeholder-slate-400 resize-vertical focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition-all"
               />
             </div>
 
@@ -170,34 +178,38 @@ const ReportModal = ({
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="bg-slate-700/30 rounded-2xl p-6 border border-slate-600/50">
                 <label className="text-white font-bold text-lg mb-3 flex items-center gap-2">
-                  <i className="fas fa-clipboard-list text-slate-400"></i>
-                  Notes
+                  <span className="w-8 h-8 bg-slate-500/20 rounded-lg flex items-center justify-center">
+                    <span className="text-slate-400 text-sm">📝</span>
+                  </span>
+                  Clinical Notes
                 </label>
                 <textarea
                   name="notes"
                   defaultValue={editingReport?.notes || ''}
-                  placeholder="Extra medicine note..."
+                  placeholder="Additional medical observations..."
                   rows="3"
-                  className="w-full p-4 bg-slate-600/50 border border-slate-500/50 rounded-xl text-white resize-vertical focus:border-slate-500/50 focus:ring-2 focus:ring-slate-500/20 transition-all"
+                  className="w-full p-4 bg-slate-600/50 border border-slate-500/50 rounded-xl text-white placeholder-slate-400 resize-vertical focus:border-slate-500/50 focus:ring-2 focus:ring-slate-500/20 transition-all"
                 />
               </div>
 
               <div className="bg-slate-700/30 rounded-2xl p-6 border border-slate-600/50">
                 <label className="text-white font-bold text-lg mb-3 flex items-center gap-2">
-                  <i className="fas fa-calendar-check text-indigo-400"></i>
+                  <span className="w-8 h-8 bg-indigo-500/20 rounded-lg flex items-center justify-center">
+                    <span className="text-indigo-400 text-sm">✅</span>
+                  </span>
                   Recommendations
                 </label>
                 <textarea
                   name="recommendations"
                   defaultValue={editingReport?.recommendations || ''}
-                  placeholder="Recommendations to follow..."
+                  placeholder="Follow-up instructions and recommendations..."
                   rows="3"
-                  className="w-full p-4 bg-slate-600/50 border border-slate-500/50 rounded-xl text-white resize-vertical focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/20 transition-all"
+                  className="w-full p-4 bg-slate-600/50 border border-slate-500/50 rounded-xl text-white placeholder-slate-400 resize-vertical focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/20 transition-all"
                 />
               </div>
             </div>
 
-            {/*  Submit Button */}
+            {/* Submit Button */}
             <div className="flex gap-4 pt-4">
               <button
                 type="button"

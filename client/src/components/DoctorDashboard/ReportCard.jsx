@@ -21,10 +21,10 @@ const ReportCard = ({
             </span>
           </div>
           <h3 className="text-white font-bold text-lg mb-1 group-hover:text-purple-300 transition-colors">
-            {report.userName || 'Pacient i panjohur'}
+            {report.userName || 'Unknown Patient'}
           </h3>
           <p className="text-slate-400 text-sm">
-            {report.doctorName || 'Mjek i panjohur'}
+            {report.doctorName || 'Unknown Doctor '}
           </p>
         </div>
         <div className="bg-purple-500/20 rounded-full p-2 group-hover:bg-purple-500/30 transition-colors">
@@ -35,7 +35,7 @@ const ReportCard = ({
       {/* Report Overview */}
       <div className="space-y-3 mb-4">
         <div className="flex items-center gap-2 text-slate-300">
-          <i className="fas fa-calendar text-blue-400 text-sm"></i>
+          <span className="text-blue-400 text-sm">📅</span>
           <span className="text-sm">
             {new Date(report.reportDate).toLocaleDateString('sq-AL', {
               day: 'numeric',
@@ -47,7 +47,7 @@ const ReportCard = ({
         
         {report.diagnosis && (
           <div className="bg-slate-600/30 rounded-lg p-3">
-            <p className="text-slate-300 text-sm font-medium mb-1">Diagnose</p>
+            <p className="text-slate-300 text-sm font-medium mb-1">Diagnosis </p>
             <p className="text-white text-sm line-clamp-2">{report.diagnosis}</p>
           </div>
         )}
@@ -66,14 +66,14 @@ const ReportCard = ({
           <button
             onClick={() => onEdit(report)}
             className="p-2 bg-blue-500/20 hover:bg-blue-500/40 text-blue-400 rounded-lg transition-all duration-200 hover:scale-110"
-            title="Modifiko Raportin"
+            title="Edit Report"
           >
             <Edit className="w-4 h-4" />
           </button>
           <button
             onClick={() => onView(report)}
             className="p-2 bg-indigo-500/20 hover:bg-indigo-500/40 text-indigo-400 rounded-lg transition-all duration-200 hover:scale-110"
-            title="Shiko Raportin"
+            title="View Report"
           >
             <Eye className="w-4 h-4" />
           </button>
@@ -83,14 +83,14 @@ const ReportCard = ({
           <button
             onClick={() => onDownload(report.id)}
             className="p-2 bg-green-500/20 hover:bg-green-500/40 text-green-400 rounded-lg transition-all duration-200 hover:scale-110"
-            title="Shkarko PDF"
+            title="Download PDF"
           >
             <Download className="w-4 h-4" />
           </button>
           <button
             onClick={() => onDelete(report.id)}
             className="p-2 bg-red-500/20 hover:bg-red-500/40 text-red-400 rounded-lg transition-all duration-200 hover:scale-110"
-            title="Fshi Raportin"
+            title="Delete Report"
           >
             <Trash2 className="w-4 h-4" />
           </button>

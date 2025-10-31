@@ -62,12 +62,12 @@ const [showPatientsModal, setShowPatientsModal] = useState(false);
     frequency: "Daily",
     duration: "",
   });
- 
+
 const fetchAssistantReports = async (assistantId) => {
   try {
     console.log('🔄 Loading assistant reports for:', assistantId);
    
-    const response = await api.get(`/api/appointmentreports`);
+    const response = await api.get(`/api/appointments/reports`);
     console.log('📊 All reports for assistant:', response.data);
     setReports(response.data || []);
     
@@ -77,32 +77,7 @@ const fetchAssistantReports = async (assistantId) => {
     setReports([]);
   }
 };
-useEffect(() => {
-  const debugAllEndpoints = async () => {
-    console.log('🔧 Starting comprehensive API debug...');
-    
-    const endpointsToTest = [
-      '/',
-      '/api',
-      '/api/appointments',
-      '/api/appointments/test-reports', 
-      '/health',
-      '/swagger',
-      '/swagger/v1/swagger.json'
-    ];
 
-    for (const endpoint of endpointsToTest) {
-      try {
-        const response = await api.get(endpoint);
-        console.log(`✅ ${endpoint}:`, response.status, response.data ? 'Has data' : 'No data');
-      } catch (error) {
-        console.log(`❌ ${endpoint}:`, error.response?.status || error.message);
-      }
-    }
-  };
-
-  debugAllEndpoints();
-}, []);
 useEffect(() => {
   const initializeLocalStorage = () => {
     const existingReports = localStorage.getItem('doctorReports');
@@ -155,62 +130,55 @@ useEffect(() => {
  
 const loadAppointments = async (userData, isDoctor) => {
   try {
-    console.log('🔄 Loading appointments...');
-    console.log('👤 User type:', userData.type, 'Is Doctor:', isDoctor);
+    console.log('🔄 Loading appointments for:', userData.id, userData.firstName, userData.lastName);
     
     let filteredAppointments = [];
 
     if (isDoctor) {
-  
       try {
-      
-        const response = await api.get(`/appointments/doctor/${userData.id}/approved`);
-        filteredAppointments = response.data || [];
-        console.log('👨‍⚕️ Approved doctor appointments:', filteredAppointments);
-        
-        if (filteredAppointments.length === 0) {
-          console.log('⚠️ No appointments from specific endpoint, trying general endpoint...');
-          const allResponse = await api.get("/appointments");
-          const allAppointments = allResponse.data || [];
-          
-          const doctorFullName = `Dr. ${userData.firstName} ${userData.lastName}`;
-          filteredAppointments = allAppointments.filter(app => {
-            const matchesDoctor = app.doctorName === doctorFullName || 
-                                 app.doctorName?.includes(userData.firstName) || 
-                                 app.doctorName?.includes(userData.lastName);
-            const isApproved = app.status === 2 || app.status === 'Approved';
-            console.log(`Appointment ${app.id}: Doctor=${app.doctorName}, Status=${app.status}, Matches=${matchesDoctor}, Approved=${isApproved}`);
-            return matchesDoctor && isApproved;
-          });
-        }
-      } catch (endpointError) {
-        console.error('❌ Specific doctor endpoint failed:', endpointError);
-     
-        const allResponse = await api.get("/appointments");
-        const allAppointments = allResponse.data || [];
+       
+        console.log('🔄 Using general appointments endpoint...');
+        const response = await api.get("/appointments");
+        const allAppointments = response.data || [];
         
         const doctorFullName = `Dr. ${userData.firstName} ${userData.lastName}`;
+        console.log('🔍 Looking for doctor:', doctorFullName);
+        
         filteredAppointments = allAppointments.filter(app => {
-          const matchesDoctor = app.doctorName === doctorFullName || 
-                               app.doctorName?.includes(userData.firstName) || 
-                               app.doctorName?.includes(userData.lastName);
+          const matchesDoctor = app.doctorName === doctorFullName;
           const isApproved = app.status === 2 || app.status === 'Approved';
+          
+          if (matchesDoctor) {
+            console.log(`✅ Found appointment for ${doctorFullName}:`, {
+              id: app.id,
+              patient: app.userName,
+              date: app.appointmentDate,
+              status: app.status
+            });
+          }
+          
           return matchesDoctor && isApproved;
         });
+        
+        console.log('👨‍⚕️ Final filtered appointments:', filteredAppointments.length);
+
+      } catch (error) {
+        console.error('❌ Error loading appointments:', error);
+        
+        filteredAppointments = [];
       }
     } else {
-      
+    
       try {
         const pendingResponse = await api.get(`/appointments/assistant/${userData.id}/pending`);
         filteredAppointments = pendingResponse.data || [];
-        console.log('👨‍💼 Assistant pending appointments:', filteredAppointments);
       } catch (pendingError) {
         console.error('❌ Error loading assistant appointments:', pendingError);
         throw pendingError;
       }
     }
 
-    console.log('📋 Final filtered appointments:', filteredAppointments);
+    console.log('📋 Final appointments count:', filteredAppointments.length);
     setAppointments(filteredAppointments);
     
     const approvedApps = filteredAppointments.filter(app => app.status === 2 || app.status === 'Approved');
@@ -235,12 +203,11 @@ const loadAppointments = async (userData, isDoctor) => {
     });
 
   } catch (error) {
-    console.error('❌ Error loading appointments:', error);
+    console.error('❌ Error in loadAppointments:', error);
     toast.error("Failed to load appointments");
     setAppointments([]);
   }
 };
-
 const loadMedications = async (userData) => {
   try {
 
@@ -639,37 +606,36 @@ const viewReportQuick = (report) => {
   modal.document.close();
 };
 const handleApproveAppointment = async (appointmentId) => {
-    if (user?.type === 7) { 
-      try {
-        await api.put(`/api/appointments/${appointmentId}/assistant-approve`);
-        // Update local state
-        setAppointments(prev => prev.filter(app => app.id !== appointmentId));
-        toast.success("Appointment approved successfully!");
-      } catch (error) {
-        console.error('Error approving appointment:', error);
-        toast.error("Failed to approve appointment");
-      }
+  if (user?.type === 7) { 
+    try {
+      await api.put(`/api/appointments/${appointmentId}/assistant-approve`);
+       setAppointments(prev => prev.filter(app => app.id !== appointmentId));
+      toast.success("Appointment approved successfully!");
+    } catch (error) {
+      console.error('Error approving appointment:', error);
+      toast.error("Failed to approve appointment");
     }
-  };
+  }
+};
 
-  const handleRejectAppointment = async (appointmentId) => {
-    if (user?.type === 7) { 
-      const reason = prompt("Please provide a reason for rejection:");
-      if (reason) {
-        try {
-          await api.put(`/api/appointments/${appointmentId}/assistant-reject`, {
-            rejectionReason: reason
-          });
-          
-          setAppointments(prev => prev.filter(app => app.id !== appointmentId));
-          toast.success("Appointment rejected successfully!");
-        } catch (error) {
-          console.error('Error rejecting appointment:', error);
-          toast.error("Failed to reject appointment");
-        }
+const handleRejectAppointment = async (appointmentId) => {
+  if (user?.type === 7) { 
+    const reason = prompt("Please provide a reason for rejection:");
+    if (reason) {
+      try {
+        await api.put(`/api/appointments/${appointmentId}/assistant-reject`, {
+          rejectionReason: reason
+        });
+        
+        setAppointments(prev => prev.filter(app => app.id !== appointmentId));
+        toast.success("Appointment rejected successfully!");
+      } catch (error) {
+        console.error('Error rejecting appointment:', error);
+        toast.error("Failed to reject appointment");
       }
     }
-  };
+  }
+};
 
   if (loading)
     return (
@@ -1066,18 +1032,19 @@ const handleApproveAppointment = async (appointmentId) => {
     </div>
   </div>
 )} 
-<ReportModal
-  showModal={showReportModal}
-  selectedAppointment={selectedAppointment}
-  editingReport={editingReport}
-  user={user}
-  onClose={() => {
-    setShowReportModal(false);
-    setEditingReport(null);
-    setSelectedAppointment(null);
-  }}
-  onSubmit={handleSubmitReport}
-/>
+{/* Report Modal */}
+      <ReportModal
+        showModal={showReportModal}
+        selectedAppointment={selectedAppointment}
+        editingReport={editingReport}
+        user={user}
+        onClose={() => {
+          setShowReportModal(false);
+          setEditingReport(null);
+          setSelectedAppointment(null);
+        }}
+        onSubmit={handleSubmitReport}
+      /> 
 {showChatInbox && (
   <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
     <div className="bg-slate-800/95 backdrop-blur-xl rounded-3xl w-full max-w-6xl h-[90vh] overflow-hidden border border-slate-700/50 flex flex-col">

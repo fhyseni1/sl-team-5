@@ -367,7 +367,18 @@ public async Task<bool> AssistantRejectAsync(Guid id, Guid assistantId, string r
         return false;
     }
 }
-        public async Task<bool> ApproveAsync(Guid id)
+public async Task<IEnumerable<Appointment>> GetApprovedAppointmentsByDoctorIdAsync(Guid doctorId)
+{
+ 
+    var doctor = await _context.Doctors.FindAsync(doctorId);
+    if (doctor == null)
+        return Enumerable.Empty<Appointment>();
+
+    return await _context.Appointments
+        .Where(a => a.DoctorName == doctor.Name && a.Status == AppointmentStatus.Approved)
+        .Include(a => a.User)
+        .ToListAsync();
+}        public async Task<bool> ApproveAsync(Guid id)
         {
             var appointment = await _context.Appointments.FindAsync(id);
             if (appointment == null) return false;
