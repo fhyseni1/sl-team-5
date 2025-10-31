@@ -5,6 +5,7 @@ using UserHealthService.Application.Interfaces;
 using UserHealthService.Domain.Entities;
 using UserHealthService.Domain.Enums;
 using AutoMapper;
+using UserHealthService.Infrastructure.Data;
 namespace UserHealthService.API.Controllers
 {
     [ApiController]
@@ -17,8 +18,9 @@ namespace UserHealthService.API.Controllers
         private readonly IUserService _userService;
         private readonly ILogger<AppointmentsController> _logger;
         private readonly IAuthService _authService;
-        private readonly IPDFReportService _pdfReportService; 
-         private readonly IMapper _mapper;
+        private readonly IPDFReportService _pdfReportService;
+        private readonly IMapper _mapper;
+           private readonly UserHealthDbContext _context; 
            private readonly IAppointmentReportService _reportService;
         public AppointmentsController(
             IAppointmentService appointmentService,
@@ -28,7 +30,7 @@ namespace UserHealthService.API.Controllers
   IPDFReportService pdfReportService,
 IAppointmentReportService reportService,
 
-            ILogger<AppointmentsController> logger ,IMapper mapper) 
+            ILogger<AppointmentsController> logger ,IMapper mapper, UserHealthDbContext context)
         {
             _appointmentService = appointmentService;
             _appointmentRepository = appointmentRepository;
@@ -36,6 +38,7 @@ IAppointmentReportService reportService,
             _authService = authService;
             _pdfReportService = pdfReportService;
             _reportService = reportService;
+            _context = context;
                 _mapper = mapper;
             _logger = logger;
         }
@@ -68,37 +71,44 @@ IAppointmentReportService reportService,
                 return StatusCode(500, "Error retrieving appointments");
             }
         }
-
-[HttpGet("doctor/{doctorId}/approved")]
-[Authorize]
-public async Task<ActionResult<IEnumerable<AppointmentResponseDto>>> GetApprovedAppointmentsByDoctor(Guid doctorId)
-{
-    try
-    {
-        var currentUser = await _authService.GetCurrentUserAsync();
-        
-        if (currentUser.Id != doctorId && currentUser.Type != UserHealthService.Domain.Enums.UserType.Assistant)
-        {
-            return Forbid("You can only view your own appointments");
-        }
-
-        var appointments = await _appointmentRepository.GetByDoctorIdAsync(doctorId);
-        var approvedAppointments = appointments.Where(a => a.Status == AppointmentStatus.Approved);
-        
-        return Ok(_mapper.Map<IEnumerable<AppointmentResponseDto>>(approvedAppointments));
-    }
-    catch (Exception ex)
-    {
-        _logger.LogError(ex, "Error retrieving approved appointments for doctor {DoctorId}", doctorId);
-        return StatusCode(500, "Error retrieving appointments");
-    }
-}
- [HttpGet("test-pdf")]
-        [AllowAnonymous] 
-        public async Task<IActionResult> TestPDF()
+        [HttpGet("doctor/{doctorId}/approved")]
+        [Authorize]
+        public async Task<ActionResult<IEnumerable<AppointmentResponseDto>>> GetApprovedAppointmentsByDoctor(Guid doctorId)
         {
             try
             {
+                var currentUser = await _authService.GetCurrentUserAsync();
+                
+                if (currentUser.Id != doctorId && currentUser.Type != UserHealthService.Domain.Enums.UserType.Assistant)
+                {
+                    return Forbid("You can only view your own appointments");
+                }
+
+                var doctor = await _context.Doctors.FindAsync(doctorId);
+                if (doctor == null)
+                {
+                    return NotFound("Doctor not found");
+                }
+
+                var allAppointments = await _appointmentRepository.GetAllAsync();
+                var approvedAppointments = allAppointments
+                    .Where(a => a.DoctorName == doctor.Name && a.Status == AppointmentStatus.Approved)
+                    .ToList();
+                
+                return Ok(_mapper.Map<IEnumerable<AppointmentResponseDto>>(approvedAppointments));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving approved appointments for doctor {DoctorId}", doctorId);
+                return StatusCode(500, "Error retrieving appointments");
+            }
+        }
+            [HttpGet("test-pdf")]
+                    [AllowAnonymous] 
+                    public async Task<IActionResult> TestPDF()
+                    {
+                        try
+                        {
               
                 var sampleReport = new AppointmentReportResponseDto
                 {
