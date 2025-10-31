@@ -20,6 +20,7 @@ import {
   CheckCircle2,
   Sparkles,
   ArrowUpRight,
+  typeColor,
   Plus,
   X,
   Camera,
@@ -157,6 +158,113 @@ const UserDashboard = () => {
     fetchData();
   }, [router]);
 
+  useEffect(() => {
+  // Initialize shared storage nëse nuk ekziston
+  if (!localStorage.getItem('doctorPrescribedMedications')) {
+    localStorage.setItem('doctorPrescribedMedications', JSON.stringify([]));
+    console.log('💾 Initialized shared medication storage');
+  }
+}, []);
+
+// Zëvendëso useEffect ekzistues për medications me këtë:
+useEffect(() => {
+  const fetchUserMedications = async () => {
+    if (!user?.id) return;
+
+    try {
+      setMedicationsLoading(true);
+      console.log('🟡 Fetching user medications...');
+      
+      // DEFINIMI I FUNKSIONIT loadUserMedications brenda këtij scope
+      const loadUserMedications = async (userData) => {
+        try {
+          console.log('💊 Loading medications for user:', userData.id);
+          
+          let allMedications = [];
+          
+          // QASJA 1: Provojmë API-në fillimisht
+          try {
+            const response = await api.get(`/api/medications/user/${userData.id}`);
+            allMedications = response.data || [];
+            console.log('✅ Medications loaded from API:', allMedications.length);
+          } catch (apiError) {
+            console.error('❌ API failed, checking shared storage:', apiError.message);
+            
+            // QASJA 2: Kontrollojmë nëse ka ilaqe nga doktori në localStorage global
+            const doctorPrescribedMeds = JSON.parse(localStorage.getItem('doctorPrescribedMedications') || '[]');
+            
+            // Filtrojmë vetëm ilaqet për këtë pacient
+            const patientMedsFromDoctors = doctorPrescribedMeds.filter(med => 
+              med.userId === userData.id
+            );
+            
+            console.log('👨‍⚕️ Medications from doctors for this patient:', patientMedsFromDoctors.length);
+            
+            // QASJA 3: Marrim ilaqet e veta të pacientit
+            const userOwnMeds = JSON.parse(localStorage.getItem(`userMedications_${userData.id}`) || '[]');
+            
+            // Kombinojmë të gjitha ilaqet
+            allMedications = [...patientMedsFromDoctors, ...userOwnMeds];
+            console.log('📋 Total medications from all sources:', allMedications.length);
+          }
+
+          // Kategorizojmë ilaqet
+          const prescriptionMeds = allMedications.filter(med => 
+            med.isPrescription || 
+            med.requiresPrescription || 
+            med.prescribedBy || 
+            med.type === "Prescription" ||
+            med.type === 1
+          );
+          
+          const overTheCounterMeds = allMedications.filter(med => 
+            med.type === "OverTheCounter" || 
+            med.type === "OTC" || 
+            med.type === "Over the Counter" ||
+            med.type === 2
+          );
+          
+          const selfAddedMeds = allMedications.filter(med => 
+            !med.isPrescription &&
+            !med.requiresPrescription &&
+            !med.prescribedBy &&
+            med.type !== "OverTheCounter" &&
+            med.type !== "OTC" &&
+            med.type !== "Over the Counter" &&
+            med.type !== "Prescription" &&
+            med.type !== 1 &&
+            med.type !== 2
+          );
+
+          setMedicationTypes({
+            prescription: prescriptionMeds,
+            overTheCounter: overTheCounterMeds,
+            selfAdded: selfAddedMeds,
+          });
+
+          setUserMedications(allMedications);
+          
+        } catch (error) {
+          console.error('💊 Error loading medications:', error);
+          setUserMedications([]);
+        }
+      };
+      
+      // TANI MUND TA THIRRIM FUNKSIONIN
+      await loadUserMedications(user);
+      
+    } catch (error) {
+      console.error('❌ Error fetching medications:', error);
+      setUserMedications([]);
+    } finally {
+      setMedicationsLoading(false);
+    }
+  };
+
+  if (user?.id) {
+    fetchUserMedications();
+  }
+}, [user?.id]);
   // Fetch doctors when clinicId changes
   useEffect(() => {
     const fetchDoctors = async () => {
@@ -182,82 +290,28 @@ const UserDashboard = () => {
     fetchDoctors();
   }, [appointmentForm.clinicId]);
 
-  useEffect(() => {
-    const fetchUserMedications = async () => {
-      if (!user?.id) return;
 
-      try {
-        setMedicationsLoading(true);
-        console.log("🟡 Fetching user medications...");
+// Medication Card Component - OPTIMIZUAR PËR LAYOUT TË RI
+const MedicationCard = ({ medication, onDelete, type }) => {
+  const isFromDoctor = medication.prescribedBy || medication.source === 'doctor_prescribed';
+  const isPrescription = type === "prescription" || isFromDoctor;
+  
+  // Përcakto stilin bazuar në lloj
+  let cardClass = "from-emerald-500/10 to-teal-500/10 border-emerald-500/20";
+  let badgeColor = "bg-emerald-500/20 text-emerald-400";
+  let iconColor = "text-emerald-400";
+  
+  if (isFromDoctor) {
+    cardClass = "from-purple-500/10 to-pink-500/10 border-purple-500/20";
+    badgeColor = "bg-purple-500/20 text-purple-400";
+    iconColor = "text-purple-400";
+  } else if (type === "otc") {
+    cardClass = "from-blue-500/10 to-cyan-500/10 border-blue-500/20";
+    badgeColor = "bg-blue-500/20 text-blue-400";
+    iconColor = "text-blue-400";
+  }
 
-        let allMedications = [];
-        try {
-          const response = await api.get(`/medications/user/${user.id}`);
-          allMedications = response.data || [];
-          console.log("✅ Medications loaded from backend:", allMedications);
-        } catch (backendError) {
-          console.log("🔵 Backend not available, using localStorage");
 
-          const localMedications = localStorage.getItem(
-            `userMedications_${user.id}`
-          );
-          if (localMedications) {
-            allMedications = JSON.parse(localMedications);
-            console.log(
-              "📋 Medications loaded from localStorage:",
-              allMedications
-            );
-          }
-        }
-
-        const prescriptionMeds = allMedications.filter(
-          (med) =>
-            med.isPrescription ||
-            med.requiresPrescription ||
-            med.prescribedBy ||
-            med.type === "Prescription"
-        );
-        const overTheCounterMeds = allMedications.filter(
-          (med) =>
-            med.type === "OverTheCounter" ||
-            med.type === "OTC" ||
-            med.type === "Over the Counter"
-        );
-        const selfAddedMeds = allMedications.filter(
-          (med) =>
-            !med.isPrescription &&
-            !med.requiresPrescription &&
-            !med.prescribedBy &&
-            med.type !== "OverTheCounter" &&
-            med.type !== "OTC" &&
-            med.type !== "Over the Counter" &&
-            med.type !== "Prescription"
-        );
-
-        setMedicationTypes({
-          prescription: prescriptionMeds,
-          overTheCounter: overTheCounterMeds,
-          selfAdded: selfAddedMeds,
-        });
-
-        setUserMedications(allMedications);
-      } catch (error) {
-        console.error("❌ Error fetching medications:", error);
-        setUserMedications([]);
-      } finally {
-        setMedicationsLoading(false);
-      }
-    };
-
-    if (user?.id) {
-      fetchUserMedications();
-    }
-  }, [user?.id]);
-
-  // Medication Card Component
-  const MedicationCard = ({ medication, onDelete, type }) => {
-    const typeColor = getTypeColor(medication.type);
-    const isPrescription = type === "prescription";
 
     return (
       <div
@@ -827,128 +881,147 @@ const UserDashboard = () => {
         Please log in
       </div>
     );
+return (
+  <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 relative">
+    <ToastContainer
+      position="top-right"
+      autoClose={5000}
+      hideProgressBar={false}
+      newestOnTop
+      closeOnClick
+      rtl={false}
+      pauseOnFocusLoss
+      draggable
+      pauseOnHover
+      theme="dark"
+    />
+    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-blue-900/20 via-transparent to-emerald-900/20"></div>
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 relative">
-      <ToastContainer
-        position="top-right"
-        autoClose={5000}
-        hideProgressBar={false}
-        newestOnTop
-        closeOnClick
-        rtl={false}
-        pauseOnFocusLoss
-        draggable
-        pauseOnHover
-        theme="dark"
-      />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-blue-900/20 via-transparent to-emerald-900/20"></div>
-
-      <header className="bg-slate-900/80 backdrop-blur-xl border-b border-slate-700/50 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 py-5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="w-14 h-14 bg-gradient-to-br from-blue-600 to-emerald-600 rounded-2xl flex items-center justify-center shadow-xl">
-                <Pill className="w-7 h-7 text-white" />
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-100 to-slate-300 bg-clip-text text-transparent">
-                  MediTrack
-                </h1>
-                <p className="text-slate-400">Your Health Companion</p>
-              </div>
+    <header className="bg-slate-900/80 backdrop-blur-xl border-b border-slate-700/50 sticky top-0 z-50">
+      <div className="max-w-7xl mx-auto px-6 py-5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <div className="w-14 h-14 bg-gradient-to-br from-blue-600 to-emerald-600 rounded-2xl flex items-center justify-center shadow-xl">
+              <Pill className="w-7 h-7 text-white" />
             </div>
-
-            {/* Profile and Logout Buttons */}
-            <div className="flex items-center space-x-4">
-              {user && <NotificationCenter currentUser={user} />}
-
-              <button
-                onClick={() => router.push("/profile")}
-                className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold shadow-xl hover:shadow-blue-500/50 transition-all"
-              >
-                <User className="w-5 h-5" />
-                <span>Profile</span>
-              </button>
-
-              <button
-                onClick={handleLogout}
-                className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl font-bold shadow-xl hover:shadow-red-500/50 transition-all"
-              >
-                <LogOut className="w-5 h-5" />
-                <span>Logout</span>
-              </button>
+            <div>
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-100 to-slate-300 bg-clip-text text-transparent">
+                MediTrack
+              </h1>
+              <p className="text-slate-400">Your Health Companion</p>
             </div>
           </div>
-        </div>
-      </header>
 
-      <main className="max-w-7xl mx-auto px-6 py-12 relative z-10">
-        <div className="mb-12">
-          <h2 className="text-4xl font-bold bg-gradient-to-r from-slate-100 to-slate-300 bg-clip-text text-transparent mb-3">
-            Welcome, {user.firstName}!
-          </h2>
-          <p className="text-slate-400 text-lg">Here's your health overview</p>
-        </div>
+          {/* Profile and Logout Buttons */}
+          <div className="flex items-center space-x-4">
+            {user && <NotificationCenter currentUser={user} />}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-          <div className="bg-gradient-to-br from-emerald-500/10 to-teal-500/10 backdrop-blur-xl rounded-2xl p-8 border border-emerald-500/30 shadow-xl">
-            <Pill className="w-12 h-12 text-emerald-400 mx-auto mb-4" />
-            <p className="text-3xl font-bold text-white mb-1">
-              {userMedications.length}
-            </p>
-            <p className="text-emerald-400 font-semibold">Active Medications</p>
-          </div>
-          <div className="bg-gradient-to-br from-blue-500/10 to-cyan-500/10 backdrop-blur-xl rounded-2xl p-8 border border-blue-500/30 shadow-xl">
-            <Calendar className="w-12 h-12 text-blue-400 mx-auto mb-4" />
-            <p className="text-3xl font-bold text-white mb-1">
-              {upcomingAppointmentsCount}
-            </p>
-            <p className="text-blue-400 font-semibold">Pending Appointments</p>
-          </div>
-          <div className="bg-gradient-to-br from-amber-500/10 to-orange-500/10 backdrop-blur-xl rounded-2xl p-8 border border-amber-500/30 shadow-xl">
-            <Bell className="w-12 h-12 text-amber-400 mx-auto mb-4" />
-            <p className="text-3xl font-bold text-white mb-1">5</p>
-            <p className="text-amber-400 font-semibold">Pending Reminders</p>
-          </div>
-          <div className="bg-gradient-to-br from-violet-500/10 to-purple-500/10 backdrop-blur-xl rounded-2xl p-8 border border-violet-500/30 shadow-xl">
-            <Users className="w-12 h-12 text-violet-400 mx-auto mb-4" />
-            <p className="text-3xl font-bold text-white mb-1">
-              {activeUsersCount || "..."}
-            </p>
-            <p className="text-violet-400 font-semibold">Active Users</p>
+            <button
+              onClick={() => router.push("/profile")}
+              className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold shadow-xl hover:shadow-blue-500/50 transition-all"
+            >
+              <User className="w-5 h-5" />
+              <span>Profile</span>
+            </button>
+
+            <button
+              onClick={handleLogout}
+              className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl font-bold shadow-xl hover:shadow-red-500/50 transition-all"
+            >
+              <LogOut className="w-5 h-5" />
+              <span>Logout</span>
+            </button>
           </div>
         </div>
+      </div>
+    </header>
 
-        {/* Your Medications Section */}
-        <div className="mb-12">
-          <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl p-8 border border-slate-700/50">
-            <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
-              <Pill className="w-7 h-7 text-emerald-400" />
-              Your Medications
-            </h3>
+    <main className="max-w-7xl mx-auto px-6 py-12 relative z-10">
+      <div className="mb-12">
+        <h2 className="text-4xl font-bold bg-gradient-to-r from-slate-100 to-slate-300 bg-clip-text text-transparent mb-3">
+          Welcome, {user.firstName}!
+        </h2>
+        <p className="text-slate-400 text-lg">Here's your health overview</p>
+      </div>
 
-            {medicationsLoading ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="w-8 h-8 animate-spin text-emerald-400" />
-              </div>
-            ) : userMedications.length > 0 ? (
-              <div className="space-y-8">
-                {/* Prescription Medications */}
-                {medicationTypes.prescription.length > 0 && (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+        <div className="bg-gradient-to-br from-emerald-500/10 to-teal-500/10 backdrop-blur-xl rounded-2xl p-8 border border-emerald-500/30 shadow-xl">
+          <Pill className="w-12 h-12 text-emerald-400 mx-auto mb-4" />
+          <p className="text-3xl font-bold text-white mb-1">
+            {userMedications.length}
+          </p>
+          <p className="text-emerald-400 font-semibold">Active Medications</p>
+        </div>
+        <div className="bg-gradient-to-br from-blue-500/10 to-cyan-500/10 backdrop-blur-xl rounded-2xl p-8 border border-blue-500/30 shadow-xl">
+          <Calendar className="w-12 h-12 text-blue-400 mx-auto mb-4" />
+          <p className="text-3xl font-bold text-white mb-1">
+            {upcomingAppointmentsCount}
+          </p>
+          <p className="text-blue-400 font-semibold">Pending Appointments</p>
+        </div>
+        <div className="bg-gradient-to-br from-amber-500/10 to-orange-500/10 backdrop-blur-xl rounded-2xl p-8 border border-amber-500/30 shadow-xl">
+          <Bell className="w-12 h-12 text-amber-400 mx-auto mb-4" />
+          <p className="text-3xl font-bold text-white mb-1">5</p>
+          <p className="text-amber-400 font-semibold">Pending Reminders</p>
+        </div>
+        <div className="bg-gradient-to-br from-violet-500/10 to-purple-500/10 backdrop-blur-xl rounded-2xl p-8 border border-violet-500/30 shadow-xl">
+          <Users className="w-12 h-12 text-violet-400 mx-auto mb-4" />
+          <p className="text-3xl font-bold text-white mb-1">
+            {activeUsersCount || "..."}
+          </p>
+          <p className="text-violet-400 font-semibold">Active Users</p>
+        </div>
+      </div>
+
+      {/* Your Medications Section - LAYOUT I RI */}
+      <div className="mb-12">
+        <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl p-8 border border-slate-700/50">
+          <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
+            <Pill className="w-7 h-7 text-emerald-400" />
+            Your Medications
+          </h3>
+
+          {medicationsLoading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="w-8 h-8 animate-spin text-emerald-400" />
+              <span className="ml-2 text-slate-400">Loading medications...</span>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              
+              {/* LEFT SIDE - Add Medication & Self-Added */}
+              <div className="space-y-6">
+                {/* Quick Add Medication Card */}
+                <div className="bg-gradient-to-br from-blue-500/10 to-indigo-500/10 backdrop-blur-xl rounded-xl p-6 border border-blue-500/20">
+                  <h4 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                    <Plus className="w-5 h-5 text-blue-400" />
+                    Add New Medication
+                  </h4>
+                  <p className="text-slate-300 text-sm mb-4">
+                    Track your own medications, supplements, or over-the-counter drugs
+                  </p>
+                  <button
+                    onClick={() => setShowMedicationForm(true)}
+                    className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 rounded-lg font-semibold hover:shadow-blue-500/50 transition-all hover:scale-105"
+                  >
+                    + Add Medication
+                  </button>
+                </div>
+
+                {/* Self-Added Medications */}
+                {medicationTypes.selfAdded.length > 0 && (
                   <div>
-                    <h4 className="text-lg font-semibold text-purple-400 mb-4 flex items-center gap-2">
-                      <FileText className="w-5 h-5" />
-                      Prescription Medications (
-                      {medicationTypes.prescription.length})
+                    <h4 className="text-lg font-semibold text-amber-400 mb-4 flex items-center gap-2">
+                      <UserPlus className="w-5 h-5" />
+                      Your Self-Added Medications ({medicationTypes.selfAdded.length})
                     </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {medicationTypes.prescription.map((medication) => (
+                    <div className="space-y-4">
+                      {medicationTypes.selfAdded.map((medication) => (
                         <MedicationCard
                           key={medication.id}
                           medication={medication}
                           onDelete={handleDeleteMedication}
-                          type="prescription"
+                          type="self"
                         />
                       ))}
                     </div>
@@ -962,7 +1035,7 @@ const UserDashboard = () => {
                       <Pill className="w-5 h-5" />
                       Over-the-Counter ({medicationTypes.overTheCounter.length})
                     </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="space-y-4">
                       {medicationTypes.overTheCounter.map((medication) => (
                         <MedicationCard
                           key={medication.id}
@@ -975,529 +1048,560 @@ const UserDashboard = () => {
                   </div>
                 )}
 
-                {/* Self-Added Medications */}
-                {medicationTypes.selfAdded.length > 0 && (
-                  <div>
-                    <h4 className="text-lg font-semibold text-amber-400 mb-4 flex items-center gap-2">
-                      <UserPlus className="w-5 h-5" />
-                      Self-Added Medications ({medicationTypes.selfAdded.length}
-                      )
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {medicationTypes.selfAdded.map((medication) => (
+                {/* Empty State for Left Side */}
+                {medicationTypes.selfAdded.length === 0 && medicationTypes.overTheCounter.length === 0 && (
+                  <div className="text-center py-8 bg-slate-700/30 rounded-xl">
+                    <Pill className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+                    <p className="text-slate-400 text-sm mb-2">
+                      No self-added medications yet
+                    </p>
+                    <p className="text-slate-500 text-xs">
+                      Add your first medication to start tracking
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* RIGHT SIDE - Doctor Prescribed Medications */}
+              <div className="space-y-6">
+                {/* Doctor Prescribed Section */}
+                <div className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 backdrop-blur-xl rounded-xl p-6 border border-purple-500/20">
+                  <h4 className="text-lg font-semibold text-purple-400 mb-2 flex items-center gap-2">
+                    <Shield className="w-5 h-5" />
+                    Doctor Prescribed Medications
+                  </h4>
+                  <p className="text-slate-300 text-sm mb-4">
+                    Medications prescribed by your healthcare providers
+                  </p>
+                  
+                  {medicationTypes.prescription.length > 0 ? (
+                    <div className="space-y-4">
+                      {medicationTypes.prescription.map((medication) => (
                         <MedicationCard
                           key={medication.id}
                           medication={medication}
                           onDelete={handleDeleteMedication}
-                          type="self"
+                          type="prescription"
                         />
                       ))}
                     </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <Pill className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-                <p className="text-slate-400 text-lg mb-2">
-                  No medications found
-                </p>
-                <p className="text-slate-500 text-sm">
-                  Add your first medication to get started with tracking
-                </p>
-                <button
-                  onClick={() => setShowMedicationForm(true)}
-                  className="mt-4 px-6 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-lg font-semibold hover:shadow-emerald-500/50 transition-all"
-                >
-                  Add First Medication
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
+                  ) : (
+                    <div className="text-center py-6 bg-purple-500/5 rounded-lg border border-purple-500/10">
+                      <User className="w-10 h-10 text-purple-400/50 mx-auto mb-2" />
+                      <p className="text-slate-400 text-sm">
+                        No prescriptions from doctors yet
+                      </p>
+                      <p className="text-slate-500 text-xs mt-1">
+                        Your prescribed medications will appear here
+                      </p>
+                    </div>
+                  )}
+                </div>
 
-        {/* Your Appointments Section */}
-        <div className="mb-12">
-          <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl p-8 border border-slate-700/50">
-            <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
-              <Calendar className="w-7 h-7 text-blue-400" />
-              Your Appointments
-            </h3>
-            <AppointmentCalendar
-              appointments={userAppointments}
-              doctors={doctors}
-            />
-            <div className="divide-y divide-slate-700">
-              {userAppointments.length > 0 ? (
-                userAppointments.map((appointment) => (
-                  <div
-                    key={appointment.id}
-                    className="py-4 first:pt-0 last:pb-0"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="text-white font-semibold mb-1">
-                          {doctors.find((d) => d.id === appointment.doctorId)
-                            ? `Dr. ${
-                                doctors.find(
-                                  (d) => d.id === appointment.doctorId
-                                ).name
-                              }`
-                            : "Doctor"}
-                        </h4>
-                        <p className="text-slate-400 text-sm">
-                          {appointment.purpose}
+                {/* Stats Card */}
+                <div className="bg-gradient-to-br from-slate-700/50 to-slate-800/50 backdrop-blur-xl rounded-xl p-6 border border-slate-600/50">
+                  <h4 className="text-lg font-semibold text-white mb-4">Medication Summary</h4>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400 text-sm">Total Medications:</span>
+                      <span className="text-white font-semibold">{userMedications.length}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400 text-sm">From Doctors:</span>
+                      <span className="text-purple-400 font-semibold">{medicationTypes.prescription.length}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400 text-sm">Self-Added:</span>
+                      <span className="text-amber-400 font-semibold">{medicationTypes.selfAdded.length}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400 text-sm">Over-the-Counter:</span>
+                      <span className="text-blue-400 font-semibold">{medicationTypes.overTheCounter.length}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Your Appointments Section */}
+      <div className="mb-12">
+        <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl p-8 border border-slate-700/50">
+          <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
+            <Calendar className="w-7 h-7 text-blue-400" />
+            Your Appointments
+          </h3>
+          <AppointmentCalendar
+            appointments={userAppointments}
+            doctors={doctors}
+          />
+          <div className="divide-y divide-slate-700">
+            {userAppointments.length > 0 ? (
+              userAppointments.map((appointment) => (
+                <div
+                  key={appointment.id}
+                  className="py-4 first:pt-0 last:pb-0"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-white font-semibold mb-1">
+                        {doctors.find((d) => d.id === appointment.doctorId)
+                          ? `Dr. ${
+                              doctors.find(
+                                (d) => d.id === appointment.doctorId
+                              ).name
+                            }`
+                          : "Doctor"}
+                      </h4>
+                      <p className="text-slate-400 text-sm">
+                        {appointment.purpose}
+                      </p>
+                      <div className="flex items-center gap-2 mt-2">
+                        <Clock className="w-4 h-4 text-blue-400" />
+                        <p className="text-slate-300 text-sm">
+                          {new Date(
+                            appointment.appointmentDate
+                          ).toLocaleDateString()}
+                          , {appointment.startTime} - {appointment.endTime}
                         </p>
-                        <div className="flex items-center gap-2 mt-2">
-                          <Clock className="w-4 h-4 text-blue-400" />
+                      </div>
+                      {appointment.clinicName && (
+                        <div className="flex items-center gap-2 mt-1">
+                          <Users className="w-4 h-4 text-blue-400" />
                           <p className="text-slate-300 text-sm">
-                            {new Date(
-                              appointment.appointmentDate
-                            ).toLocaleDateString()}
-                            , {appointment.startTime} - {appointment.endTime}
+                            {appointment.clinicName}
                           </p>
                         </div>
-                        {appointment.clinicName && (
-                          <div className="flex items-center gap-2 mt-1">
-                            <Users className="w-4 h-4 text-blue-400" />
-                            <p className="text-slate-300 text-sm">
-                              {appointment.clinicName}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                      <div>
-                        <div className="flex flex-col items-end gap-1">
-                          <span
-                            className={`px-3 py-1 rounded-full text-sm font-medium ${
-                              String(appointment.status || "").toLowerCase() ===
-                              "approved"
-                                ? "bg-emerald-500/20 text-emerald-400"
-                                : String(
-                                    appointment.status || ""
-                                  ).toLowerCase() === "pending"
-                                ? "bg-amber-500/20 text-amber-400"
-                                : "bg-red-500/20 text-red-400"
-                            }`}
-                          >
-                            {appointment.status || "Unknown"}
+                      )}
+                    </div>
+                    <div>
+                      <div className="flex flex-col items-end gap-1">
+                        <span
+                          className={`px-3 py-1 rounded-full text-sm font-medium ${
+                            String(appointment.status || "").toLowerCase() ===
+                            "approved"
+                              ? "bg-emerald-500/20 text-emerald-400"
+                              : String(
+                                  appointment.status || ""
+                                ).toLowerCase() === "pending"
+                              ? "bg-amber-500/20 text-amber-400"
+                              : "bg-red-500/20 text-red-400"
+                          }`}
+                        >
+                          {appointment.status || "Unknown"}
+                        </span>
+                        {String(appointment.status || "").toLowerCase() ===
+                          "rejected" && (
+                          <span className="text-xs text-red-400">
+                            {appointment.rejectionReason
+                              ? `Reason: ${appointment.rejectionReason}`
+                              : "Rejected by admin"}
                           </span>
-                          {String(appointment.status || "").toLowerCase() ===
-                            "rejected" && (
-                            <span className="text-xs text-red-400">
-                              {appointment.rejectionReason
-                                ? `Reason: ${appointment.rejectionReason}`
-                                : "Rejected by admin"}
-                            </span>
-                          )}
-                        </div>
+                        )}
                       </div>
                     </div>
                   </div>
-                ))
-              ) : (
-                <p className="text-slate-400 text-center py-4">
-                  No appointments found. Schedule one now!
+                </div>
+              ))
+            ) : (
+              <p className="text-slate-400 text-center py-4">
+                No appointments found. Schedule one now!
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Quick Actions Section - PA BUTONIN E ADD MEDICATION */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+        <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl p-8 border border-slate-700/50">
+          <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
+            <Activity className="w-7 h-7 text-blue-400" />
+            Quick Actions
+          </h3>
+          <div className="space-y-4">
+            <button
+              onClick={handleScanTherapy}
+              className="w-full flex items-center space-x-3 p-5 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-semibold hover:shadow-purple-500/50 transition-all hover:scale-105"
+            >
+              <Camera className="w-6 h-6" />
+              <span>Scan Therapy</span>
+            </button>
+            <button
+              onClick={() => setShowScheduleForm(true)}
+              className="w-full flex items-center space-x-3 p-5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl font-semibold hover:shadow-emerald-500/50 transition-all hover:scale-105"
+            >
+              <Calendar className="w-6 h-6" />
+              <span>Schedule Appointment</span>
+            </button>
+            <button
+              onClick={() => setShowChatInbox(true)}
+              className="w-full flex items-center space-x-3 p-5 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-semibold hover:shadow-purple-500/50 transition-all hover:scale-105 group"
+            >
+              <MessageCircle className="w-6 h-6 group-hover:scale-110 transition-transform" />
+              <span>Messages</span>
+            </button>
+          </div>
+        </div>
+        <div className="bg-gradient-to-br from-emerald-600 to-teal-700 text-white rounded-2xl p-8 shadow-2xl">
+          <h3 className="text-2xl font-bold mb-4">Health Score</h3>
+          <p className="text-lg mb-6">98% medication adherence</p>
+          <div className="w-full bg-white/20 rounded-full h-3">
+            <div className="bg-white h-3 rounded-full w-[98%]"></div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    {showChatInbox && (
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="bg-slate-800/95 backdrop-blur-xl rounded-3xl w-full max-w-6xl h-[90vh] overflow-hidden border border-slate-700/50 flex flex-col">
+          <div className="flex items-center justify-between p-6 border-b border-slate-700/50 bg-slate-900/80">
+            <div className="flex items-center gap-3">
+              <MessageCircle className="w-8 h-8 text-purple-400" />
+              <div>
+                <h2 className="text-2xl font-bold text-white">
+                  Doctor Messages
+                </h2>
+                <p className="text-slate-400 text-sm">
+                  Chat with your healthcare providers
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowChatInbox(false)}
+              className="p-3 hover:bg-slate-700 rounded-xl transition-all hover:scale-105"
+            >
+              <X className="w-6 h-6 text-slate-300" />
+            </button>
+          </div>
+          <div className="flex-1 p-0 overflow-hidden">
+            <ChatInbox currentUser={user} isDoctorView={false} />
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Medication Form Modal */}
+    {showMedicationForm && (
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="bg-slate-800/95 backdrop-blur-xl rounded-3xl max-w-md w-full p-8 border border-slate-700/50">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold text-white">Add Medication</h2>
+            <button
+              onClick={() => {
+                setShowMedicationForm(false);
+                setShowAllergyWarning(false);
+                setAcknowledgeWarning(false);
+              }}
+              className="p-2 hover:bg-slate-700 rounded-xl"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+
+          {showAllergyWarning && (
+            <div className="mb-6 p-4 bg-red-500/20 border border-red-500/50 rounded-xl">
+              <div className="flex items-center gap-3 mb-2">
+                <AlertTriangle className="w-5 h-5 text-red-400" />
+                <span className="text-red-400 font-semibold">
+                  ALLERGY ALERT
+                </span>
+              </div>
+              <p className="text-red-300 text-sm">
+                You are allergic to{" "}
+                <strong>{allergyWarningMedication}</strong>. This medication
+                may contain ingredients you're allergic to.
+              </p>
+              <div className="flex items-center gap-2 mt-3">
+                <input
+                  type="checkbox"
+                  id="acknowledgeWarning"
+                  checked={acknowledgeWarning}
+                  onChange={(e) => setAcknowledgeWarning(e.target.checked)}
+                  className="w-4 h-4 text-red-600 bg-slate-700 border-slate-600 rounded focus:ring-red-500"
+                />
+                <label
+                  htmlFor="acknowledgeWarning"
+                  className="text-red-300 text-sm"
+                >
+                  I understand the risks and want to proceed
+                </label>
+              </div>
+            </div>
+          )}
+
+          <form onSubmit={handleMedicationSubmit} className="space-y-4">
+            <div>
+              <input
+                name="name"
+                placeholder="Medication Name *"
+                value={medicationForm.name}
+                onChange={handleMedicationNameChange}
+                className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
+                required
+              />
+              {showAllergyWarning && (
+                <p className="text-amber-400 text-xs mt-2 flex items-center gap-1">
+                  <AlertTriangle className="w-3 h-3" />
+                  Warning: Potential allergy conflict detected
                 </p>
               )}
             </div>
-          </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <input
+                name="dosage"
+                type="number"
+                step="0.1"
+                placeholder="Dosage *"
+                value={medicationForm.dosage}
+                onChange={(e) => handleInputChange(e, setMedicationForm)}
+                className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
+                required
+              />
+              <select
+                name="dosageUnit"
+                value={medicationForm.dosageUnit}
+                onChange={(e) => handleInputChange(e, setMedicationForm)}
+                className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
+              >
+                <option value="mg">mg</option>
+                <option value="g">g</option>
+                <option value="ml">ml</option>
+                <option value="tablets">tablets</option>
+                <option value="capsules">capsules</option>
+                <option value="drops">drops</option>
+              </select>
+            </div>
+
+            <select
+              name="frequency"
+              value={medicationForm.frequency}
+              onChange={(e) => handleInputChange(e, setMedicationForm)}
+              className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
+            >
+              <option value="Daily">Once Daily</option>
+              <option value="Twice Daily">Twice Daily</option>
+              <option value="Three Times Daily">Three Times Daily</option>
+              <option value="Four Times Daily">Four Times Daily</option>
+              <option value="Weekly">Weekly</option>
+              <option value="Monthly">Monthly</option>
+              <option value="As Needed">As Needed</option>
+            </select>
+
+            <input
+              name="schedule"
+              type="time"
+              value={medicationForm.schedule}
+              onChange={(e) => handleInputChange(e, setMedicationForm)}
+              className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
+              required
+            />
+
+            <select
+              name="type"
+              value={medicationForm.type}
+              onChange={(e) => handleInputChange(e, setMedicationForm)}
+              className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
+            >
+              <option value="Prescription">Prescription</option>
+              <option value="Over the Counter">Over the Counter</option>
+              <option value="Supplement">Supplement</option>
+              <option value="Vitamin">Vitamin</option>
+              <option value="Herbal">Herbal</option>
+            </select>
+
+            <button
+              type="submit"
+              disabled={showAllergyWarning && !acknowledgeWarning}
+              className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 text-white py-4 rounded-xl font-bold hover:shadow-emerald-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {showAllergyWarning
+                ? "Add Medication Anyway"
+                : "Add Medication"}
+            </button>
+          </form>
         </div>
+      </div>
+    )}
 
-        {/* Quick Actions Section */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
-          <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl p-8 border border-slate-700/50">
-            <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
-              <Activity className="w-7 h-7 text-blue-400" />
-              Quick Actions
-            </h3>
-            <div className="space-y-4">
-              <button
-                onClick={() => setShowMedicationForm(true)}
-                className="w-full flex items-center space-x-3 p-5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-semibold hover:shadow-blue-500/50 transition-all hover:scale-105"
-              >
-                <Pill className="w-6 h-6" />
-                <span>Add New Medication</span>
-              </button>
-              <button
-                onClick={handleScanTherapy}
-                className="w-full flex items-center space-x-3 p-5 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-semibold hover:shadow-purple-500/50 transition-all hover:scale-105"
-              >
-                <Camera className="w-6 h-6" />
-                <span>Scan Therapy</span>
-              </button>
-              <button
-                onClick={() => setShowScheduleForm(true)}
-                className="w-full flex items-center space-x-3 p-5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl font-semibold hover:shadow-emerald-500/50 transition-all hover:scale-105"
-              >
-                <Calendar className="w-6 h-6" />
-                <span>Schedule Appointment</span>
-              </button>
-              <button
-                onClick={() => setShowChatInbox(true)}
-                className="w-full flex items-center space-x-3 p-5 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-semibold hover:shadow-purple-500/50 transition-all hover:scale-105 group"
-              >
-                <MessageCircle className="w-6 h-6 group-hover:scale-110 transition-transform" />
-                <span>Messages</span>
-              </button>
-            </div>
+    {/* Appointment Form Modal */}
+    {showScheduleForm && (
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="bg-slate-800/95 backdrop-blur-xl rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-8 border border-slate-700/50">
+          <div className="flex items-center justify-between mb-8">
+            <h2 className="text-2xl font-bold text-white">
+              Schedule Appointment
+            </h2>
+            <button
+              onClick={() => setShowScheduleForm(false)}
+              className="p-2 hover:bg-slate-700 rounded-xl"
+            >
+              <X className="w-6 h-6" />
+            </button>
           </div>
-          <div className="bg-gradient-to-br from-emerald-600 to-teal-700 text-white rounded-2xl p-8 shadow-2xl">
-            <h3 className="text-2xl font-bold mb-4">Health Score</h3>
-            <p className="text-lg mb-6">98% medication adherence</p>
-            <div className="w-full bg-white/20 rounded-full h-3">
-              <div className="bg-white h-3 rounded-full w-[98%]"></div>
-            </div>
-          </div>
-        </div>
-      </main>
-
-      {showChatInbox && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-800/95 backdrop-blur-xl rounded-3xl w-full max-w-6xl h-[90vh] overflow-hidden border border-slate-700/50 flex flex-col">
-            <div className="flex items-center justify-between p-6 border-b border-slate-700/50 bg-slate-900/80">
-              <div className="flex items-center gap-3">
-                <MessageCircle className="w-8 h-8 text-purple-400" />
-                <div>
-                  <h2 className="text-2xl font-bold text-white">
-                    Doctor Messages
-                  </h2>
-                  <p className="text-slate-400 text-sm">
-                    Chat with your healthcare providers
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowChatInbox(false)}
-                className="p-3 hover:bg-slate-700 rounded-xl transition-all hover:scale-105"
-              >
-                <X className="w-6 h-6 text-slate-300" />
-              </button>
-            </div>
-            <div className="flex-1 p-0 overflow-hidden">
-              <ChatInbox currentUser={user} isDoctorView={false} />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Medication Form Modal */}
-      {showMedicationForm && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-800/95 backdrop-blur-xl rounded-3xl max-w-md w-full p-8 border border-slate-700/50">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-white">Add Medication</h2>
-              <button
-                onClick={() => {
-                  setShowMedicationForm(false);
-                  setShowAllergyWarning(false);
-                  setAcknowledgeWarning(false);
-                }}
-                className="p-2 hover:bg-slate-700 rounded-xl"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-
-            {showAllergyWarning && (
-              <div className="mb-6 p-4 bg-red-500/20 border border-red-500/50 rounded-xl">
-                <div className="flex items-center gap-3 mb-2">
-                  <AlertTriangle className="w-5 h-5 text-red-400" />
-                  <span className="text-red-400 font-semibold">
-                    ALLERGY ALERT
-                  </span>
-                </div>
-                <p className="text-red-300 text-sm">
-                  You are allergic to{" "}
-                  <strong>{allergyWarningMedication}</strong>. This medication
-                  may contain ingredients you're allergic to.
-                </p>
-                <div className="flex items-center gap-2 mt-3">
-                  <input
-                    type="checkbox"
-                    id="acknowledgeWarning"
-                    checked={acknowledgeWarning}
-                    onChange={(e) => setAcknowledgeWarning(e.target.checked)}
-                    className="w-4 h-4 text-red-600 bg-slate-700 border-slate-600 rounded focus:ring-red-500"
-                  />
-                  <label
-                    htmlFor="acknowledgeWarning"
-                    className="text-red-300 text-sm"
-                  >
-                    I understand the risks and want to proceed
-                  </label>
-                </div>
-              </div>
-            )}
-
-            <form onSubmit={handleMedicationSubmit} className="space-y-4">
+          <form onSubmit={handleScheduleSubmit} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <input
-                  name="name"
-                  placeholder="Medication Name *"
-                  value={medicationForm.name}
-                  onChange={handleMedicationNameChange}
-                  className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
-                  required
-                />
-                {showAllergyWarning && (
-                  <p className="text-amber-400 text-xs mt-2 flex items-center gap-1">
-                    <AlertTriangle className="w-3 h-3" />
-                    Warning: Potential allergy conflict detected
-                  </p>
-                )}
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <input
-                  name="dosage"
-                  type="number"
-                  step="0.1"
-                  placeholder="Dosage *"
-                  value={medicationForm.dosage}
-                  onChange={(e) => handleInputChange(e, setMedicationForm)}
-                  className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
-                  required
-                />
+                <label className="block text-slate-300 mb-2">
+                  Select Clinic
+                </label>
                 <select
-                  name="dosageUnit"
-                  value={medicationForm.dosageUnit}
-                  onChange={(e) => handleInputChange(e, setMedicationForm)}
+                  name="clinicId"
+                  value={appointmentForm.clinicId}
+                  onChange={(e) => {
+                    handleInputChange(e, setAppointmentForm);
+                    setAppointmentForm((prev) => ({ ...prev, doctorId: "" })); // Reset doctor selection
+                  }}
                   className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
+                  required
                 >
-                  <option value="mg">mg</option>
-                  <option value="g">g</option>
-                  <option value="ml">ml</option>
-                  <option value="tablets">tablets</option>
-                  <option value="capsules">capsules</option>
-                  <option value="drops">drops</option>
+                  <option value="">Select Clinic</option>
+                  {clinics.length > 0 ? (
+                    clinics.map((clinic) => (
+                      <option key={clinic.id} value={clinic.id}>
+                        {clinic.clinicName}
+                      </option>
+                    ))
+                  ) : (
+                    <option value="" disabled>
+                      No clinics available
+                    </option>
+                  )}
                 </select>
               </div>
-
-              <select
-                name="frequency"
-                value={medicationForm.frequency}
-                onChange={(e) => handleInputChange(e, setMedicationForm)}
-                className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
-              >
-                <option value="Daily">Once Daily</option>
-                <option value="Twice Daily">Twice Daily</option>
-                <option value="Three Times Daily">Three Times Daily</option>
-                <option value="Four Times Daily">Four Times Daily</option>
-                <option value="Weekly">Weekly</option>
-                <option value="Monthly">Monthly</option>
-                <option value="As Needed">As Needed</option>
-              </select>
-
-              <input
-                name="schedule"
-                type="time"
-                value={medicationForm.schedule}
-                onChange={(e) => handleInputChange(e, setMedicationForm)}
-                className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
-                required
-              />
-
-              <select
-                name="type"
-                value={medicationForm.type}
-                onChange={(e) => handleInputChange(e, setMedicationForm)}
-                className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
-              >
-                <option value="Prescription">Prescription</option>
-                <option value="Over the Counter">Over the Counter</option>
-                <option value="Supplement">Supplement</option>
-                <option value="Vitamin">Vitamin</option>
-                <option value="Herbal">Herbal</option>
-              </select>
-
-              <button
-                type="submit"
-                disabled={showAllergyWarning && !acknowledgeWarning}
-                className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 text-white py-4 rounded-xl font-bold hover:shadow-emerald-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {showAllergyWarning
-                  ? "Add Medication Anyway"
-                  : "Add Medication"}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Appointment Form Modal */}
-      {showScheduleForm && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-800/95 backdrop-blur-xl rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-8 border border-slate-700/50">
-            <div className="flex items-center justify-between mb-8">
-              <h2 className="text-2xl font-bold text-white">
-                Schedule Appointment
-              </h2>
-              <button
-                onClick={() => setShowScheduleForm(false)}
-                className="p-2 hover:bg-slate-700 rounded-xl"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-            <form onSubmit={handleScheduleSubmit} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-slate-300 mb-2">
-                    Select Clinic
-                  </label>
-                  <select
-                    name="clinicId"
-                    value={appointmentForm.clinicId}
-                    onChange={(e) => {
-                      handleInputChange(e, setAppointmentForm);
-                      setAppointmentForm((prev) => ({ ...prev, doctorId: "" })); // Reset doctor selection
-                    }}
-                    className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
-                    required
-                  >
-                    <option value="">Select Clinic</option>
-                    {clinics.length > 0 ? (
-                      clinics.map((clinic) => (
-                        <option key={clinic.id} value={clinic.id}>
-                          {clinic.clinicName}
-                        </option>
-                      ))
-                    ) : (
-                      <option value="" disabled>
-                        No clinics available
-                      </option>
-                    )}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-slate-300 mb-2">
-                    Select Doctor
-                  </label>
-                  <select
-                    name="doctorId"
-                    value={appointmentForm.doctorId}
-                    onChange={(e) => handleInputChange(e, setAppointmentForm)}
-                    className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
-                    required
-                    disabled={!appointmentForm.clinicId}
-                  >
-                    <option value="">Select Doctor</option>
-                    {doctors.length > 0 ? (
-                      doctors.map((doctor) => (
-                        <option key={doctor.id} value={doctor.id}>
-                          Dr. {doctor.name}
-                        </option>
-                      ))
-                    ) : (
-                      <option value="" disabled>
-                        {appointmentForm.clinicId
-                          ? "No doctors available for this clinic"
-                          : "Select a clinic first"}
-                      </option>
-                    )}
-                  </select>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-slate-300 mb-2">
-                    Appointment Date
-                  </label>
-                  <input
-                    name="appointmentDate"
-                    type="date"
-                    value={appointmentForm.appointmentDate}
-                    onChange={(e) => handleInputChange(e, setAppointmentForm)}
-                    className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-300 mb-2">
-                    Select Time Slot
-                  </label>
-                  <select
-                    name="startTime"
-                    value={appointmentForm.startTime}
-                    onChange={(e) => {
-                      const startTime = e.target.value;
-                      const [hours, minutes] = startTime.split(":");
-                      const endTime = new Date(
-                        2025,
-                        0,
-                        1,
-                        parseInt(hours),
-                        parseInt(minutes) + 30
-                      )
-                        .toTimeString()
-                        .slice(0, 5);
-
-                      handleInputChange(e, setAppointmentForm);
-                      setAppointmentForm((prev) => ({
-                        ...prev,
-                        endTime: endTime,
-                      }));
-                    }}
-                    className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
-                    required
-                  >
-                    <option value="">Select time</option>
-                    {Array.from({ length: 32 }, (_, i) => {
-                      const hour = Math.floor(i / 2) + 8; // Start from 8 AM
-                      const minutes = (i % 2) * 30;
-                      const time = `${hour
-                        .toString()
-                        .padStart(2, "0")}:${minutes
-                        .toString()
-                        .padStart(2, "0")}`;
-                      return (
-                        <option key={time} value={time}>
-                          {time}
-                        </option>
-                      );
-                    })}
-                  </select>
-                </div>
-              </div>
               <div>
-                <labelmeetingDate
-                  name="endTime"
-                  type="time"
-                  value={appointmentForm.endTime}
-                  className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white cursor-not-allowed"
-                  disabled
+                <label className="block text-slate-300 mb-2">
+                  Select Doctor
+                </label>
+                <select
+                  name="doctorId"
+                  value={appointmentForm.doctorId}
+                  onChange={(e) => handleInputChange(e, setAppointmentForm)}
+                  className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
+                  required
+                  disabled={!appointmentForm.clinicId}
+                >
+                  <option value="">Select Doctor</option>
+                  {doctors.length > 0 ? (
+                    doctors.map((doctor) => (
+                      <option key={doctor.id} value={doctor.id}>
+                        Dr. {doctor.name}
+                      </option>
+                    ))
+                  ) : (
+                    <option value="" disabled>
+                      {appointmentForm.clinicId
+                        ? "No doctors available for this clinic"
+                        : "Select a clinic first"}
+                    </option>
+                  )}
+                </select>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-slate-300 mb-2">
+                  Appointment Date
+                </label>
+                <input
+                  name="appointmentDate"
+                  type="date"
+                  value={appointmentForm.appointmentDate}
+                  onChange={(e) => handleInputChange(e, setAppointmentForm)}
+                  className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
+                  required
                 />
               </div>
-              <textarea
-                name="purpose"
-                placeholder="Purpose of visit *"
-                value={appointmentForm.purpose}
-                onChange={(e) => handleInputChange(e, setAppointmentForm)}
-                rows="3"
-                className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white resize-vertical"
-                required
+              <div>
+                <label className="block text-slate-300 mb-2">
+                  Select Time Slot
+                </label>
+                <select
+                  name="startTime"
+                  value={appointmentForm.startTime}
+                  onChange={(e) => {
+                    const startTime = e.target.value;
+                    const [hours, minutes] = startTime.split(":");
+                    const endTime = new Date(
+                      2025,
+                      0,
+                      1,
+                      parseInt(hours),
+                      parseInt(minutes) + 30
+                    )
+                      .toTimeString()
+                      .slice(0, 5);
+
+                    handleInputChange(e, setAppointmentForm);
+                    setAppointmentForm((prev) => ({
+                      ...prev,
+                      endTime: endTime,
+                    }));
+                  }}
+                  className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
+                  required
+                >
+                  <option value="">Select time</option>
+                  {Array.from({ length: 32 }, (_, i) => {
+                    const hour = Math.floor(i / 2) + 8; // Start from 8 AM
+                    const minutes = (i % 2) * 30;
+                    const time = `${hour
+                      .toString()
+                      .padStart(2, "0")}:${minutes
+                      .toString()
+                      .padStart(2, "0")}`;
+                    return (
+                      <option key={time} value={time}>
+                        {time}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="block text-slate-300 mb-2">End Time</label>
+              <input
+                name="endTime"
+                type="time"
+                value={appointmentForm.endTime}
+                className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white cursor-not-allowed"
+                disabled
               />
-              <textarea
-                name="notes"
-                placeholder="Additional notes"
-                value={appointmentForm.notes}
-                onChange={(e) => handleInputChange(e, setAppointmentForm)}
-                rows="3"
-                className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white resize-vertical"
-              />
-              <button
-                type="submit"
-                className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 text-white py-4 rounded-xl font-bold hover:shadow-emerald-500/50 transition-all"
-              >
-                Submit for Approval
-              </button>
-            </form>
-          </div>
+            </div>
+            <textarea
+              name="purpose"
+              placeholder="Purpose of visit *"
+              value={appointmentForm.purpose}
+              onChange={(e) => handleInputChange(e, setAppointmentForm)}
+              rows="3"
+              className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white resize-vertical"
+              required
+            />
+            <textarea
+              name="notes"
+              placeholder="Additional notes"
+              value={appointmentForm.notes}
+              onChange={(e) => handleInputChange(e, setAppointmentForm)}
+              rows="3"
+              className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white resize-vertical"
+            />
+            <button
+              type="submit"
+              className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 text-white py-4 rounded-xl font-bold hover:shadow-emerald-500/50 transition-all"
+            >
+              Submit for Approval
+            </button>
+          </form>
         </div>
-      )}
-    </div>
-  );
+      </div>
+    )}
+  </div>
+);
 };
 
 export default UserDashboard;
