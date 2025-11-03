@@ -3,9 +3,6 @@ using MedicationService.Application.DTOs.Medications;
 using MedicationService.Application.Interfaces;
 using MedicationService.Domain.Entities;
 using MedicationService.Domain.Enums;
-using MedicationService.Infrastructure.Data;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Storage;
 
 namespace MedicationService.Application.Services
 {
@@ -15,20 +12,20 @@ namespace MedicationService.Application.Services
         private readonly IMapper _mapper;
         private readonly IMedicationScheduleService _scheduleService;
         private readonly IScheduleGeneratorService _scheduleGenerator;
-        private readonly MedicationDbContext _context;
+        private readonly IUnitOfWork _unitOfWork;
 
         public MedicationService(
             IMedicationRepository repository, 
             IMapper mapper,
             IMedicationScheduleService scheduleService,
             IScheduleGeneratorService scheduleGenerator,
-            MedicationDbContext context)
+            IUnitOfWork unitOfWork)
         {
             _repository = repository;
             _mapper = mapper;
             _scheduleService = scheduleService;
             _scheduleGenerator = scheduleGenerator;
-            _context = context;
+            _unitOfWork = unitOfWork;
         }
 
         public async Task<MedicationResponseDto?> GetByIdAsync(Guid id)
@@ -78,13 +75,14 @@ namespace MedicationService.Application.Services
 
         public async Task<MedicationResponseDto> CreateAsync(MedicationCreateDto createDto)
         {
-            using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
                 if (createDto.Frequency.HasValue)
                 {
                     ValidateFrequencyInputs(createDto.Frequency.Value, createDto.CustomFrequencyHours, createDto.DaysOfWeek, createDto.MonthlyDay);
                 }
+
+                await _unitOfWork.BeginTransactionAsync();
 
                 var medication = _mapper.Map<Medication>(createDto);
                 medication.Id = Guid.NewGuid();
@@ -112,7 +110,7 @@ namespace MedicationService.Application.Services
                     }
                 }
 
-                await transaction.CommitAsync();
+                await _unitOfWork.CommitTransactionAsync();
 
                 var response = _mapper.Map<MedicationResponseDto>(created);
                 response.ScheduleIds = scheduleIds;
@@ -120,7 +118,7 @@ namespace MedicationService.Application.Services
             }
             catch
             {
-                await transaction.RollbackAsync();
+                await _unitOfWork.RollbackTransactionAsync();
                 throw;
             }
         }
