@@ -27,5 +27,6 @@ namespace MedicationService.Application.DTOs.Medications
         public string? NDCCode { get; set; }
         public int ActiveSchedulesCount { get; set; }
         public int UpcomingDosesCount { get; set; }
+        public List<Guid> ScheduleIds { get; set; } = new();
     }
 }
