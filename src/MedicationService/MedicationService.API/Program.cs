@@ -29,6 +29,7 @@ builder.Services.AddScoped<IMedicationDoseService, MedicationDoseService>();
 builder.Services.AddScoped<IDrugInteractionService, DrugInteractionService>();
 builder.Services.AddScoped<IMedicationScheduleService, MedicationScheduleService>();
 builder.Services.AddScoped<IMedicationReminderService, MedicationReminderService>();
+builder.Services.AddScoped<IScheduleGeneratorService, ScheduleGeneratorService>();
 
 
 // AutoMapper
