@@ -26,5 +26,10 @@ namespace MedicationService.Application.DTOs.Medications
         public string? QRCode { get; set; }
         public string? NDCCode { get; set; }
         public ScanningMethod ScanningMethod { get; set; }
+        
+        public FrequencyType? Frequency { get; set; }
+        public int? CustomFrequencyHours { get; set; }
+        public string? DaysOfWeek { get; set; }
+        public int? MonthlyDay { get; set; }
     }
 }
