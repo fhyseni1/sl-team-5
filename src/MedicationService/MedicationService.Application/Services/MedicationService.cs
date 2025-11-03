@@ -3,6 +3,9 @@ using MedicationService.Application.DTOs.Medications;
 using MedicationService.Application.Interfaces;
 using MedicationService.Domain.Entities;
 using MedicationService.Domain.Enums;
+using MedicationService.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace MedicationService.Application.Services
 {
@@ -10,11 +13,22 @@ namespace MedicationService.Application.Services
     {
         private readonly IMedicationRepository _repository;
         private readonly IMapper _mapper;
+        private readonly IMedicationScheduleService _scheduleService;
+        private readonly IScheduleGeneratorService _scheduleGenerator;
+        private readonly MedicationDbContext _context;
 
-        public MedicationService(IMedicationRepository repository, IMapper mapper)
+        public MedicationService(
+            IMedicationRepository repository, 
+            IMapper mapper,
+            IMedicationScheduleService scheduleService,
+            IScheduleGeneratorService scheduleGenerator,
+            MedicationDbContext context)
         {
             _repository = repository;
             _mapper = mapper;
+            _scheduleService = scheduleService;
+            _scheduleGenerator = scheduleGenerator;
+            _context = context;
         }
 
         public async Task<MedicationResponseDto?> GetByIdAsync(Guid id)
@@ -64,14 +78,88 @@ namespace MedicationService.Application.Services
 
         public async Task<MedicationResponseDto> CreateAsync(MedicationCreateDto createDto)
         {
-            var medication = _mapper.Map<Medication>(createDto);
-            medication.Id = Guid.NewGuid();
-            medication.Status = MedicationStatus.Active;
-            medication.CreatedAt = DateTime.UtcNow;
-            medication.UpdatedAt = DateTime.UtcNow;
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                if (createDto.Frequency.HasValue)
+                {
+                    ValidateFrequencyInputs(createDto.Frequency.Value, createDto.CustomFrequencyHours, createDto.DaysOfWeek, createDto.MonthlyDay);
+                }
 
-            var created = await _repository.AddAsync(medication);
-            return _mapper.Map<MedicationResponseDto>(created);
+                var medication = _mapper.Map<Medication>(createDto);
+                medication.Id = Guid.NewGuid();
+                medication.Status = MedicationStatus.Active;
+                medication.CreatedAt = DateTime.UtcNow;
+                medication.UpdatedAt = DateTime.UtcNow;
+
+                var created = await _repository.AddAsync(medication);
+
+                var scheduleIds = new List<Guid>();
+
+                if (createDto.Frequency.HasValue)
+                {
+                    var scheduleDtos = _scheduleGenerator.GenerateSchedules(
+                        created.Id,
+                        createDto.Frequency.Value,
+                        createDto.CustomFrequencyHours,
+                        createDto.DaysOfWeek,
+                        createDto.MonthlyDay);
+
+                    foreach (var scheduleDto in scheduleDtos)
+                    {
+                        var schedule = await _scheduleService.CreateAsync(scheduleDto);
+                        scheduleIds.Add(schedule.Id);
+                    }
+                }
+
+                await transaction.CommitAsync();
+
+                var response = _mapper.Map<MedicationResponseDto>(created);
+                response.ScheduleIds = scheduleIds;
+                return response;
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
+        private void ValidateFrequencyInputs(
+            FrequencyType frequency,
+            int? customFrequencyHours,
+            string? daysOfWeek,
+            int? monthlyDay)
+        {
+            if (frequency == FrequencyType.Custom || frequency == FrequencyType.EveryFewHours)
+            {
+                if (!customFrequencyHours.HasValue || customFrequencyHours.Value <= 0)
+                {
+                    throw new ArgumentException(
+                        $"CustomFrequencyHours is required and must be greater than 0 for frequency type {frequency}.",
+                        nameof(customFrequencyHours));
+                }
+            }
+
+            if (frequency == FrequencyType.Weekly)
+            {
+                if (string.IsNullOrWhiteSpace(daysOfWeek))
+                {
+                    throw new ArgumentException(
+                        "DaysOfWeek is required for Weekly frequency.",
+                        nameof(daysOfWeek));
+                }
+            }
+
+            if (frequency == FrequencyType.Monthly)
+            {
+                if (!monthlyDay.HasValue || monthlyDay.Value < 1 || monthlyDay.Value > 31)
+                {
+                    throw new ArgumentException(
+                        "MonthlyDay is required and must be between 1 and 31 for Monthly frequency.",
+                        nameof(monthlyDay));
+                }
+            }
         }
 
         public async Task<MedicationResponseDto?> UpdateAsync(Guid id, MedicationUpdateDto updateDto)
