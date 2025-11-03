@@ -22,3 +22,4 @@ namespace UserHealthService.API.Controllers
         }
     }
 }
+    

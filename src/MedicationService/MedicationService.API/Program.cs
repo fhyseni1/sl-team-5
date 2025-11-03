@@ -42,6 +42,17 @@ builder.Services.AddAutoMapper(typeof(DrugInteractionProfile).Assembly);
 builder.Services.AddAutoMapper(typeof(MedicationReminderProfile).Assembly);
 
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowNextJS", policy =>
+    {
+        policy.WithOrigins("http://localhost:3000") 
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials(); 
+    });
+});
+
 // gRPC & Controllers
 builder.Services.AddGrpc();
 builder.Services.AddControllers();
@@ -58,7 +69,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
-
+app.UseCors("AllowNextJS");
 app.MapGrpcService<MedicationGrpcService>();
 app.MapGet("/", () => "MedicationService gRPC Server is running.");
 

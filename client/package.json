@@ -20,7 +20,8 @@
     "react-dom": "19.1.0",
     "react-router-dom": "^7.9.4",
     "react-toastify": "^11.0.5",
-    "use-router": "^0.4.2"
+    "use-router": "^0.4.2",
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

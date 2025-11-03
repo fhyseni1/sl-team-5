@@ -64,6 +64,8 @@ builder.Services.AddScoped<IPDFReportService, PDFReportService>();
 builder.Services.AddScoped<IAppointmentReportRepository, AppointmentReportRepository>();
 builder.Services.AddScoped<IAppointmentReportService, AppointmentReportService>();
 builder.Services.AddScoped<IMedicationReminderJob, MedicationReminderJob>();
+builder.Services.AddScoped<IAppointmentService, AppointmentService>();
+
 
 builder.Services.AddAutoMapper(
     typeof(UserHealthService.Application.Mappings.UserProfile), 
@@ -106,6 +108,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("Admin", policy => policy.RequireRole("Admin"));
+    options.AddPolicy("Doctor", policy => policy.RequireRole("Doctor"));
+    options.AddPolicy("Assistant", policy => policy.RequireRole("Assistant"));
 });
 
 builder.Services.AddCors(options =>
@@ -191,6 +195,7 @@ if (app.Environment.IsDevelopment())
         options.SwaggerEndpoint("/swagger/v1/swagger.json", "UserHealthService API v1");
         options.RoutePrefix = "swagger";
         options.DisplayRequestDuration();
+        app.UseDeveloperExceptionPage();
     });
 }
 
