@@ -6,6 +6,7 @@ using UserHealthService.Domain.Entities;
 using UserHealthService.Domain.Enums;
 using AutoMapper;
 using UserHealthService.Infrastructure.Data;
+
 namespace UserHealthService.API.Controllers
 {
     [ApiController]
@@ -20,47 +21,45 @@ namespace UserHealthService.API.Controllers
         private readonly IAuthService _authService;
         private readonly IPDFReportService _pdfReportService;
         private readonly IMapper _mapper;
-           private readonly UserHealthDbContext _context; 
-           private readonly IAppointmentReportService _reportService;
+        private readonly UserHealthDbContext _context;
+
         public AppointmentsController(
             IAppointmentService appointmentService,
             IAppointmentRepository appointmentRepository,
             IUserService userService,
             IAuthService authService,
-  IPDFReportService pdfReportService,
-IAppointmentReportService reportService,
-
-            ILogger<AppointmentsController> logger ,IMapper mapper, UserHealthDbContext context)
+            IPDFReportService pdfReportService,
+            ILogger<AppointmentsController> logger,
+            IMapper mapper,
+            UserHealthDbContext context)
         {
             _appointmentService = appointmentService;
             _appointmentRepository = appointmentRepository;
             _userService = userService;
             _authService = authService;
             _pdfReportService = pdfReportService;
-            _reportService = reportService;
-            _context = context;
-                _mapper = mapper;
+            _mapper = mapper;
             _logger = logger;
+            _context = context;
         }
 
+        // GET: api/appointments
         [HttpGet]
         public async Task<ActionResult<IEnumerable<AppointmentResponseDto>>> GetAll()
         {
             var appointments = await _appointmentService.GetAllAsync();
             return Ok(appointments);
         }
+
+        // GET: api/appointments/doctor/{doctorId}
         [HttpGet("doctor/{doctorId}")]
-        [Authorize]
         public async Task<ActionResult<IEnumerable<AppointmentResponseDto>>> GetAppointmentsByDoctor(Guid doctorId)
         {
             try
             {
                 var currentUser = await _authService.GetCurrentUserAsync();
-
-                if (currentUser.Id != doctorId && currentUser.Type != UserHealthService.Domain.Enums.UserType.Assistant)
-                {
+                if (currentUser.Id != doctorId && currentUser.Type != UserType.Assistant)
                     return Forbid("You can only view your own appointments");
-                }
 
                 var appointments = await _appointmentService.GetByDoctorIdAsync(doctorId);
                 return Ok(appointments);
@@ -71,30 +70,25 @@ IAppointmentReportService reportService,
                 return StatusCode(500, "Error retrieving appointments");
             }
         }
+
+        // GET: api/appointments/doctor/{doctorId}/approved
         [HttpGet("doctor/{doctorId}/approved")]
-        [Authorize]
         public async Task<ActionResult<IEnumerable<AppointmentResponseDto>>> GetApprovedAppointmentsByDoctor(Guid doctorId)
         {
             try
             {
                 var currentUser = await _authService.GetCurrentUserAsync();
-                
-                if (currentUser.Id != doctorId && currentUser.Type != UserHealthService.Domain.Enums.UserType.Assistant)
-                {
+                if (currentUser.Id != doctorId && currentUser.Type != UserType.Assistant)
                     return Forbid("You can only view your own appointments");
-                }
 
                 var doctor = await _context.Doctors.FindAsync(doctorId);
-                if (doctor == null)
-                {
-                    return NotFound("Doctor not found");
-                }
+                if (doctor == null) return NotFound("Doctor not found");
 
                 var allAppointments = await _appointmentRepository.GetAllAsync();
                 var approvedAppointments = allAppointments
                     .Where(a => a.DoctorName == doctor.Name && a.Status == AppointmentStatus.Approved)
                     .ToList();
-                
+
                 return Ok(_mapper.Map<IEnumerable<AppointmentResponseDto>>(approvedAppointments));
             }
             catch (Exception ex)
@@ -103,13 +97,14 @@ IAppointmentReportService reportService,
                 return StatusCode(500, "Error retrieving appointments");
             }
         }
-            [HttpGet("test-pdf")]
-                    [AllowAnonymous] 
-                    public async Task<IActionResult> TestPDF()
-                    {
-                        try
-                        {
-              
+
+        // GET: api/appointments/test-pdf
+        [HttpGet("test-pdf")]
+        [AllowAnonymous]
+        public async Task<IActionResult> TestPDF()
+        {
+            try
+            {
                 var sampleReport = new AppointmentReportResponseDto
                 {
                     Id = Guid.NewGuid(),
@@ -132,7 +127,7 @@ IAppointmentReportService reportService,
 
                 var pdfBytes = await _pdfReportService.GenerateAppointmentReportPDFAsync(sampleReport);
                 var fileName = _pdfReportService.GetReportFileName(sampleReport);
-               
+
                 return File(pdfBytes, "application/pdf", fileName);
             }
             catch (Exception ex)
@@ -141,6 +136,8 @@ IAppointmentReportService reportService,
                 return StatusCode(500, $"Error generating PDF: {ex.Message}");
             }
         }
+
+        // GET: api/appointments/{id}
         [HttpGet("{id}")]
         public async Task<ActionResult<AppointmentResponseDto>> GetById(Guid id)
         {
@@ -149,6 +146,7 @@ IAppointmentReportService reportService,
             return Ok(appointment);
         }
 
+        // GET: api/appointments/user/{userId}
         [HttpGet("user/{userId}")]
         public async Task<ActionResult<IEnumerable<AppointmentResponseDto>>> GetByUserId(Guid userId)
         {
@@ -156,6 +154,7 @@ IAppointmentReportService reportService,
             return Ok(appointments);
         }
 
+        // GET: api/appointments/upcoming
         [HttpGet("upcoming")]
         public async Task<ActionResult<IEnumerable<AppointmentResponseDto>>> GetUpcoming()
         {
@@ -163,6 +162,7 @@ IAppointmentReportService reportService,
             return Ok(appointments);
         }
 
+        // GET: api/appointments/filter?fromDate=...&toDate=...
         [HttpGet("filter")]
         public async Task<ActionResult<IEnumerable<AppointmentResponseDto>>> GetByDateRange(
             [FromQuery] DateTime? fromDate,
@@ -172,6 +172,7 @@ IAppointmentReportService reportService,
             return Ok(appointments);
         }
 
+        // POST: api/appointments
         [HttpPost]
         public async Task<ActionResult<AppointmentResponseDto>> Create(AppointmentCreateDto createDto)
         {
@@ -186,8 +187,8 @@ IAppointmentReportService reportService,
                 return StatusCode(500, "Error creating appointment");
             }
         }
-        
 
+        // PUT: api/appointments/{id}
         [HttpPut("{id}")]
         public async Task<ActionResult<AppointmentResponseDto>> Update(Guid id, AppointmentUpdateDto updateDto)
         {
@@ -196,6 +197,7 @@ IAppointmentReportService reportService,
             return Ok(updatedAppointment);
         }
 
+        // PUT: api/appointments/{id}/cancel
         [HttpPut("{id}/cancel")]
         public async Task<ActionResult> Cancel(Guid id)
         {
@@ -204,6 +206,7 @@ IAppointmentReportService reportService,
             return NoContent();
         }
 
+        // DELETE: api/appointments/{id}
         [HttpDelete("{id}")]
         public async Task<ActionResult> Delete(Guid id)
         {
@@ -212,6 +215,7 @@ IAppointmentReportService reportService,
             return NoContent();
         }
 
+        // GET: api/appointments/pending
         [HttpGet("pending")]
         [Authorize(Roles = "Admin")]
         public async Task<ActionResult<List<PendingAppointmentDto>>> GetPending()
@@ -219,8 +223,8 @@ IAppointmentReportService reportService,
             try
             {
                 var appointments = await _appointmentRepository.GetPendingAppointmentsAsync();
-
                 var pendingDtos = new List<PendingAppointmentDto>();
+
                 foreach (var app in appointments)
                 {
                     var user = await _userService.GetUserByIdAsync(app.UserId);
@@ -238,7 +242,6 @@ IAppointmentReportService reportService,
                         Notes = app.Notes
                     });
                 }
-
                 return Ok(pendingDtos);
             }
             catch (Exception ex)
@@ -247,70 +250,69 @@ IAppointmentReportService reportService,
                 return StatusCode(500, "Error retrieving pending appointments");
             }
         }
-       
-[HttpGet("approved")]
-[Authorize(Roles = "Admin")]
-public async Task<ActionResult<List<AppointmentResponseDto>>> GetApprovedAppointments()
-{
-    try
-    {
-        var appointments = await _appointmentRepository.GetApprovedAppointmentsAsync();
 
-        var approvedDtos = appointments.Select(a => new AppointmentResponseDto
+        // GET: api/appointments/approved
+        [HttpGet("approved")]
+        [Authorize(Roles = "Admin")]
+        public async Task<ActionResult<List<AppointmentResponseDto>>> GetApprovedAppointments()
         {
-            Id = a.Id,
-            UserId = a.UserId,
-            UserName = a.User != null ? $"{a.User.FirstName} {a.User.LastName}" : "Unknown User",
-            DoctorName = a.DoctorName ?? string.Empty,
-            Specialty = a.Specialty ?? string.Empty,
-            AppointmentDate = a.AppointmentDate,
-            StartTime = a.StartTime,
-            EndTime = a.EndTime,
-            Purpose = a.Purpose ?? string.Empty,
-            Status = a.Status
-        }).ToList();
+            try
+            {
+                var appointments = await _appointmentRepository.GetApprovedAppointmentsAsync();
+                var approvedDtos = appointments.Select(a => new AppointmentResponseDto
+                {
+                    Id = a.Id,
+                    UserId = a.UserId,
+                    UserName = a.User != null ? $"{a.User.FirstName} {a.User.LastName}" : "Unknown User",
+                    DoctorName = a.DoctorName ?? string.Empty,
+                    Specialty = a.Specialty ?? string.Empty,
+                    AppointmentDate = a.AppointmentDate,
+                    StartTime = a.StartTime,
+                    EndTime = a.EndTime,
+                    Purpose = a.Purpose ?? string.Empty,
+                    Status = a.Status
+                }).ToList();
+                return Ok(approvedDtos);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving approved appointments");
+                return StatusCode(500, "Error retrieving approved appointments");
+            }
+        }
 
-        return Ok(approvedDtos);
-    }
-    catch (Exception ex)
-    {
-        _logger.LogError(ex, "Error retrieving approved appointments");
-        return StatusCode(500, "Error retrieving approved appointments");
-    }
-}
-
-[HttpGet("rejected")]
-[Authorize(Roles = "Admin")]
-public async Task<ActionResult<List<AppointmentResponseDto>>> GetRejectedAppointments()
-{
-    try
-    {
-        var appointments = await _appointmentRepository.GetRejectedAppointmentsAsync();
-
-        var rejectedDtos = appointments.Select(a => new AppointmentResponseDto
+        // GET: api/appointments/rejected
+        [HttpGet("rejected")]
+        [Authorize(Roles = "Admin")]
+        public async Task<ActionResult<List<AppointmentResponseDto>>> GetRejectedAppointments()
         {
-            Id = a.Id,
-            UserId = a.UserId,
-            UserName = a.User != null ? $"{a.User.FirstName} {a.User.LastName}" : "Unknown User",
-            DoctorName = a.DoctorName ?? string.Empty,
-            Specialty = a.Specialty ?? string.Empty,
-            AppointmentDate = a.AppointmentDate,
-            StartTime = a.StartTime,
-            EndTime = a.EndTime,
-            Purpose = a.Purpose ?? string.Empty,
-            Status = a.Status,
-            RejectionReason = a.RejectionReason 
-        }).ToList();
+            try
+            {
+                var appointments = await _appointmentRepository.GetRejectedAppointmentsAsync();
+                var rejectedDtos = appointments.Select(a => new AppointmentResponseDto
+                {
+                    Id = a.Id,
+                    UserId = a.UserId,
+                    UserName = a.User != null ? $"{a.User.FirstName} {a.User.LastName}" : "Unknown User",
+                    DoctorName = a.DoctorName ?? string.Empty,
+                    Specialty = a.Specialty ?? string.Empty,
+                    AppointmentDate = a.AppointmentDate,
+                    StartTime = a.StartTime,
+                    EndTime = a.EndTime,
+                    Purpose = a.Purpose ?? string.Empty,
+                    Status = a.Status,
+                    RejectionReason = a.RejectionReason
+                }).ToList();
+                return Ok(rejectedDtos);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving rejected appointments");
+                return StatusCode(500, "Error retrieving rejected appointments");
+            }
+        }
 
-        return Ok(rejectedDtos);
-    }
-    catch (Exception ex)
-    {
-        _logger.LogError(ex, "Error retrieving rejected appointments");
-        return StatusCode(500, "Error retrieving rejected appointments");
-    }
-}
-
+        // GET: api/appointments/user/{userId}/upcoming/count
         [HttpGet("user/{userId}/upcoming/count")]
         public async Task<ActionResult<int>> GetUpcomingCount(Guid userId)
         {
@@ -326,6 +328,7 @@ public async Task<ActionResult<List<AppointmentResponseDto>>> GetRejectedAppoint
             }
         }
 
+        // PUT: api/appointments/{id}/approve
         [HttpPut("{id}/approve")]
         [Authorize(Roles = "Admin")]
         public async Task<ActionResult> Approve(Guid id)
@@ -342,128 +345,120 @@ public async Task<ActionResult<List<AppointmentResponseDto>>> GetRejectedAppoint
                 return StatusCode(500, "Error approving appointment");
             }
         }
-    [HttpGet("assistant/pending")]
-[Authorize(Roles = "Assistant")]
-public async Task<ActionResult<List<AppointmentResponseDto>>> GetAssistantPendingAppointments()
-{
-    try
-    {
-        var currentUser = await _authService.GetCurrentUserAsync();
-        
-        var appointments = await _appointmentRepository.GetPendingAppointmentsForAssistantAsync(currentUser.Id);
-        
-        var appointmentDtos = appointments.Select(a => new AppointmentResponseDto
+
+        // GET: api/appointments/assistant/pending
+        [HttpGet("assistant/pending")]
+        [Authorize(Roles = "Assistant")]
+        public async Task<ActionResult<List<AppointmentResponseDto>>> GetAssistantPendingAppointments()
         {
-            Id = a.Id,
-            UserId = a.UserId,
-            UserName = a.User != null ? $"{a.User.FirstName} {a.User.LastName}" : "Unknown User",
-            DoctorName = a.DoctorName ?? string.Empty,
-            Specialty = a.Specialty ?? string.Empty,
-            AppointmentDate = a.AppointmentDate,
-            StartTime = a.StartTime,
-            EndTime = a.EndTime,
-            Purpose = a.Purpose ?? string.Empty,
-            Status = a.Status
-        }).ToList();
+            try
+            {
+                var currentUser = await _authService.GetCurrentUserAsync();
+                var appointments = await _appointmentRepository.GetPendingAppointmentsForAssistantAsync(currentUser.Id);
 
-        return Ok(appointmentDtos);
-    }
-    catch (Exception ex)
-    {
-        _logger.LogError(ex, "Error retrieving assistant pending appointments");
-        return StatusCode(500, "Error retrieving appointments");
-    }
-}
+                var dtos = appointments.Select(a => new AppointmentResponseDto
+                {
+                    Id = a.Id,
+                    UserId = a.UserId,
+                    UserName = a.User != null ? $"{a.User.FirstName} {a.User.LastName}" : "Unknown User",
+                    DoctorName = a.DoctorName ?? string.Empty,
+                    Specialty = a.Specialty ?? string.Empty,
+                    AppointmentDate = a.AppointmentDate,
+                    StartTime = a.StartTime,
+                    EndTime = a.EndTime,
+                    Purpose = a.Purpose ?? string.Empty,
+                    Status = a.Status
+                }).ToList();
 
-
-[HttpGet("assistant/{assistantId}/pending")]
-[Authorize(Roles = "Assistant")]
-public async Task<ActionResult<List<AppointmentResponseDto>>> GetAssistantPendingAppointments(Guid assistantId)
-{
-    try
-    {
-        var currentUser = await _authService.GetCurrentUserAsync();
-        
-        if (currentUser.Id != assistantId)
-        {
-            return Forbid("You can only view your own appointments");
+                return Ok(dtos);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving assistant pending appointments");
+                return StatusCode(500, "Error retrieving appointments");
+            }
         }
 
-        var appointments = await _appointmentRepository.GetPendingAppointmentsForAssistantAsync(assistantId);
-        
-        var appointmentDtos = appointments.Select(a => new AppointmentResponseDto
+        // GET: api/appointments/assistant/{assistantId}/pending
+        [HttpGet("assistant/{assistantId}/pending")]
+        [Authorize(Roles = "Assistant")]
+        public async Task<ActionResult<List<AppointmentResponseDto>>> GetAssistantPendingAppointments(Guid assistantId)
         {
-            Id = a.Id,
-            UserId = a.UserId,
-            UserName = a.User != null ? $"{a.User.FirstName} {a.User.LastName}" : "Unknown User",
-            DoctorName = a.DoctorName ?? string.Empty,
-            Specialty = a.Specialty ?? string.Empty,
-            AppointmentDate = a.AppointmentDate,
-            StartTime = a.StartTime,
-            EndTime = a.EndTime,
-            Purpose = a.Purpose ?? string.Empty,
-            Status = a.Status
-        }).ToList();
+            try
+            {
+                var currentUser = await _authService.GetCurrentUserAsync();
+                if (currentUser.Id != assistantId)
+                    return Forbid("You can only view your own appointments");
 
-        return Ok(appointmentDtos);
-    }
-    catch (Exception ex)
-    {
-        _logger.LogError(ex, "Error retrieving assistant pending appointments");
-        return StatusCode(500, "Error retrieving appointments");
-    }
-}
+                var appointments = await _appointmentRepository.GetPendingAppointmentsForAssistantAsync(assistantId);
+                var dtos = appointments.Select(a => new AppointmentResponseDto
+                {
+                    Id = a.Id,
+                    UserId = a.UserId,
+                    UserName = a.User != null ? $"{a.User.FirstName} {a.User.LastName}" : "Unknown User",
+                    DoctorName = a.DoctorName ?? string.Empty,
+                    Specialty = a.Specialty ?? string.Empty,
+                    AppointmentDate = a.AppointmentDate,
+                    StartTime = a.StartTime,
+                    EndTime = a.EndTime,
+                    Purpose = a.Purpose ?? string.Empty,
+                    Status = a.Status
+                }).ToList();
 
-[HttpGet("assistant/{assistantId}/approved")]
-[Authorize(Roles = "Assistant")]
-public async Task<ActionResult<List<AppointmentResponseDto>>> GetAssistantApprovedAppointments(Guid assistantId)
-{
-    try
-    {
-        var currentUser = await _authService.GetCurrentUserAsync();
-       
-        if (currentUser.Id != assistantId)
-        {
-            return Forbid("You can only view your own appointments");
+                return Ok(dtos);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving assistant pending appointments");
+                return StatusCode(500, "Error retrieving appointments");
+            }
         }
 
-        var appointments = await _appointmentRepository.GetApprovedAppointmentsForAssistantAsync(assistantId);
-        
-        var appointmentDtos = appointments.Select(a => new AppointmentResponseDto
+        // GET: api/appointments/assistant/{assistantId}/approved
+        [HttpGet("assistant/{assistantId}/approved")]
+        [Authorize(Roles = "Assistant")]
+        public async Task<ActionResult<List<AppointmentResponseDto>>> GetAssistantApprovedAppointments(Guid assistantId)
         {
-            Id = a.Id,
-            UserId = a.UserId,
-            UserName = a.User != null ? $"{a.User.FirstName} {a.User.LastName}" : "Unknown User",
-            DoctorName = a.DoctorName ?? string.Empty,
-            Specialty = a.Specialty ?? string.Empty,
-            AppointmentDate = a.AppointmentDate,
-            StartTime = a.StartTime,
-            EndTime = a.EndTime,
-            Purpose = a.Purpose ?? string.Empty,
-            Status = a.Status
-        }).ToList();
+            try
+            {
+                var currentUser = await _authService.GetCurrentUserAsync();
+                if (currentUser.Id != assistantId)
+                    return Forbid("You can only view your own appointments");
 
-        return Ok(appointmentDtos);
-    }
-    catch (Exception ex)
-    {
-        _logger.LogError(ex, "Error retrieving assistant approved appointments");
-        return StatusCode(500, "Error retrieving appointments");
-    }
-}
+                var appointments = await _appointmentRepository.GetApprovedAppointmentsForAssistantAsync(assistantId);
+                var dtos = appointments.Select(a => new AppointmentResponseDto
+                {
+                    Id = a.Id,
+                    UserId = a.UserId,
+                    UserName = a.User != null ? $"{a.User.FirstName} {a.User.LastName}" : "Unknown User",
+                    DoctorName = a.DoctorName ?? string.Empty,
+                    Specialty = a.Specialty ?? string.Empty,
+                    AppointmentDate = a.AppointmentDate,
+                    StartTime = a.StartTime,
+                    EndTime = a.EndTime,
+                    Purpose = a.Purpose ?? string.Empty,
+                    Status = a.Status
+                }).ToList();
 
+                return Ok(dtos);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving assistant approved appointments");
+                return StatusCode(500, "Error retrieving appointments");
+            }
+        }
+
+        // PUT: api/appointments/{id}/assistant-approve
         [HttpPut("{id}/assistant-approve")]
         [Authorize(Roles = "Assistant")]
         public async Task<ActionResult> AssistantApprove(Guid id)
         {
             try
             {
-                var currentUser = await _authService.GetCurrentUserAsync(); 
+                var currentUser = await _authService.GetCurrentUserAsync();
                 var result = await _appointmentRepository.AssistantApproveAsync(id, currentUser.Id);
-                
-                if (!result) 
-                    return BadRequest("Not authorized to approve this appointment or appointment not found");
-
+                if (!result) return BadRequest("Not authorized to approve this appointment or appointment not found");
                 return NoContent();
             }
             catch (Exception ex)
@@ -473,238 +468,29 @@ public async Task<ActionResult<List<AppointmentResponseDto>>> GetAssistantApprov
             }
         }
 
- [HttpPut("{id}/assistant-reject")]
-[Authorize(Roles = "Assistant")]
-public async Task<ActionResult> AssistantReject(Guid id, [FromBody] RejectAppointmentDto rejectDto)
-{
-    try
-    {
-        var currentUser = await _authService.GetCurrentUserAsync();
-        var result = await _appointmentRepository.AssistantRejectAsync(id, currentUser.Id, rejectDto.RejectionReason);
-        
-        if (!result) 
-            return BadRequest("Not authorized to reject this appointment or appointment not found");
-
-        return NoContent();
-    }
-    catch (Exception ex)
-    {
-        _logger.LogError(ex, "Error rejecting appointment {AppointmentId}", id);
-        return StatusCode(500, "Error rejecting appointment");
-    }
-}
-
-[HttpGet("assistant/{assistantId}/reports")]
-[Authorize(Roles = "Assistant")]
-public async Task<ActionResult<List<AppointmentReportResponseDto>>> GetAssistantAppointmentReports(Guid assistantId)
-{
-    try
-    {
-        var currentUser = await _authService.GetCurrentUserAsync();
-        
-        if (currentUser.Id != assistantId)
-        {
-            return Forbid("You can only view your own reports");
-        }
-
-        return Ok(new List<AppointmentReportResponseDto>());
-    }
-    catch (Exception ex)
-    {
-        _logger.LogError(ex, "Error retrieving assistant appointment reports");
-        return StatusCode(500, "Error retrieving reports");
-    }
-}
-
-[HttpPost("assistant/{assistantId}/reports")]
-[Authorize(Roles = "Assistant")]
-public async Task<ActionResult<AppointmentReport>> CreateAssistantReport(Guid assistantId, [FromBody] AppointmentReport report)
-{
-    try
-    {
-        var currentUser = await _authService.GetCurrentUserAsync();
-        
-        if (currentUser.Id != assistantId)
-        {
-            return Forbid("You can only create reports for your appointments");
-        }
-
-        var createdReport = new AppointmentReport
-        {
-            Id = Guid.NewGuid(),
-            AppointmentId = report.AppointmentId,
-            UserId = report.UserId,
-            DoctorId = currentUser.Id,
-            ReportDate = DateTime.UtcNow,
-            Diagnosis = report.Diagnosis,
-            Symptoms = report.Symptoms,
-            Treatment = report.Treatment,
-            Medications = report.Medications,
-            Notes = report.Notes,
-            Recommendations = report.Recommendations,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
-        };
-
-        return CreatedAtAction(nameof(GetReportById), new { id = createdReport.Id }, createdReport);
-    }
-    catch (Exception ex)
-    {
-        _logger.LogError(ex, "Error creating assistant report");
-        return StatusCode(500, "Error creating report");
-    }
-}
-        [HttpGet("reports/{id}")]
-        [Authorize]
-        public async Task<ActionResult<AppointmentReport>> GetReportById(Guid id)
+        // PUT: api/appointments/{id}/assistant-reject
+        [HttpPut("{id}/assistant-reject")]
+        [Authorize(Roles = "Assistant")]
+        public async Task<ActionResult> AssistantReject(Guid id, [FromBody] RejectAppointmentDto rejectDto)
         {
             try
             {
-                var report = await _reportService.GetByIdAsync(id);
-                if (report == null)
-                    return NotFound();
-
-                return Ok(report);
+                var currentUser = await _authService.GetCurrentUserAsync();
+                var result = await _appointmentRepository.AssistantRejectAsync(id, currentUser.Id, rejectDto.RejectionReason);
+                if (!result) return BadRequest("Not authorized to reject this appointment or appointment not found");
+                return NoContent();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error retrieving report");
-                return StatusCode(500, "Error retrieving report");
+                _logger.LogError(ex, "Error rejecting appointment {AppointmentId}", id);
+                return StatusCode(500, "Error rejecting appointment");
             }
         }
-     
-
-[HttpGet("reports-test")]
-[AllowAnonymous]
-public ActionResult<string> ReportsTest()
-{
-    return Ok("Reports functionality is accessible via AppointmentsController!");
-}
-
-    [HttpGet("reports")]
-    [Authorize]
-    public async Task<ActionResult<IEnumerable<AppointmentReport>>> GetReports()
-    {
-        try
-        {
-            var currentUser = await _authService.GetCurrentUserAsync();
-            IEnumerable<AppointmentReport> reports;
-
-            if (currentUser.Type == UserHealthService.Domain.Enums.UserType.HealthcareProvider)
-            {
-                
-                reports = await _reportService.GetByDoctorIdAsync(currentUser.Id);
-            }
-            else if (currentUser.Type == UserHealthService.Domain.Enums.UserType.Assistant)
-            {
-            
-                reports = await _reportService.GetAllAsync();
-            }
-            else
-            {
-                
-                reports = await _reportService.GetByUserIdAsync(currentUser.Id);
-            }
-
-            return Ok(reports);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error retrieving reports via appointments controller");
-            return StatusCode(500, "Error retrieving reports");
-        }
     }
-      
 
-[HttpPut("reports/{id}")]
-[Authorize(Roles = "Doctor,Assistant")]
-public async Task<ActionResult<AppointmentReport>> UpdateReport(Guid id, [FromBody] AppointmentReport report)
-{
-    try
+    // DTO for rejection
+    public class RejectAppointmentDto
     {
-        if (id != report.Id)
-            return BadRequest("ID mismatch");
-
-        var currentUser = await _authService.GetCurrentUserAsync();
-        var existingReport = await _reportService.GetByIdAsync(id);
-        
-        if (existingReport == null)
-            return NotFound();
-
-        if (existingReport.DoctorId != currentUser.Id && currentUser.Type != UserHealthService.Domain.Enums.UserType.Assistant)
-        {
-            return Forbid("You can only update your own reports");
-        }
-
-        var updatedReport = await _reportService.UpdateAsync(report);
-        return Ok(updatedReport);
-    }
-    catch (Exception ex)
-    {
-        _logger.LogError(ex, "Error updating report {ReportId}", id);
-        return StatusCode(500, "Error updating report");
+        public string RejectionReason { get; set; } = string.Empty;
     }
 }
-
-[HttpDelete("reports/{id}")]
-[Authorize(Roles = "Doctor,Assistant")]
-public async Task<ActionResult> DeleteReport(Guid id)
-{
-    try
-    {
-        var currentUser = await _authService.GetCurrentUserAsync();
-        var existingReport = await _reportService.GetByIdAsync(id);
-        
-        if (existingReport == null)
-            return NotFound();
-
-        if (existingReport.DoctorId != currentUser.Id && currentUser.Type != UserHealthService.Domain.Enums.UserType.Assistant)
-        {
-            return Forbid("You can only delete your own reports");
-        }
-
-        var result = await _reportService.DeleteAsync(id);
-        if (!result)
-            return NotFound();
-
-        return NoContent();
-    }
-    catch (Exception ex)
-    {
-        _logger.LogError(ex, "Error deleting report {ReportId}", id);
-        return StatusCode(500, "Error deleting report");
-    }
-}
-
-[HttpGet("reports/{id}/download")]
-[Authorize]
-public async Task<IActionResult> DownloadReportPdf(Guid id)
-{
-    try
-    {
-        var currentUser = await _authService.GetCurrentUserAsync();
-        var report = await _reportService.GetByIdAsync(id);
-        
-        if (report == null)
-            return NotFound();
-
-        if (report.UserId != currentUser.Id && report.DoctorId != currentUser.Id && 
-            currentUser.Type != UserHealthService.Domain.Enums.UserType.Assistant)
-        {
-            return Forbid("You don't have permission to download this report");
-        }
-
-        var pdfBytes = await _reportService.GeneratePdfAsync(id);
-        return File(pdfBytes, "application/pdf", $"appointment-report-{id}.pdf");
-    }
-    catch (Exception ex)
-    {
-        _logger.LogError(ex, "Error generating PDF for report {ReportId}", id);
-        return StatusCode(500, "Error generating PDF");
-    }
-}
-    }public class RejectAppointmentDto
-{
-    public string RejectionReason { get; set; } = string.Empty;
-}
-    }

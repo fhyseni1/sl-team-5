@@ -16,10 +16,9 @@ namespace UserHealthService.Domain.Entities
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
 
-        // Navigation properties
-        public virtual Appointment Appointment { get; set; } = null!;
-        public virtual User User { get; set; } = null!;
-        public virtual Doctor Doctor { get; set; } = null!;
+        public Appointment Appointment { get; set; } = null!;
+        public User User { get; set; } = null!;
+        public Doctor Doctor { get; set; } = null!;
     }
 }
 

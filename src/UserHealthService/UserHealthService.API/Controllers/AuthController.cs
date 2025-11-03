@@ -1,17 +1,21 @@
-﻿using BCrypt.Net;
+﻿using AutoMapper;
+using BCrypt.Net;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System;
+using System.Linq;
+using System.Security.Claims;
+using System.Threading;
+using System.Threading.Tasks;
 using UserHealthService.Application.DTOs.Auth;
+using UserHealthService.Application.DTOs.Users;
 using UserHealthService.Application.Interfaces;
+using UserHealthService.Application.Services;
 using UserHealthService.Domain.Entities;
 using UserHealthService.Domain.Enums;
 using UserHealthService.Infrastructure.Data;
-using System;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace UserHealthService.API.Controllers
 {
@@ -20,15 +24,21 @@ namespace UserHealthService.API.Controllers
     public class AuthController : ControllerBase
     {
         private readonly IAuthService _authService;
+        private readonly IMapper _mapper;
+        private readonly IUserService _userService;
         private readonly IUserRepository _userRepository;
         private readonly UserHealthDbContext _context;
 
         public AuthController(
             IAuthService authService,
             IUserRepository userRepository,
+            IMapper mapper,
+            IUserService userService,
             UserHealthDbContext context)
         {
             _authService = authService;
+            _userService = userService;
+            _mapper = mapper;
             _userRepository = userRepository;
             _context = context;
         }
@@ -172,7 +182,22 @@ namespace UserHealthService.API.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
-[HttpPost("register-clinic-assistant")]
+
+        [HttpGet("me")]
+        [Authorize]
+        public async Task<ActionResult<UserResponseDto>> GetMe()
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+                return Unauthorized();
+
+            var user = await _userRepository.GetByIdAsync(userId);
+            if (user == null)
+                return NotFound();
+
+            return Ok(_mapper.Map<UserResponseDto>(user));
+        }
+        [HttpPost("register-clinic-assistant")]
 [Authorize(Roles = "ClinicAdmin")]
 public async Task<IActionResult> RegisterClinicAssistant([FromBody] RegisterDto dto, CancellationToken ct)
 {
@@ -377,24 +402,6 @@ public async Task<IActionResult> RegisterAssistant([FromBody] RegisterDto dto, C
             }
             ClearAuthCookies();
             return Ok(new { message = "Logout successful" });
-        }
-
-        [Authorize]
-        [HttpGet("me")]
-        public async Task<IActionResult> GetCurrentUser()
-        {
-            var user = await _authService.GetCurrentUserAsync();
-            return Ok(new
-            {
-                id = user.Id,
-                email = user.Email,
-                firstName = user.FirstName,
-                lastName = user.LastName,
-                type = (int)user.Type,
-                phoneNumber = user.PhoneNumber,
-                isActive = user.IsActive,
-                fullName = $"{user.FirstName} {user.LastName}"
-            });
         }
 
         [HttpGet("clinics/admin/{adminUserId}")]
