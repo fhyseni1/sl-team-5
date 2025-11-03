@@ -122,6 +122,61 @@ export const medicationService = {
       return false;
     }
   },
+
+  /**
+   * Create a medication schedule
+   * @param {Object} scheduleData - Schedule data
+   * @param {string} scheduleData.medicationId - Medication ID (Guid)
+   * @param {number} scheduleData.frequency - Frequency type (1=OnceDaily, 2=TwiceDaily, 3=ThreeTimesDaily, 4=FourTimesDaily, 5=EveryFewHours, 6=AsNeeded, 7=Weekly, 8=Monthly, 9=Custom)
+   * @param {string} scheduleData.timeOfDay - Time of day (TimeSpan format: HH:mm:ss)
+   * @param {string} scheduleData.daysOfWeek - Days of week (comma-separated string)
+   * @param {number} [scheduleData.customFrequencyHours] - Custom frequency in hours (required if frequency is 9=Custom)
+   * @returns {Promise<Object|null>} Created schedule object or null on error
+   */
+  async createSchedule(scheduleData) {
+    try {
+      const response = await medicationApi.post("/schedules", scheduleData);
+      return response.data;
+    } catch (error) {
+      console.error("Error creating schedule:", error.response?.data || error.message);
+      return null;
+    }
+  },
+
+  /**
+   * Create a medication reminder
+   * @param {Object} reminderData - Reminder data
+   * @param {string} reminderData.medicationId - Medication ID (Guid)
+   * @param {string} [reminderData.scheduleId] - Schedule ID (Guid, optional)
+   * @param {string} reminderData.scheduledTime - Scheduled time (ISO string)
+   * @param {string} [reminderData.message] - Reminder message (optional)
+   * @param {string} [reminderData.notificationChannel] - Notification channel (optional)
+   * @returns {Promise<Object|null>} Created reminder object or null on error
+   */
+  async createReminder(reminderData) {
+    try {
+      const response = await medicationApi.post("/reminders", reminderData);
+      return response.data;
+    } catch (error) {
+      console.error("Error creating reminder:", error.response?.data || error.message);
+      return null;
+    }
+  },
+
+  /**
+   * Get reminders by medication ID
+   * @param {string} medicationId - Medication ID (Guid)
+   * @returns {Promise<Array|null>} Array of reminders or null on error
+   */
+  async getRemindersByMedicationId(medicationId) {
+    try {
+      const response = await medicationApi.get(`/reminders/medication/${medicationId}`);
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching reminders:", error.response?.data || error.message);
+      return null;
+    }
+  },
 };
 
 export default medicationService;
