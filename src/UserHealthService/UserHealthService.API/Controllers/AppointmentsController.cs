@@ -1,10 +1,11 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using AutoMapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using UserHealthService.Application.DTOs.Appointments;
 using UserHealthService.Application.Interfaces;
 using UserHealthService.Domain.Entities;
 using UserHealthService.Domain.Enums;
-using AutoMapper;
 using UserHealthService.Infrastructure.Data;
 
 namespace UserHealthService.API.Controllers
@@ -43,7 +44,6 @@ namespace UserHealthService.API.Controllers
             _context = context;
         }
 
-        // GET: api/appointments
         [HttpGet]
         public async Task<ActionResult<IEnumerable<AppointmentResponseDto>>> GetAll()
         {
@@ -51,7 +51,6 @@ namespace UserHealthService.API.Controllers
             return Ok(appointments);
         }
 
-        // GET: api/appointments/doctor/{doctorId}
         [HttpGet("doctor/{doctorId}")]
         public async Task<ActionResult<IEnumerable<AppointmentResponseDto>>> GetAppointmentsByDoctor(Guid doctorId)
         {
@@ -61,8 +60,19 @@ namespace UserHealthService.API.Controllers
                 if (currentUser.Id != doctorId && currentUser.Type != UserType.Assistant)
                     return Forbid("You can only view your own appointments");
 
-                var appointments = await _appointmentService.GetByDoctorIdAsync(doctorId);
-                return Ok(appointments);
+                var appointments = await _context.Appointments
+                 .Where(a => a.DoctorId == doctorId && a.Status == AppointmentStatus.Approved)
+                   .Include(a => a.User)
+                   .ToListAsync();
+
+                var dtos = _mapper.Map<IEnumerable<AppointmentResponseDto>>(appointments);
+
+                foreach (var dto in dtos)
+                {
+                    dto.DoctorId = doctorId;
+                }
+
+                return Ok(dtos);
             }
             catch (Exception ex)
             {
@@ -71,7 +81,7 @@ namespace UserHealthService.API.Controllers
             }
         }
 
-        // GET: api/appointments/doctor/{doctorId}/approved
+
         [HttpGet("doctor/{doctorId}/approved")]
         public async Task<ActionResult<IEnumerable<AppointmentResponseDto>>> GetApprovedAppointmentsByDoctor(Guid doctorId)
         {
@@ -97,8 +107,6 @@ namespace UserHealthService.API.Controllers
                 return StatusCode(500, "Error retrieving appointments");
             }
         }
-
-        // GET: api/appointments/test-pdf
         [HttpGet("test-pdf")]
         [AllowAnonymous]
         public async Task<IActionResult> TestPDF()
@@ -137,7 +145,6 @@ namespace UserHealthService.API.Controllers
             }
         }
 
-        // GET: api/appointments/{id}
         [HttpGet("{id}")]
         public async Task<ActionResult<AppointmentResponseDto>> GetById(Guid id)
         {
@@ -145,8 +152,6 @@ namespace UserHealthService.API.Controllers
             if (appointment == null) return NotFound();
             return Ok(appointment);
         }
-
-        // GET: api/appointments/user/{userId}
         [HttpGet("user/{userId}")]
         public async Task<ActionResult<IEnumerable<AppointmentResponseDto>>> GetByUserId(Guid userId)
         {
@@ -154,7 +159,6 @@ namespace UserHealthService.API.Controllers
             return Ok(appointments);
         }
 
-        // GET: api/appointments/upcoming
         [HttpGet("upcoming")]
         public async Task<ActionResult<IEnumerable<AppointmentResponseDto>>> GetUpcoming()
         {
@@ -162,7 +166,6 @@ namespace UserHealthService.API.Controllers
             return Ok(appointments);
         }
 
-        // GET: api/appointments/filter?fromDate=...&toDate=...
         [HttpGet("filter")]
         public async Task<ActionResult<IEnumerable<AppointmentResponseDto>>> GetByDateRange(
             [FromQuery] DateTime? fromDate,
@@ -172,14 +175,30 @@ namespace UserHealthService.API.Controllers
             return Ok(appointments);
         }
 
-        // POST: api/appointments
         [HttpPost]
         public async Task<ActionResult<AppointmentResponseDto>> Create(AppointmentCreateDto createDto)
         {
             try
             {
-                var createdAppointment = await _appointmentService.CreateAsync(createDto);
-                return CreatedAtAction(nameof(GetById), new { id = createdAppointment.Id }, createdAppointment);
+                var currentUser = await _authService.GetCurrentUserAsync();
+                if (currentUser.Type != UserType.Patient)
+                    return Forbid("Only patients can create appointments");
+
+                if (!createDto.DoctorId.HasValue)
+                   return BadRequest("DoctorId is required");
+
+                var appointment = _mapper.Map<Appointment>(createDto);
+                appointment.UserId = currentUser.Id;
+                appointment.DoctorId = createDto.DoctorId.Value;
+                appointment.Status = AppointmentStatus.Pending;
+                appointment.CreatedAt = DateTime.UtcNow;
+                appointment.UpdatedAt = DateTime.UtcNow;
+
+                _context.Appointments.Add(appointment);
+                await _context.SaveChangesAsync();
+
+                var responseDto = _mapper.Map<AppointmentResponseDto>(appointment);
+                return CreatedAtAction(nameof(GetById), new { id = appointment.Id }, responseDto);
             }
             catch (Exception ex)
             {
