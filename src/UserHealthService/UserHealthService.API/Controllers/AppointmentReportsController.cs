@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
@@ -9,6 +10,7 @@ using UserHealthService.Application.DTOs.Appointments;
 using UserHealthService.Application.DTOs.Doctors;
 using UserHealthService.Application.Interfaces;
 using UserHealthService.Application.Services;
+using UserHealthService.Infrastructure.Data;
 using UserHealthService.Domain.Entities;
 using UserHealthService.Domain.Enums;
 
@@ -24,6 +26,7 @@ namespace UserHealthService.API.Controllers
         private readonly IDoctorRepository _doctorRepository;
         private readonly IAppointmentService _appointmentService;
         private readonly ILogger<AppointmentReportsController> _logger;
+        private readonly UserHealthDbContext _context;
         private readonly IMapper _mapper;
 
         public AppointmentReportsController(
@@ -32,6 +35,7 @@ namespace UserHealthService.API.Controllers
             IDoctorRepository doctorRepository,
             IAppointmentService appointmentService,
             ILogger<AppointmentReportsController> logger,
+            UserHealthDbContext context,
             IMapper mapper)
         {
             _reportService = reportService;
@@ -39,6 +43,7 @@ namespace UserHealthService.API.Controllers
             _appointmentService = appointmentService;
             _logger = logger;
             _mapper = mapper;
+            _context = context;
             _doctorRepository = doctorRepository;
         }
 
@@ -78,7 +83,7 @@ namespace UserHealthService.API.Controllers
         [HttpPost]
         [Authorize]
         public async Task<ActionResult<AppointmentReportResponseDto>> CreateReport(
-            [FromBody] AppointmentReportCreateDto dto)
+     [FromBody] AppointmentReportCreateDto dto)
         {
             try
             {
@@ -87,30 +92,42 @@ namespace UserHealthService.API.Controllers
 
                 var currentUser = await _authService.GetCurrentUserAsync();
                 if (currentUser.Type != UserType.HealthcareProvider && currentUser.Type != UserType.Assistant)
-                    return Forbid("Only doctors and assistants can create reports");
+                    return BadRequest(new { message = "Only doctors and assistants can create reports" });
 
                 if (!Guid.TryParse(dto.AppointmentId, out var appointmentId))
                     return BadRequest(new { message = "Invalid AppointmentId" });
-
                 if (!Guid.TryParse(dto.UserId, out var userId))
                     return BadRequest(new { message = "Invalid UserId" });
-
                 if (!Guid.TryParse(dto.DoctorId, out var doctorId))
                     return BadRequest(new { message = "Invalid DoctorId" });
 
                 var appointment = await _appointmentService.GetByIdAsync(appointmentId);
                 if (appointment == null)
                     return NotFound(new { message = "Appointment not found" });
-
                 if (appointment.Status != AppointmentStatus.Approved)
                     return BadRequest(new { message = "Can only create report for approved appointments" });
 
-                var doctor = await _doctorRepository.GetByIdAsync(doctorId);
-                if (doctor == null)
-                    return BadRequest(new { message = "Doctor not found in Doctors table", doctorId });
-
+                // === FIXED: ONLY ONE CHECK + USE BadRequest ===
                 if (doctorId != currentUser.Id && currentUser.Type != UserType.Assistant)
-                    return Forbid("You can only create reports for yourself");
+                    return BadRequest(new { message = "You can only create reports for your own appointments" });
+
+                // Auto-create Doctor profile if missing
+                var doctorProfile = await _doctorRepository.GetByIdAsync(doctorId);
+                if (doctorProfile == null && currentUser.Type == UserType.HealthcareProvider)
+                {
+                    var newDoctor = new Doctor
+                    {
+                        Id = doctorId,
+                        Name = $"{currentUser.FirstName} {currentUser.LastName}",
+                        Specialty = "General Medicine",
+                        ClinicId = null,
+                        PhoneNumber = currentUser.PhoneNumber,
+                        CreatedAt = DateTime.UtcNow,
+                        IsActive = true
+                    };
+                    _context.Doctors.Add(newDoctor);
+                    await _context.SaveChangesAsync();
+                }
 
                 var report = _mapper.Map<AppointmentReport>(dto);
                 report.Id = dto.Id ?? Guid.NewGuid();
@@ -125,7 +142,6 @@ namespace UserHealthService.API.Controllers
 
                 var createdReport = await _reportService.CreateAsync(report);
                 var responseDto = _mapper.Map<AppointmentReportResponseDto>(createdReport);
-
                 return CreatedAtAction(nameof(GetReportById), new { id = responseDto.Id }, responseDto);
             }
             catch (Exception ex)
@@ -187,7 +203,7 @@ namespace UserHealthService.API.Controllers
 
                 if (currentUser.Id != userId && currentUser.Type != UserHealthService.Domain.Enums.UserType.HealthcareProvider)
                 {
-                    return Forbid("You can only view your own reports");
+                    return BadRequest(new { message = "You can only view your own reports" });
                 }
 
                 var reports = await _reportService.GetByUserIdAsync(userId);
@@ -213,7 +229,7 @@ namespace UserHealthService.API.Controllers
 
                 if (currentUser.Id != doctorId && currentUser.Type != UserHealthService.Domain.Enums.UserType.Assistant)
                 {
-                    return Forbid("You can only view your own reports");
+                    return BadRequest(new { message = "You can only view your own reports" });
                 }
 
                 var reports = await _reportService.GetByDoctorIdAsync(doctorId);
@@ -249,7 +265,7 @@ namespace UserHealthService.API.Controllers
                 if (existingReport.DoctorId != currentUser.Id &&
                     currentUser.Type != UserHealthService.Domain.Enums.UserType.Assistant)
                 {
-                    return Forbid("You can only update your own reports");
+                    return BadRequest(new { message = "You can only update your own reports" });
                 }
 
                 // Map update to existing entity
@@ -308,7 +324,7 @@ namespace UserHealthService.API.Controllers
                     _logger.LogWarning("=== DELETE FORBIDDEN ===");
                     _logger.LogWarning("User {UserId} cannot delete report {ReportId}", currentUser.Id, id);
                     _logger.LogWarning("Reason: Not report owner and not assistant");
-                    return Forbid("You can only delete your own reports");
+                    return BadRequest(new { message = "You can only delete your own reports" });
                 }
 
                 _logger.LogInformation("=== PROCEEDING WITH DELETE ===");
@@ -345,7 +361,7 @@ namespace UserHealthService.API.Controllers
                 if (report.UserId != currentUser.Id && report.DoctorId != currentUser.Id &&
                     currentUser.Type != UserHealthService.Domain.Enums.UserType.Assistant)
                 {
-                    return Forbid("You don't have permission to download this report");
+                    return BadRequest(new { message = "You don't have permission to download this report" });
                 }
 
                 var pdfBytes = await _reportService.GeneratePdfAsync(id);
@@ -368,7 +384,7 @@ namespace UserHealthService.API.Controllers
 
                 if (currentUser.Id != assistantId)
                 {
-                    return Forbid("You can only create reports for your own appointments");
+                    return BadRequest(new { message = "You can only create reports for your own appointments"});
                 }
 
                 // Use the same logic as the main CreateReport method but with assistant validation
@@ -425,7 +441,7 @@ namespace UserHealthService.API.Controllers
 
                 if (currentUser.Id != assistantId)
                 {
-                    return Forbid("You can only view your own reports");
+                    return BadRequest (new { message = "You can only view your own reports" });
                 }
 
                 var reports = await _reportService.GetByDoctorIdAsync(assistantId);

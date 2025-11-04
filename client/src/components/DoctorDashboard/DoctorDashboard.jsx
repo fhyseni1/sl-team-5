@@ -404,7 +404,7 @@ const DoctorDashboard = () => {
     const safeAppointment = {
       id: appointment.id,
       userId: appointment.userId,
-      doctorId: appointment.doctorId || user.id, // ← fallback
+      doctorId: user.id,
       userName: `${appointment.userFirstName || ""} ${
         appointment.userLastName || ""
       }`.trim(),
@@ -423,15 +423,13 @@ const DoctorDashboard = () => {
 
   const handleSubmitReport = async (formData) => {
     try {
-      const doctorId = user.id.toString();
+      const doctorId = user.id;
 
-      // Remove the id field entirely for new reports
       const reportData = {
         appointmentId: selectedAppointment.id.toString(),
         userId: selectedAppointment.userId.toString(),
-        doctorId: doctorId,
+        doctorId: doctorId.toString(),
         reportDate: new Date().toISOString(),
-        // REMOVE THIS: id: editingReport ? editingReport.id.toString() : "",
         diagnosis: formData.diagnosis?.trim() || "",
         symptoms: formData.symptoms?.trim() || "",
         treatment: formData.treatment?.trim() || "",
