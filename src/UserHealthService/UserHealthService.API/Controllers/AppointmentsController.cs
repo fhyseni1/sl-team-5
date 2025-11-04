@@ -98,7 +98,44 @@ namespace UserHealthService.API.Controllers
             }
         }
 
+        // GET: api/appointments/test-pdf
+        [HttpGet("test-pdf")]
+        [AllowAnonymous]
+        public async Task<IActionResult> TestPDF()
+        {
+            try
+            {
+                var sampleReport = new AppointmentReportResponseDto
+                {
+                    Id = Guid.NewGuid(),
+                    AppointmentId = Guid.NewGuid(),
+                    UserId = Guid.NewGuid(),
+                    UserName = "Valza Mustafa",
+                    DoctorId = Guid.NewGuid(),
+                    DoctorName = "Dr. Valza",
+                    Specialty = "Cardiology",
+                    ReportDate = DateTime.UtcNow,
+                    Diagnosis = "Hypertension Stage 1",
+                    Symptoms = "Elevated blood pressure, occasional headaches, dizziness",
+                    Treatment = "Lifestyle modifications and medication management",
+                    Medications = "Lisinopril 10mg daily, Aspirin 81mg daily",
+                    Notes = "Patient advised to reduce sodium intake, exercise regularly (30 mins daily), and monitor blood pressure at home.",
+                    Recommendations = "Follow up in 3 months for blood pressure check. Return immediately if experiencing chest pain or severe headaches.",
+                    CreatedAt = DateTime.UtcNow.AddDays(-1),
+                    UpdatedAt = DateTime.UtcNow
+                };
 
+                var pdfBytes = await _pdfReportService.GenerateAppointmentReportPDFAsync(sampleReport);
+                var fileName = _pdfReportService.GetReportFileName(sampleReport);
+
+                return File(pdfBytes, "application/pdf", fileName);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error generating test PDF");
+                return StatusCode(500, $"Error generating PDF: {ex.Message}");
+            }
+        }
 
         // GET: api/appointments/{id}
         [HttpGet("{id}")]

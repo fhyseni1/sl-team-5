@@ -52,7 +52,7 @@ namespace UserHealthService.API.Controllers
                 IEnumerable<AppointmentReport> reports;
 
                 if (currentUser.Type == UserHealthService.Domain.Enums.UserType.HealthcareProvider)
-                {   
+                {
                     reports = await _reportService.GetByDoctorIdAsync(currentUser.Id);
                 }
                 else if (currentUser.Type == UserHealthService.Domain.Enums.UserType.Assistant)
@@ -247,7 +247,7 @@ namespace UserHealthService.API.Controllers
                     return NotFound();
 
                 if (existingReport.DoctorId != currentUser.Id &&
-                    currentUser.Type != UserType.Assistant)
+                    currentUser.Type != UserHealthService.Domain.Enums.UserType.Assistant)
                 {
                     return Forbid("You can only update your own reports");
                 }
@@ -300,8 +300,7 @@ namespace UserHealthService.API.Controllers
                 _logger.LogInformation("Assistant Enum Values - UserType.Assistant: {AssistantValue}, CurrentUser.Type: {CurrentValue}",
                     (int)UserType.Assistant, (int)currentUser.Type);
 
-                bool canDelete = existingReport.DoctorId == currentUser.Id
-                  || currentUser.Type == UserType.Assistant;
+                bool canDelete = existingReport.DoctorId == currentUser.Id || currentUser.Type == UserType.Assistant;
                 _logger.LogInformation("Can Delete: {CanDelete}", canDelete);
 
                 if (!canDelete)
@@ -338,25 +337,24 @@ namespace UserHealthService.API.Controllers
             try
             {
                 var currentUser = await _authService.GetCurrentUserAsync();
+
                 var report = await _reportService.GetByIdAsync(id);
                 if (report == null)
                     return NotFound();
 
-                // FIX: Convert Guid → string
-                var canAccess = report.UserId == currentUser.Id
-                             || report.DoctorId == currentUser.Id
-                             || currentUser.Type == UserType.Assistant;
-
-                if (!canAccess)
+                if (report.UserId != currentUser.Id && report.DoctorId != currentUser.Id &&
+                    currentUser.Type != UserHealthService.Domain.Enums.UserType.Assistant)
+                {
                     return Forbid("You don't have permission to download this report");
+                }
 
                 var pdfBytes = await _reportService.GeneratePdfAsync(id);
-                return File(pdfBytes, "application/pdf", $"report-{id}.pdf");
+                return File(pdfBytes, "application/pdf", $"appointment-report-{id}.pdf");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "PDF generation failed for report {Id}", id);
-                return BadRequest("Failed to generate PDF");
+                _logger.LogError(ex, "Error generating PDF for report {ReportId}", id);
+                return BadRequest(new { message = ex.Message });
             }
         }
 
@@ -424,11 +422,15 @@ namespace UserHealthService.API.Controllers
             try
             {
                 var currentUser = await _authService.GetCurrentUserAsync();
+
                 if (currentUser.Id != assistantId)
                 {
                     return Forbid("You can only view your own reports");
                 }
+
                 var reports = await _reportService.GetByDoctorIdAsync(assistantId);
+
+                // MAP ENTITIES TO DTOs
                 var responseDtos = _mapper.Map<IEnumerable<AppointmentReportResponseDto>>(reports);
                 return Ok(responseDtos);
             }

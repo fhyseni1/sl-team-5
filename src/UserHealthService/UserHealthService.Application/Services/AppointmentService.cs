@@ -93,6 +93,11 @@ namespace UserHealthService.Application.Services
             await _appointmentRepository.UpdateAsync(appointment);
             return true;
         }
+        public async Task<IEnumerable<AppointmentResponseDto>> GetByDoctorIdAsync(Guid doctorId)
+        {
+            var appointments = await _appointmentRepository.GetByDoctorIdAsync(doctorId);
+            return _mapper.Map<IEnumerable<AppointmentResponseDto>>(appointments);
+        }
         public async Task<IEnumerable<AppointmentResponseDto>> GetApprovedAppointmentsByDoctorIdAsync(Guid doctorId)
         {
             var appointments = await _appointmentRepository.GetApprovedAppointmentsByDoctorIdAsync(doctorId);
@@ -108,10 +113,6 @@ namespace UserHealthService.Application.Services
             return await _appointmentRepository.CountUpcomingByUserIdAsync(userId);
         }
 
-        public async Task<IEnumerable<AppointmentResponseDto>> GetByDoctorIdAsync(Guid doctorId)
-        {
-            var appointments = await _appointmentRepository.GetByDoctorIdAsync(doctorId);
-            return _mapper.Map<IEnumerable<AppointmentResponseDto>>(appointments);
-        }
+
     }
 }

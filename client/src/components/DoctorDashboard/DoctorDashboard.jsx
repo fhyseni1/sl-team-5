@@ -2,7 +2,7 @@
 "use client";
 import ChatInbox from "../ChatInbox";
 import NotificationCenter from "../NotificationCenter";
-import { MessageCircle, RefreshCw } from "lucide-react";
+import { MessageCircle } from "lucide-react";
 import ReportCard from "./ReportCard";
 import ReportModal from "./ReportModal";
 import {
@@ -122,13 +122,6 @@ const DoctorDashboard = () => {
   const [appointments, setAppointments] = useState([]);
   const [medications, setMedications] = useState([]);
   const [showAddMedicationForm, setShowAddMedicationForm] = useState(false);
-  const [refreshing, setRefreshing] = useState({
-    appointments: false,
-    medications: false,
-    reports: false,
-    patients: false,
-  });
-
   const [stats, setStats] = useState({
     totalAppointments: 0,
     todayAppointments: 0,
@@ -149,51 +142,6 @@ const DoctorDashboard = () => {
     description: "",
     medicationType: MedicationType.Prescription,
   });
-
-  // === REFRESH FUNCTIONS ===
-  const refreshAppointments = async () => {
-    if (user) {
-      setRefreshing((prev) => ({ ...prev, appointments: true }));
-      try {
-        await loadAppointments(user, user.type === 4);
-      } finally {
-        setRefreshing((prev) => ({ ...prev, appointments: false }));
-      }
-    }
-  };
-
-  const refreshMedications = async () => {
-    if (user) {
-      setRefreshing((prev) => ({ ...prev, medications: true }));
-      try {
-        await loadMedications(user);
-      } finally {
-        setRefreshing((prev) => ({ ...prev, medications: false }));
-      }
-    }
-  };
-
-  const refreshReports = async () => {
-    if (user) {
-      setRefreshing((prev) => ({ ...prev, reports: true }));
-      try {
-        await loadReports(user);
-      } finally {
-        setRefreshing((prev) => ({ ...prev, reports: false }));
-      }
-    }
-  };
-
-  const refreshPatients = async () => {
-    if (user) {
-      setRefreshing((prev) => ({ ...prev, patients: true }));
-      try {
-        await fetchDoctorPatients();
-      } finally {
-        setRefreshing((prev) => ({ ...prev, patients: false }));
-      }
-    }
-  };
 
   // === INITIAL LOAD ===
   useEffect(() => {
@@ -221,7 +169,6 @@ const DoctorDashboard = () => {
           loadReports(userData),
         ]);
       } catch (error) {
-        console.error("Initial data load error:", error);
         toast.error("Failed to load dashboard data");
       } finally {
         setLoading(false);
@@ -233,7 +180,6 @@ const DoctorDashboard = () => {
   // === LOAD APPOINTMENTS (UserHealthService) ===
   const loadAppointments = async (userData, isDoctor) => {
     try {
-      console.log("🔄 Loading appointments...");
       let filteredAppointments = [];
       if (isDoctor) {
         const response = await userHealthApi.get("/appointments");
@@ -251,7 +197,6 @@ const DoctorDashboard = () => {
         filteredAppointments = pendingResponse || [];
       }
 
-      console.log("✅ Loaded appointments:", filteredAppointments.length);
       setAppointments(filteredAppointments);
 
       const approvedApps = filteredAppointments.filter(
@@ -276,7 +221,6 @@ const DoctorDashboard = () => {
         totalPatients: uniquePatients.length,
       });
     } catch (error) {
-      console.error("❌ Failed to load appointments:", error);
       toast.error("Failed to load appointments");
     }
   };
@@ -333,10 +277,8 @@ const DoctorDashboard = () => {
       setMedications([]);
     }
   };
-
   const loadReports = async (userData) => {
     try {
-      console.log("🔄 Loading reports...");
       // Use ONLY the main endpoint - never the doctor-specific one
       const response = await userHealthApi.get("/appointmentreports");
       const allReports = response || [];
@@ -347,7 +289,6 @@ const DoctorDashboard = () => {
           ? allReports.filter((report) => report.doctorId === userData.id)
           : allReports;
 
-      console.log("✅ Loaded reports:", filtered.length);
       setReports(filtered);
     } catch (error) {
       console.error("Failed to load reports:", error);
@@ -371,8 +312,6 @@ const DoctorDashboard = () => {
       const medicationData = {
         userId: selectedPatient.id,
         name: medicationForm.name,
-        doctorId: user.id,
-        prescribedBy: `Dr. ${user.firstName} ${user.lastName}`,
         genericName: medicationForm.genericName || medicationForm.name,
         manufacturer: "Unknown Manufacturer",
         type: parseInt(medicationForm.medicationType),
@@ -398,8 +337,29 @@ const DoctorDashboard = () => {
 
       console.log("✅ Medication created in backend:", createdMedication);
 
-      // REFRESH MEDICATIONS AFTER SUCCESS
-      await refreshMedications();
+      // Create UI medication object with all necessary fields
+      const uiMed = {
+        ...createdMedication,
+        id: createdMedication.id || `temp-${Date.now()}`,
+        prescribedBy: `Dr. ${user.firstName} ${user.lastName}`,
+        doctorId: user.id,
+        patientName: `${selectedPatient.firstName} ${selectedPatient.lastName}`,
+        patientEmail: selectedPatient.email,
+        frequency: medicationForm.frequency,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      console.log("🎨 UI medication object:", uiMed);
+
+      // Add to local state
+      setMedications((prev) => [uiMed, ...prev]);
+
+      console.log(
+        "📊 Medications state after addition:",
+        medications.length + 1,
+        "medications"
+      );
 
       toast.success(
         `Medication prescribed to ${selectedPatient.firstName} successfully!`
@@ -517,9 +477,7 @@ const DoctorDashboard = () => {
       const result = await response.json();
       console.log("Server success response:", result);
 
-      // REFRESH REPORTS AFTER SUCCESS
-      await refreshReports();
-
+      await loadReports(user);
       setShowReportModal(false);
       setEditingReport(null);
       setSelectedAppointment(null);
@@ -529,7 +487,6 @@ const DoctorDashboard = () => {
       toast.error(`Failed to save report: ${error.message}`);
     }
   };
-
   const handleEditReport = (report) => {
     console.log("Editing report:", report);
     setEditingReport(report);
@@ -567,8 +524,7 @@ const DoctorDashboard = () => {
       );
 
       if (response.ok) {
-        // REFRESH REPORTS AFTER SUCCESS
-        await refreshReports();
+        setReports((prev) => prev.filter((report) => report.id !== reportId));
         toast.success("Report deleted successfully!");
         return;
       }
@@ -593,8 +549,7 @@ const DoctorDashboard = () => {
           emptyReportData
         );
         if (updateResponse) {
-          // REFRESH REPORTS AFTER SUCCESS
-          await refreshReports();
+          setReports((prev) => prev.filter((report) => report.id !== reportId));
           toast.success("Report cleared successfully!");
         }
       } catch (updateError) {
@@ -709,10 +664,9 @@ const DoctorDashboard = () => {
         await userHealthApi.put(
           `/appointments/${appointmentId}/assistant-approve`
         );
-
-        // REFRESH APPOINTMENTS AFTER SUCCESS
-        await refreshAppointments();
-
+        setAppointments((prev) =>
+          prev.filter((app) => app.id !== appointmentId)
+        );
         toast.success("Appointment approved successfully!");
       } catch (error) {
         toast.error("Failed to approve appointment");
@@ -731,10 +685,9 @@ const DoctorDashboard = () => {
               rejectionReason: reason,
             }
           );
-
-          // REFRESH APPOINTMENTS AFTER SUCCESS
-          await refreshAppointments();
-
+          setAppointments((prev) =>
+            prev.filter((app) => app.id !== appointmentId)
+          );
           toast.success("Appointment rejected successfully!");
         } catch (error) {
           toast.error("Failed to reject appointment");
@@ -746,14 +699,11 @@ const DoctorDashboard = () => {
   // === FETCH PATIENTS ===
   const fetchDoctorPatients = async () => {
     try {
-      console.log("🔄 Fetching patients...");
       const patientsRes = await userHealthApi.get(
         `/users/doctor/${user.id}/patients`
       );
       setPatients(patientsRes || []);
-      console.log("✅ Loaded patients:", patientsRes?.length || 0);
     } catch {
-      console.log("⚠️ Using fallback patient data from appointments");
       const approvedAppointments = appointments.filter(
         (app) => app.status === 2 || app.status === "Approved"
       );
@@ -771,9 +721,7 @@ const DoctorDashboard = () => {
           });
         }
       });
-      const patientArray = Array.from(uniquePatientMap.values());
-      setPatients(patientArray);
-      console.log("✅ Loaded fallback patients:", patientArray.length);
+      setPatients(Array.from(uniquePatientMap.values()));
     }
   };
 
@@ -909,18 +857,6 @@ const DoctorDashboard = () => {
                     ).length}
                 )
               </h2>
-              <button
-                onClick={refreshAppointments}
-                disabled={refreshing.appointments}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-all"
-              >
-                <RefreshCw
-                  className={`w-4 h-4 ${
-                    refreshing.appointments ? "animate-spin" : ""
-                  }`}
-                />
-                Refresh
-              </button>
             </div>
             <div className="space-y-4 max-h-96 overflow-y-auto">
               {appointments.filter((app) =>
@@ -1039,12 +975,6 @@ const DoctorDashboard = () => {
                       ? "No approved appointments"
                       : "No pending appointments"}
                   </p>
-                  <button
-                    onClick={refreshAppointments}
-                    className="mt-4 text-blue-400 hover:text-blue-300"
-                  >
-                    Refresh
-                  </button>
                 </div>
               )}
             </div>
@@ -1057,25 +987,12 @@ const DoctorDashboard = () => {
                 <Pill className="w-7 h-7 text-emerald-400" />
                 Prescribed Medications ({medications ? medications.length : 0})
               </h2>
-              <div className="flex gap-2">
-                <button
-                  onClick={refreshMedications}
-                  disabled={refreshing.medications}
-                  className="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-all"
-                >
-                  <RefreshCw
-                    className={`w-4 h-4 ${
-                      refreshing.medications ? "animate-spin" : ""
-                    }`}
-                  />
-                </button>
-                <button
-                  onClick={() => setShowAddMedicationForm(true)}
-                  className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-4 py-2 rounded-xl font-bold hover:shadow-emerald-500/50 transition-all"
-                >
-                  <Plus className="w-5 h-5" />
-                </button>
-              </div>
+              <button
+                onClick={() => setShowAddMedicationForm(true)}
+                className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-4 py-2 rounded-xl font-bold hover:shadow-emerald-500/50 transition-all"
+              >
+                <Plus className="w-5 h-5" />
+              </button>
             </div>
 
             <div className="space-y-4 max-h-96 overflow-y-auto">
@@ -1129,15 +1046,9 @@ const DoctorDashboard = () => {
                   <p className="text-slate-400 text-lg mb-2">
                     No medications prescribed yet
                   </p>
-                  <p className="text-slate-500 text-sm mb-4">
+                  <p className="text-slate-500 text-sm">
                     Add medications using the "+" button above
                   </p>
-                  <button
-                    onClick={refreshMedications}
-                    className="text-blue-400 hover:text-blue-300"
-                  >
-                    Refresh
-                  </button>
                 </div>
               )}
             </div>
@@ -1151,28 +1062,12 @@ const DoctorDashboard = () => {
               <FileText className="w-7 h-7 text-purple-400" />
               Appointments Reports ({reports.length})
             </h2>
-            <div className="flex items-center gap-4">
-              {reports.length > 0 && (
-                <div className="flex items-center gap-2 text-slate-400">
-                  <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
-                  <span className="text-sm">
-                    {reports.length} saved reports
-                  </span>
-                </div>
-              )}
-              <button
-                onClick={refreshReports}
-                disabled={refreshing.reports}
-                className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white rounded-lg transition-all"
-              >
-                <RefreshCw
-                  className={`w-4 h-4 ${
-                    refreshing.reports ? "animate-spin" : ""
-                  }`}
-                />
-                Refresh
-              </button>
-            </div>
+            {reports.length > 0 && (
+              <div className="flex items-center gap-2 text-slate-400">
+                <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
+                <span className="text-sm">{reports.length} saved reports</span>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -1197,18 +1092,9 @@ const DoctorDashboard = () => {
                   <p className="text-slate-500 text-sm mb-6">
                     Create your first report from an approved appointment
                   </p>
-                  <div className="flex items-center justify-center gap-4">
-                    <button
-                      onClick={refreshReports}
-                      className="text-blue-400 hover:text-blue-300"
-                    >
-                      Refresh
-                    </button>
-                    <span className="text-slate-600">|</span>
-                    <div className="flex items-center gap-2 text-slate-400 text-sm">
-                      <Calendar className="w-4 h-4" />
-                      <span>Go to "My Appointments" to start</span>
-                    </div>
+                  <div className="flex items-center justify-center gap-2 text-slate-400 text-sm">
+                    <Calendar className="w-4 h-4" />
+                    <span>Go to "My Appointments" to start</span>
                   </div>
                 </div>
               </div>
@@ -1241,7 +1127,7 @@ const DoctorDashboard = () => {
           <div
             className="bg-gradient-to-r from-purple-600 to-pink-600 text-white p-8 rounded-3xl shadow-xl hover:shadow-purple-500/50 transition-all hover:scale-105 cursor-pointer"
             onClick={() => {
-              refreshPatients();
+              fetchDoctorPatients();
               setShowPatientsModal(true);
             }}
           >
@@ -1299,7 +1185,7 @@ const DoctorDashboard = () => {
                 </div>
                 <button
                   onClick={() => {
-                    refreshPatients();
+                    fetchDoctorPatients();
                     setShowPatientSelection(true);
                   }}
                   className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-4 rounded-xl font-bold hover:shadow-blue-500/50 transition-all"
@@ -1488,7 +1374,7 @@ const DoctorDashboard = () => {
                   <Users className="w-16 h-16 text-slate-600 mx-auto mb-4" />
                   <p className="text-slate-400">No patients found</p>
                   <button
-                    onClick={refreshPatients}
+                    onClick={fetchDoctorPatients}
                     className="mt-4 text-blue-400 hover:text-blue-300"
                   >
                     Refresh List
@@ -1538,25 +1424,12 @@ const DoctorDashboard = () => {
               <h2 className="text-2xl font-bold text-white">
                 My Patients ({patients.length})
               </h2>
-              <div className="flex gap-2">
-                <button
-                  onClick={refreshPatients}
-                  disabled={refreshing.patients}
-                  className="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-all"
-                >
-                  <RefreshCw
-                    className={`w-4 h-4 ${
-                      refreshing.patients ? "animate-spin" : ""
-                    }`}
-                  />
-                </button>
-                <button
-                  onClick={() => setShowPatientsModal(false)}
-                  className="p-2 hover:bg-slate-700 rounded-xl"
-                >
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
+              <button
+                onClick={() => setShowPatientsModal(false)}
+                className="p-2 hover:bg-slate-700 rounded-xl"
+              >
+                <X className="w-6 h-6" />
+              </button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {patients.map((patient) => (
@@ -1583,15 +1456,9 @@ const DoctorDashboard = () => {
               ))}
             </div>
             {patients.length === 0 && (
-              <div className="text-center py-8">
-                <p className="text-slate-400 mb-4">No patients found</p>
-                <button
-                  onClick={refreshPatients}
-                  className="text-blue-400 hover:text-blue-300"
-                >
-                  Refresh
-                </button>
-              </div>
+              <p className="text-slate-400 text-center py-8">
+                No patients found
+              </p>
             )}
           </div>
         </div>

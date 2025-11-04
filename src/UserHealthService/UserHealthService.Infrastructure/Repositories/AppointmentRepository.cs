@@ -190,19 +190,16 @@ public async Task<List<Appointment>> GetPendingAppointmentsForAssistantAsync(Gui
         throw;
     }
 }
-        public async Task<IEnumerable<Appointment>> GetByDoctorIdAsync(Guid doctorId)
-        {
-            var doctor = await _context.Doctors.FindAsync(doctorId);
-            if (doctor == null) return Enumerable.Empty<Appointment>();
-
-            return await _context.Appointments
-                .Include(a => a.User)
-                .Where(a => a.DoctorName == doctor.Name && a.Status != AppointmentStatus.Cancelled)
-                .OrderByDescending(a => a.AppointmentDate)
-                .ThenBy(a => a.StartTime)
-                .ToListAsync();
-        }
-        public async Task<List<Appointment>> GetApprovedAppointmentsForAssistantAsync(Guid assistantId)
+public async Task<IEnumerable<Appointment>> GetByDoctorIdAsync(Guid doctorId)
+{
+    return await _context.Appointments
+        .Include(a => a.User)
+        .Where(a => a.DoctorId == doctorId && a.Status == AppointmentStatus.Approved) 
+        .OrderByDescending(a => a.AppointmentDate)
+        .ThenBy(a => a.StartTime)
+        .ToListAsync();
+}
+public async Task<List<Appointment>> GetApprovedAppointmentsForAssistantAsync(Guid assistantId)
 {
     try
     {

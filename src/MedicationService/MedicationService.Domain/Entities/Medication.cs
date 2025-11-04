@@ -6,9 +6,6 @@ namespace MedicationService.Domain.Entities
     {
         public Guid Id { get; set; }
         public Guid UserId { get; set; }
-
-        public string? DoctorId { get; set; }          
-        public string? PrescribedBy { get; set; }
         public string Name { get; set; } = string.Empty;
         public string GenericName { get; set; } = string.Empty;
         public string Manufacturer { get; set; } = string.Empty;
