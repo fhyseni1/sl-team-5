@@ -165,35 +165,6 @@ namespace UserHealthService.Application.Services
                     return $"Medical_Report_{cleanUserName}_{date}.pdf";
                 }
 
-                public async Task TestPDFGeneration()
-                {
-                    var sampleReport = new AppointmentReportResponseDto
-                    {
-                        Id = Guid.NewGuid(),
-                        AppointmentId = Guid.NewGuid(),
-                        UserId = Guid.NewGuid(),
-                        UserName = "John Doe",
-                        DoctorId = Guid.NewGuid(),
-                        DoctorName = "Dr. Smith",
-                        Specialty = "Cardiology",
-                        ReportDate = DateTime.UtcNow,
-                        Diagnosis = "Hypertension Stage 1",
-                        Symptoms = "Elevated blood pressure, occasional headaches",
-                        Treatment = "Lifestyle modifications and medication",
-                        Medications = "Lisinopril 10mg daily",
-                        Notes = "Patient advised to reduce sodium intake and exercise regularly",
-                        Recommendations = "Follow up in 3 months for blood pressure check",
-                        CreatedAt = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow
-                    };
-
-                    var pdfBytes = await GenerateAppointmentReportPDFAsync(sampleReport);
-                    var fileName = GetReportFileName(sampleReport);
-                    
-                    await File.WriteAllBytesAsync(fileName, pdfBytes);
-                    
-                    Console.WriteLine($"PDF generated successfully: {fileName}");
-                    Console.WriteLine($"File size: {pdfBytes.Length} bytes");
-                }
+               
             }
         }

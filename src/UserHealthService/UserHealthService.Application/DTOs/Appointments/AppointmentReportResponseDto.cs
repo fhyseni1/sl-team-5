@@ -6,7 +6,7 @@ namespace UserHealthService.Application.DTOs.Appointments
         public Guid AppointmentId { get; set; }
         public Guid UserId { get; set; }
         public string UserName { get; set; } = string.Empty;
-        public Guid DoctorId { get; set; }
+        public string? DoctorId { get; set; }
         public string DoctorName { get; set; } = string.Empty;
         public string Specialty { get; set; } = string.Empty;
         public DateTime ReportDate { get; set; }

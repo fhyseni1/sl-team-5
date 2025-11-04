@@ -16,7 +16,9 @@ namespace UserHealthService.Application.Mappings
                 .ForMember(dest => dest.Appointment, opt => opt.Ignore())
                 .ForMember(dest => dest.User, opt => opt.Ignore())
                 .ForMember(dest => dest.Doctor, opt => opt.Ignore())
-                .ForMember(dest => dest.ReportDate, opt => opt.Ignore()); // ADD THIS LINE
+                .ForMember(dest => dest.ReportDate, opt => opt.Ignore())
+                .ForMember(dest => dest.DoctorId, opt => opt.MapFrom(src => src.DoctorId));
+
 
             // Update -> Entity
             CreateMap<AppointmentReportUpdateDto, AppointmentReport>()
@@ -38,7 +40,8 @@ namespace UserHealthService.Application.Mappings
                 .ForMember(dest => dest.DoctorName, opt => opt.MapFrom(src =>
                     src.Doctor != null ? src.Doctor.Name : string.Empty))
                 .ForMember(dest => dest.Specialty, opt => opt.MapFrom(src =>
-                    src.Doctor != null ? src.Doctor.Specialty : string.Empty));
+                    src.Doctor != null ? src.Doctor.Specialty : string.Empty))
+                .ForMember(dest => dest.DoctorId, opt => opt.MapFrom(src => src.DoctorId));
         }
     }
 }

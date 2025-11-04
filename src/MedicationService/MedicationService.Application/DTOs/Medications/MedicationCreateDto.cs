@@ -9,9 +9,10 @@ namespace MedicationService.Application.DTOs.Medications
 {
     public class MedicationCreateDto
     {
-        public Guid? DoctorId { get; set; }  
+        public string DoctorId { get; set; }  
         public string PrescribedBy { get; set; } = string.Empty;
         public Guid UserId { get; set; }
+
         public string Name { get; set; } = string.Empty;
         public string GenericName { get; set; } = string.Empty;
         public string Manufacturer { get; set; } = string.Empty;
