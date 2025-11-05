@@ -47,20 +47,20 @@ const AdminDashboard = () => {
   const [approvedPage, setApprovedPage] = useState(1);
   const [userAppointments, setUserAppointments] = useState([]);
   const [userPage, setUserPage] = useState(1);
- 
+
   const [generatedPassword, setGeneratedPassword] = useState("");
   const [clinics, setClinics] = useState([]);
   const [registrationType, setRegistrationType] = useState(null);
   const [rejectedAppointments, setRejectedAppointments] = useState([]);
   const [rejectedPage, setRejectedPage] = useState(1);
-  
+
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [newClinicData, setNewClinicData] = useState({
     email: "",
     clinicName: "",
     password: "",
   });
- 
+
   const [clinicForm, setClinicForm] = useState({
     name: "",
     email: "",
@@ -69,7 +69,7 @@ const AdminDashboard = () => {
     address: "",
     phoneNumber: "",
   });
- 
+
   const [userForm, setUserForm] = useState({
     email: "",
     password: "",
@@ -136,81 +136,79 @@ const AdminDashboard = () => {
   };
 
   useEffect(() => {
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      const userData = await authService.getMe();
-      const isAdmin = userData.type === 5;
-      if (!isAdmin) {
-        await authService.logout();
-        router.push("/dashboard/dashboard");
-        return;
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const userData = await authService.getMe();
+        const isAdmin = userData.type === 5;
+        if (!isAdmin) {
+          await authService.logout();
+          router.push("/dashboard/dashboard");
+          return;
+        }
+        setUser(userData);
+        const results = await Promise.allSettled([
+          api.get("/users/count"),
+          api.get("/users"),
+          api.get("/appointments/pending"),
+          api.get("/appointments/approved"),
+          api.get("/appointments/rejected"),
+          api.get("/users").then((res) => {
+            const allUsers = res.data || [];
+            return allUsers.filter((user) => user.type === 4);
+          }),
+          api.get("/clinics").then((res) => res.data || []),
+        ]);
+
+        const usersCount =
+          results[0].status === "fulfilled" ? results[0].value.data : 0;
+        const allUsers =
+          results[1].status === "fulfilled" ? results[1].value.data : [];
+        const pendingAppts =
+          results[2].status === "fulfilled" ? results[2].value.data : [];
+        const approvedAppts =
+          results[3].status === "fulfilled" ? results[3].value.data : [];
+        const rejectedAppts =
+          results[4].status === "fulfilled" ? results[4].value.data : [];
+        const healthcareProviders =
+          results[5].status === "fulfilled" ? results[5].value : [];
+        const clinicsData =
+          results[6].status === "fulfilled" ? results[6].value : [];
+
+        setUsers(allUsers);
+        setDoctors(healthcareProviders);
+        setPendingAppointments(pendingAppts);
+        setApprovedAppointments(approvedAppts);
+        setRejectedAppointments(rejectedAppts);
+        setClinics(clinicsData);
+        setStats({
+          totalUsers: usersCount || 0,
+          totalAppointments:
+            (pendingAppts.length || 0) +
+            (approvedAppts.length || 0) +
+            (rejectedAppts.length || 0),
+          pendingAppointments: pendingAppts.length || 0,
+          approvedAppointments: approvedAppts.length || 0,
+          rejectedAppointments: rejectedAppts.length || 0,
+          totalDoctors: healthcareProviders.length || 0,
+          totalAssistants: 0, // Vendos 0
+          totalClinics: clinicsData.length || 0,
+        });
+      } catch (err) {
+        console.error("Admin dashboard error:", err);
+        setError(err.response?.data?.message || "Failed to load dashboard");
+        if (err.response?.status === 401) router.push("/login");
+      } finally {
+        setLoading(false);
       }
-      setUser(userData);
-      const results = await Promise.allSettled([
-        api.get("/users/count"),
-        api.get("/users"),
-        api.get("/appointments/pending"),
-        api.get("/appointments/approved"),
-        api.get("/appointments/releted"),
-        api.get("/users").then((res) => {
-          const allUsers = res.data || [];
-          return allUsers.filter((user) => user.type === 4); // Doctors
-        }),
-        api.get("/clinics").then((res) => res.data || []), // Fetch clinics
-      ]);
-
-      const usersCount =
-        results[0].status === "fulfilled" ? results[0].value.data : 0;
-      const allUsers =
-        results[1].status === "fulfilled" ? results[1].value.data : [];
-      const pendingAppts =
-        results[2].status === "fulfilled" ? results[2].value.data : [];
-      const approvedAppts =
-        results[3].status === "fulfilled" ? results[3].value.data : [];
-      const rejectedAppts =
-        results[4].status === "fulfilled" ? results[4].value.data : [];
-      const healthcareProviders =
-        results[5].status === "fulfilled" ? results[5].value : [];
-      const clinicsData =
-        results[6].status === "fulfilled" ? results[6].value : []; 
-
-      setUsers(allUsers);
-      setDoctors(healthcareProviders);
-      setPendingAppointments(pendingAppts);
-      setApprovedAppointments(approvedAppts);
-      setRejectedAppointments(rejectedAppts);
-      setClinics(clinicsData);
-      setStats({
-        totalUsers: usersCount || 0,
-        totalAppointments:
-          (pendingAppts.length || 0) +
-          (approvedAppts.length || 0) +
-          (rejectedAppts.length || 0),
-        pendingAppointments: pendingAppts.length || 0,
-        approvedAppointments: approvedAppts.length || 0,
-        rejectedAppointments: rejectedAppts.length || 0,
-        totalDoctors: healthcareProviders.length || 0,
-        totalAssistants: 0, // Vendos 0
-        totalClinics: clinicsData.length || 0,
-      });
-    } catch (err) {
-      console.error("Admin dashboard error:", err);
-      setError(err.response?.data?.message || "Failed to load dashboard");
-      if (err.response?.status === 401) router.push("/login");
-    } finally {
-      setLoading(false);
-    }
-  };
-  fetchData();
-}, [router]);
+    };
+    fetchData();
+  }, [router]);
 
   const handleLogout = async () => {
     await authService.logout();
     router.push("/");
   };
-
-
 
   const handleAddClinicSubmit = async (e) => {
     e.preventDefault();
@@ -414,7 +412,7 @@ const AdminDashboard = () => {
               icon: Stethoscope,
               color: "from-emerald-500",
             },
-          
+
             {
               label: "Total Clinics",
               value: stats.totalClinics,
@@ -526,7 +524,7 @@ const AdminDashboard = () => {
             )}
           </div>
         </div>
-       
+
         <div className="mb-12">
           <AppointmentCalendar
             appointments={allAppointments}
@@ -856,7 +854,7 @@ const AdminDashboard = () => {
             <Shield className="w-12 h-12 group-hover:scale-110 transition-transform" />
             <span className="text-xl">Add Clinic</span>
           </button>
-        
+
           <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-8 rounded-3xl shadow-xl hover:shadow-blue-500/50 transition-all hover:scale-105">
             <BarChart3 className="w-12 h-12 mx-auto mb-4" />
             <h3 className="text-xl font-bold mb-2">Analytics</h3>
@@ -869,7 +867,7 @@ const AdminDashboard = () => {
           </div>
         </div>
       </main>
-     
+
       {showAddClinicForm && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-800/95 backdrop-blur-xl rounded-3xl max-w-md w-full p-8 border border-slate-700/50">
