@@ -34,6 +34,8 @@ import {
   BarChart3,
 } from "lucide-react";
 import { authService } from "../../../services/authService";
+import PatientAnalytics from "./PatientAnalytics";
+import ReportCardMini from "./ReportCardMini";
 
 // === API CLIENTS ===
 const USERHEALTH_API_URL =
@@ -122,6 +124,9 @@ const DoctorDashboard = () => {
   const [appointments, setAppointments] = useState([]);
   const [medications, setMedications] = useState([]);
   const [showAddMedicationForm, setShowAddMedicationForm] = useState(false);
+  const [showAnalytics, setShowAnalytics] = useState(false);
+  const [selectedPatientForAnalytics, setSelectedPatientForAnalytics] =
+    useState(null);
   const [stats, setStats] = useState({
     totalAppointments: 0,
     todayAppointments: 0,
@@ -389,6 +394,11 @@ const DoctorDashboard = () => {
       });
       setSelectedPatient(null);
     }
+  };
+
+  const openPatientAnalytics = (patient) => {
+    setSelectedPatientForAnalytics(patient);
+    setShowAnalytics(true);
   };
 
   const handleCreateReport = async (appointment) => {
@@ -1109,8 +1119,17 @@ const DoctorDashboard = () => {
             <Pill className="w-12 h-12 group-hover:scale-110 transition-transform" />
             <span className="text-xl">Add Medication</span>
           </button>
-          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-8 rounded-3xl shadow-xl hover:shadow-blue-500/50 transition-all hover:scale-105">
-            <BarChart3 className="w-12 h-12 mx-auto mb-4" />
+          <div
+            className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-8 rounded-3xl shadow-xl hover:shadow-blue-500/50 transition-all hover:scale-105 cursor-pointer group"
+            onClick={() => {
+              fetchDoctorPatients().then(() => {
+                if (patients.length > 0) {
+                  setShowPatientSelection(true);
+                }
+              });
+            }}
+          >
+            <BarChart3 className="w-12 h-12 mx-auto mb-4 group-hover:scale-110 transition-transform" />
             <h3 className="text-xl font-bold mb-2">Patient Analytics</h3>
             <p className="text-blue-100">View health reports</p>
           </div>
@@ -1330,7 +1349,6 @@ const DoctorDashboard = () => {
         </div>
       )}
 
-      {/* PATIENT SELECTION MODAL */}
       {showPatientSelection && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
           <div className="bg-slate-800/95 backdrop-blur-xl rounded-3xl max-w-2xl w-full max-h-[80vh] overflow-hidden border border-slate-700/50">
@@ -1349,21 +1367,35 @@ const DoctorDashboard = () => {
                   {patients.map((patient) => (
                     <div
                       key={patient.id}
-                      onClick={() => {
-                        setSelectedPatient(patient);
-                        setShowPatientSelection(false);
-                      }}
-                      className="bg-slate-700/50 rounded-xl p-4 border border-slate-600/50 hover:border-blue-500/50 cursor-pointer transition-all hover:scale-105"
+                      className="bg-slate-700/50 rounded-xl p-4 border border-slate-600/50 hover:border-blue-500/50 cursor-pointer transition-all hover:scale-105 flex justify-between items-center"
                     >
-                      <h3 className="text-white font-semibold">
-                        {patient.firstName} {patient.lastName}
-                      </h3>
-                      <p className="text-slate-300 text-sm">{patient.email}</p>
-                      {patient.phoneNumber && (
-                        <p className="text-slate-400 text-sm">
-                          Phone: {patient.phoneNumber}
+                      {/* Click whole card → prescribe medication */}
+                      <div
+                        onClick={() => {
+                          setSelectedPatient(patient);
+                          setShowPatientSelection(false);
+                        }}
+                      >
+                        <h3 className="text-white font-semibold">
+                          {patient.firstName} {patient.lastName}
+                        </h3>
+                        <p className="text-slate-300 text-sm">
+                          {patient.email}
                         </p>
-                      )}
+                      </div>
+
+                      {/* Analytics button */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openPatientAnalytics(patient);
+                          setShowPatientSelection(false);
+                        }}
+                        className="ml-4 px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-blue-600 text-white text-xs rounded-lg font-medium hover:shadow-lg transition-all"
+                      >
+                        <BarChart3 className="w-4 h-4 inline mr-1" />
+                        Analytics
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -1384,6 +1416,22 @@ const DoctorDashboard = () => {
         </div>
       )}
 
+      {/* ==== PATIENT ANALYTICS MODAL ==== */}
+      {showAnalytics && selectedPatientForAnalytics && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
+          <div className="bg-slate-800/95 backdrop-blur-xl rounded-3xl w-full max-w-6xl max-h-[90vh] overflow-y-auto border border-slate-700/50">
+            <PatientAnalytics
+              patient={selectedPatientForAnalytics}
+              doctor={user}
+              onEditReport={(report) => {
+                handleEditReport(report);
+                setShowAnalytics(false);
+              }}
+              onClose={() => setShowAnalytics(false)}
+            />
+          </div>
+        </div>
+      )}
       {/* CHAT INBOX MODAL */}
       {showChatInbox && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
