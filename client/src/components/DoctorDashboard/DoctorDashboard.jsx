@@ -107,6 +107,35 @@ const DosageUnit = {
   Units: 10,
 };
 
+// FrequencyType enum matching backend
+const FrequencyType = {
+  OnceDaily: 1,
+  TwiceDaily: 2,
+  ThreeTimesDaily: 3,
+  FourTimesDaily: 4,
+  EveryFewHours: 5,
+  AsNeeded: 6,
+  Weekly: 7,
+  Monthly: 8,
+  Custom: 9,
+};
+
+// Map string frequency values to enum
+const mapFrequencyToEnum = (frequencyString) => {
+  const frequencyMap = {
+    "Daily": FrequencyType.OnceDaily,
+    "Twice daily": FrequencyType.TwiceDaily,
+    "Three times daily": FrequencyType.ThreeTimesDaily,
+    "Four times daily": FrequencyType.FourTimesDaily,
+    "Every few hours": FrequencyType.EveryFewHours,
+    "As needed": FrequencyType.AsNeeded,
+    "Weekly": FrequencyType.Weekly,
+    "Monthly": FrequencyType.Monthly,
+    "Custom": FrequencyType.Custom,
+  };
+  return frequencyMap[frequencyString] || null;
+};
+
 const DoctorDashboard = () => {
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [showPatientSelection, setShowPatientSelection] = useState(false);
@@ -138,6 +167,9 @@ const DoctorDashboard = () => {
     dosageUnit: DosageUnit.Milligrams,
     instructions: "",
     frequency: "Daily",
+    customFrequencyHours: null,
+    daysOfWeek: "",
+    monthlyDay: null,
     duration: "",
     description: "",
     medicationType: MedicationType.Prescription,
@@ -264,6 +296,27 @@ const handleAddMedicationSubmit = async (e) => {
       return;
     }
 
+    // Validate frequency-specific fields
+    const frequencyEnum = mapFrequencyToEnum(medicationForm.frequency);
+    if (frequencyEnum === FrequencyType.EveryFewHours || frequencyEnum === FrequencyType.Custom) {
+      if (!medicationForm.customFrequencyHours || medicationForm.customFrequencyHours <= 0) {
+        toast.error("Please specify frequency in hours for this schedule type");
+        return;
+      }
+    }
+    if (frequencyEnum === FrequencyType.Weekly) {
+      if (!medicationForm.daysOfWeek) {
+        toast.error("Please select a day of the week for weekly schedule");
+        return;
+      }
+    }
+    if (frequencyEnum === FrequencyType.Monthly) {
+      if (!medicationForm.monthlyDay || medicationForm.monthlyDay < 1 || medicationForm.monthlyDay > 31) {
+        toast.error("Please specify a valid day of month (1-31) for monthly schedule");
+        return;
+      }
+    }
+
     const medicationData = {
       userId: selectedPatient.id,
       doctorId: user.id, 
@@ -281,6 +334,11 @@ const handleAddMedicationSubmit = async (e) => {
       endDate: medicationForm.duration
         ? new Date(Date.now() + parseInt(medicationForm.duration) * 86400000).toISOString()
         : null,
+      // Add frequency fields for automatic schedule generation
+      frequency: frequencyEnum,
+      customFrequencyHours: medicationForm.customFrequencyHours || null,
+      daysOfWeek: medicationForm.daysOfWeek || null,
+      monthlyDay: medicationForm.monthlyDay || null,
     };
 
     console.log("📦 Sending medication data:", medicationData);
@@ -318,7 +376,17 @@ const handleAddMedicationSubmit = async (e) => {
 
     await loadMedications(user);
     
-    toast.success(`Medication "${medicationForm.name}" created for ${selectedPatient.firstName}!`);
+    // Show success message with schedule information
+    const scheduleCount = createdMedication.scheduleIds?.length || 0;
+    const successMessage = scheduleCount > 0
+      ? `Medication "${medicationForm.name}" created with ${scheduleCount} schedule(s) for ${selectedPatient.firstName}!`
+      : `Medication "${medicationForm.name}" created for ${selectedPatient.firstName}!`;
+    
+    if (scheduleCount > 0) {
+      console.log(`✅ Created ${scheduleCount} schedule(s) for medication:`, createdMedication.scheduleIds);
+    }
+    
+    toast.success(successMessage);
 
   } catch (err) {
     console.error("❌ Error creating medication:", err);
@@ -343,6 +411,9 @@ const handleAddMedicationSubmit = async (e) => {
       dosageUnit: 1,
       instructions: "",
       frequency: "Daily",
+      customFrequencyHours: null,
+      daysOfWeek: "",
+      monthlyDay: null,
       duration: "",
       description: "",
       medicationType: 1,
@@ -1314,12 +1385,15 @@ const loadMedications = async (userData) => {
                     onChange={(e) => handleInputChange(e, setMedicationForm)}
                     className="w-full p-3 sm:p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
                   >
-                    <option value="Daily">Daily</option>
+                    <option value="Daily">Once Daily</option>
+                    <option value="Twice daily">Twice Daily</option>
+                    <option value="Three times daily">Three Times Daily</option>
+                    <option value="Four times daily">Four Times Daily</option>
+                    <option value="Every few hours">Every Few Hours</option>
+                    <option value="As needed">As Needed</option>
                     <option value="Weekly">Weekly</option>
                     <option value="Monthly">Monthly</option>
-                    <option value="As needed">As needed</option>
-                    <option value="Twice daily">Twice daily</option>
-                    <option value="Three times daily">Three times daily</option>
+                    <option value="Custom">Custom</option>
                   </select>
                   <input
                     name="duration"
@@ -1330,6 +1404,68 @@ const loadMedications = async (userData) => {
                     className="w-full p-3 sm:p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
                   />
                 </div>
+
+                {/* Conditional fields based on frequency type */}
+                {(medicationForm.frequency === "Every few hours" || medicationForm.frequency === "Custom") && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <input
+                      name="customFrequencyHours"
+                      placeholder="Frequency in hours (e.g., 6, 8, 12)"
+                      type="number"
+                      min="1"
+                      value={medicationForm.customFrequencyHours || ""}
+                      onChange={(e) => setMedicationForm({
+                        ...medicationForm,
+                        customFrequencyHours: e.target.value ? parseInt(e.target.value) : null
+                      })}
+                      className="w-full p-3 sm:p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
+                      required={medicationForm.frequency === "Every few hours" || medicationForm.frequency === "Custom"}
+                    />
+                  </div>
+                )}
+
+                {medicationForm.frequency === "Weekly" && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <select
+                      name="daysOfWeek"
+                      value={medicationForm.daysOfWeek}
+                      onChange={(e) => setMedicationForm({
+                        ...medicationForm,
+                        daysOfWeek: e.target.value
+                      })}
+                      className="w-full p-3 sm:p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
+                      required
+                    >
+                      <option value="">Select day</option>
+                      <option value="Monday">Monday</option>
+                      <option value="Tuesday">Tuesday</option>
+                      <option value="Wednesday">Wednesday</option>
+                      <option value="Thursday">Thursday</option>
+                      <option value="Friday">Friday</option>
+                      <option value="Saturday">Saturday</option>
+                      <option value="Sunday">Sunday</option>
+                    </select>
+                  </div>
+                )}
+
+                {medicationForm.frequency === "Monthly" && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <input
+                      name="monthlyDay"
+                      placeholder="Day of month (1-31)"
+                      type="number"
+                      min="1"
+                      max="31"
+                      value={medicationForm.monthlyDay || ""}
+                      onChange={(e) => setMedicationForm({
+                        ...medicationForm,
+                        monthlyDay: e.target.value ? parseInt(e.target.value) : null
+                      })}
+                      className="w-full p-3 sm:p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
+                      required
+                    />
+                  </div>
+                )}
 
                 <textarea
                   name="description"
