@@ -176,42 +176,36 @@ namespace UserHealthService.API.Controllers
         }
 
         [HttpPost]
-       [HttpPost]
-public async Task<ActionResult<AppointmentResponseDto>> Create(AppointmentCreateDto createDto)
-{
-    try
-    {
-        var currentUser = await _authService.GetCurrentUserAsync();
-        if (currentUser.Type != UserType.Patient)
-            return Forbid("Only patients can create appointments");
+        public async Task<ActionResult<AppointmentResponseDto>> Create(AppointmentCreateDto createDto)
+        {
+            try
+            {
+                var currentUser = await _authService.GetCurrentUserAsync();
+                if (currentUser.Type != UserType.Patient)
+                    return Forbid("Only patients can create appointments");
 
-        if (!createDto.DoctorId.HasValue)
-           return BadRequest("DoctorId is required");
+                if (!createDto.DoctorId.HasValue)
+                   return BadRequest("DoctorId is required");
 
-        var appointment = _mapper.Map<Appointment>(createDto);
-        appointment.UserId = currentUser.Id;
-        appointment.DoctorId = createDto.DoctorId.Value;
-        appointment.Status = AppointmentStatus.Pending;
-        
-        appointment.AppointmentDate = createDto.AppointmentDate.Kind == DateTimeKind.Unspecified 
-            ? DateTime.SpecifyKind(createDto.AppointmentDate, DateTimeKind.Utc)
-            : createDto.AppointmentDate.ToUniversalTime();
-            
-        appointment.CreatedAt = DateTime.UtcNow;
-        appointment.UpdatedAt = DateTime.UtcNow;
+                var appointment = _mapper.Map<Appointment>(createDto);
+                appointment.UserId = currentUser.Id;
+                appointment.DoctorId = createDto.DoctorId.Value;
+                appointment.Status = AppointmentStatus.Pending;
+                appointment.CreatedAt = DateTime.UtcNow;
+                appointment.UpdatedAt = DateTime.UtcNow;
 
-        _context.Appointments.Add(appointment);
-        await _context.SaveChangesAsync();
+                _context.Appointments.Add(appointment);
+                await _context.SaveChangesAsync();
 
-        var responseDto = _mapper.Map<AppointmentResponseDto>(appointment);
-        return CreatedAtAction(nameof(GetById), new { id = appointment.Id }, responseDto);
-    }
-    catch (Exception ex)
-    {
-        _logger.LogError(ex, "Error creating appointment");
-        return StatusCode(500, "Error creating appointment");
-    }
-}
+                var responseDto = _mapper.Map<AppointmentResponseDto>(appointment);
+                return CreatedAtAction(nameof(GetById), new { id = appointment.Id }, responseDto);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating appointment");
+                return StatusCode(500, "Error creating appointment");
+            }
+        }
 
         // PUT: api/appointments/{id}
         [HttpPut("{id}")]
