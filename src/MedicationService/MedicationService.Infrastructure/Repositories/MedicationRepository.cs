@@ -84,7 +84,7 @@ namespace MedicationService.Infrastructure.Repositories
                 .Include(m => m.Schedules)
                 .Include(m => m.Doses)
                 .Include(m => m.DrugInteractions)
-                .Include(m => m.Prescription)
+                .Include(m => m.Prescriptions)
                 .FirstOrDefaultAsync(m => m.Id == id);
         }
 

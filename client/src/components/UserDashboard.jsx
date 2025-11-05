@@ -166,96 +166,67 @@ const UserDashboard = () => {
   }
 }, []);
 
-// Zëvendëso useEffect ekzistues për medications me këtë:
+
 useEffect(() => {
   const fetchUserMedications = async () => {
     if (!user?.id) return;
 
     try {
       setMedicationsLoading(true);
-      console.log('🟡 Fetching user medications...');
+      console.log('🟡 Fetching user medications for user:', user.id);
       
-      // DEFINIMI I FUNKSIONIT loadUserMedications brenda këtij scope
-      const loadUserMedications = async (userData) => {
-        try {
-          console.log('💊 Loading medications for user:', userData.id);
-          
-          let allMedications = [];
-          
-          // QASJA 1: Provojmë API-në fillimisht
-          try {
-            const response = await api.get(`/api/medications/user/${userData.id}`);
-            allMedications = response.data || [];
-            console.log('✅ Medications loaded from API:', allMedications.length);
-          } catch (apiError) {
-            console.error('❌ API failed, checking shared storage:', apiError.message);
-            
-            // QASJA 2: Kontrollojmë nëse ka ilaqe nga doktori në localStorage global
-            const doctorPrescribedMeds = JSON.parse(localStorage.getItem('doctorPrescribedMedications') || '[]');
-            
-            // Filtrojmë vetëm ilaqet për këtë pacient
-            const patientMedsFromDoctors = doctorPrescribedMeds.filter(med => 
-              med.userId === userData.id
-            );
-            
-            console.log('👨‍⚕️ Medications from doctors for this patient:', patientMedsFromDoctors.length);
-            
-            // QASJA 3: Marrim ilaqet e veta të pacientit
-            const userOwnMeds = JSON.parse(localStorage.getItem(`userMedications_${userData.id}`) || '[]');
-            
-            // Kombinojmë të gjitha ilaqet
-            allMedications = [...patientMedsFromDoctors, ...userOwnMeds];
-            console.log('📋 Total medications from all sources:', allMedications.length);
-          }
-
-          // Kategorizojmë ilaqet
-          const prescriptionMeds = allMedications.filter(med => 
-            med.isPrescription || 
-            med.requiresPrescription || 
-            med.prescribedBy || 
-            med.type === "Prescription" ||
-            med.type === 1
-          );
-          
-          const overTheCounterMeds = allMedications.filter(med => 
-            med.type === "OverTheCounter" || 
-            med.type === "OTC" || 
-            med.type === "Over the Counter" ||
-            med.type === 2
-          );
-          
-          const selfAddedMeds = allMedications.filter(med => 
-            !med.isPrescription &&
-            !med.requiresPrescription &&
-            !med.prescribedBy &&
-            med.type !== "OverTheCounter" &&
-            med.type !== "OTC" &&
-            med.type !== "Over the Counter" &&
-            med.type !== "Prescription" &&
-            med.type !== 1 &&
-            med.type !== 2
-          );
-
-          setMedicationTypes({
-            prescription: prescriptionMeds,
-            overTheCounter: overTheCounterMeds,
-            selfAdded: selfAddedMeds,
-          });
-
-          setUserMedications(allMedications);
-          
-        } catch (error) {
-          console.error('💊 Error loading medications:', error);
-          setUserMedications([]);
-        }
-      };
+      // Përdor MedicationService API
+      const MEDICATION_API_URL = process.env.NEXT_PUBLIC_MEDICATION_API_URL || "http://localhost:5077/api";
       
-      // TANI MUND TA THIRRIM FUNKSIONIN
-      await loadUserMedications(user);
+      const response = await fetch(`${MEDICATION_API_URL}/medications/user/${user.id}`, {
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      if (response.ok) {
+        const allMedications = await response.json();
+        console.log('✅ Medications from database:', allMedications);
+
+        // Kategorizo medikamentet
+        const prescriptionMeds = allMedications.filter(med => 
+          med.doctorId || 
+          med.prescribedBy || 
+          med.type === 1 || 
+          med.type === "Prescription"
+        );
+        
+        const overTheCounterMeds = allMedications.filter(med => 
+          med.type === 2 || 
+          med.type === "OverTheCounter" || 
+          med.type === "Over the Counter"
+        );
+        
+        const selfAddedMeds = allMedications.filter(med => 
+          !med.doctorId && 
+          !med.prescribedBy && 
+          med.type !== 1 && 
+          med.type !== 2 &&
+          med.type !== "Prescription" &&
+          med.type !== "OverTheCounter" &&
+          med.type !== "Over the Counter"
+        );
+
+        setMedicationTypes({
+          prescription: prescriptionMeds,
+          overTheCounter: overTheCounterMeds,
+          selfAdded: selfAddedMeds,
+        });
+
+        setUserMedications(allMedications);
+        
+      } else {
+        console.error('❌ Failed to fetch medications from API');
+        toast.error("Failed to load medications");
+      }
       
     } catch (error) {
       console.error('❌ Error fetching medications:', error);
-      setUserMedications([]);
+      toast.error("Error loading medications");
     } finally {
       setMedicationsLoading(false);
     }
@@ -265,6 +236,7 @@ useEffect(() => {
     fetchUserMedications();
   }
 }, [user?.id]);
+     
   // Fetch doctors when clinicId changes
   useEffect(() => {
     const fetchDoctors = async () => {
@@ -694,71 +666,92 @@ const MedicationCard = ({ medication, onDelete, type }) => {
     }
   };
 
-  const handleMedicationSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      console.log("🟡 Adding medication...");
+const handleMedicationSubmit = async (e) => {
+  e.preventDefault();
+  try {
+    console.log("🟡 Adding medication to database...");
 
-      // VALIDATION
-      if (
-        !medicationForm.name ||
-        !medicationForm.dosage ||
-        !medicationForm.schedule
-      ) {
-        alert("❌ Please fill all required fields!");
-        return;
-      }
+    if (!medicationForm.name || !medicationForm.dosage) {
+      toast.error("❌ Please fill all required fields!");
+      return;
+    }
 
-      if (showAllergyWarning && !acknowledgeWarning) {
-        alert("❌ Please acknowledge the allergy warning before proceeding");
-        return;
-      }
+    if (showAllergyWarning && !acknowledgeWarning) {
+      toast.error("❌ Please acknowledge the allergy warning before proceeding");
+      return;
+    }
 
-      const dosageValue = parseFloat(medicationForm.dosage);
-      if (isNaN(dosageValue)) {
-        alert("❌ Please enter a valid dosage number");
-        return;
-      }
+    const dosageValue = parseFloat(medicationForm.dosage);
+    if (isNaN(dosageValue)) {
+      toast.error("❌ Please enter a valid dosage number");
+      return;
+    }
 
-      const newMedication = {
-        id: "med-" + Date.now(),
-        name: medicationForm.name.trim(),
-        dosage: dosageValue,
-        dosageUnit: medicationForm.dosageUnit,
-        frequency: medicationForm.frequency,
-        schedule: medicationForm.schedule + ":00",
-        type: medicationForm.type,
-        instructions: `Take ${medicationForm.dosage} ${
-          medicationForm.dosageUnit
-        } ${medicationForm.frequency.toLowerCase()}`,
-        status: "Active",
-        userId: user.id,
-        isPrescription: medicationForm.type === "Prescription",
-        requiresPrescription: medicationForm.type === "Prescription",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+    const getFrequencyType = (frequency) => {
+      const frequencyMap = {
+        "Daily": 1, 
+        "Twice Daily": 2, 
+        "Three Times Daily": 3, 
+        "Four Times Daily": 4, 
+        "Weekly": 7, 
+        "Monthly": 8, 
+        "As Needed": 6 
       };
+      return frequencyMap[frequency] || 1; 
+    };
 
-      console.log("📋 New medication:", newMedication);
+    const getMedicationType = (type) => {
+      const typeMap = {
+        "Prescription": 1,
+        "Over the Counter": 2,
+        "Supplement": 3,
+        "Vitamin": 4,
+        "Herbal": 5
+      };
+      return typeMap[type] || 3; 
+    };
 
-      let savedMedication = newMedication;
-      try {
-        const response = await api.post("/medications", newMedication);
-        if (response.data) {
-          savedMedication = {
-            ...newMedication,
-            id: response.data.id || newMedication.id,
-          };
-          console.log("✅ Medication saved to backend:", savedMedication);
-        }
-      } catch (backendError) {
-        console.log(
-          "🔵 Backend save failed, using localStorage only:",
-          backendError
-        );
-      }
+    const getDosageUnit = (unit) => {
+      const unitMap = {
+        "mg": 1, 
+        "g": 2, 
+        "ml": 3, 
+        "tablets": 5, 
+        "capsules": 6, 
+        "drops": 7 
+      };
+      return unitMap[unit] || 1; 
+    };
 
-      // Always save to localStorage
+    const medicationData = {
+      userId: user.id,
+      name: medicationForm.name.trim(),
+      genericName: medicationForm.name.trim(),
+      manufacturer: "Unknown Manufacturer",
+      type: getMedicationType(medicationForm.type),
+      dosage: dosageValue,
+      dosageUnit: getDosageUnit(medicationForm.dosageUnit),
+      description: medicationForm.description || `Take ${medicationForm.dosage} ${medicationForm.dosageUnit} ${medicationForm.frequency.toLowerCase()}`,
+      instructions: `Take ${medicationForm.dosage} ${medicationForm.dosageUnit} ${medicationForm.frequency.toLowerCase()}`,
+      startDate: new Date().toISOString(),
+      
+    };
+
+    console.log("📋 Sending medication to database:", medicationData);
+
+    const MEDICATION_API_URL = process.env.NEXT_PUBLIC_MEDICATION_API_URL || "http://localhost:5077/api";
+    
+    const response = await fetch(`${MEDICATION_API_URL}/medications`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(medicationData),
+    });
+
+    if (response.ok) {
+      const savedMedication = await response.json();
+      console.log("✅ Medication saved to database:", savedMedication);
+      
       const updatedMedications = [savedMedication, ...userMedications];
       setUserMedications(updatedMedications);
 
@@ -767,11 +760,8 @@ const MedicationCard = ({ medication, onDelete, type }) => {
         selfAdded: [savedMedication, ...prev.selfAdded],
       }));
 
-      localStorage.setItem(
-        `userMedications_${user.id}`,
-        JSON.stringify(updatedMedications)
-      );
-
+      toast.success(`Medication "${medicationForm.name}" added successfully!`);
+     
       setShowMedicationForm(false);
       setMedicationForm({
         name: "",
@@ -783,62 +773,54 @@ const MedicationCard = ({ medication, onDelete, type }) => {
       });
       setShowAllergyWarning(false);
       setAcknowledgeWarning(false);
-
-      alert(`✅ Medication "${medicationForm.name}" added successfully!`);
-    } catch (err) {
-      console.error("❌ Error adding medication:", err);
-      alert("❌ Technical problem. Please try again.");
-    }
-  };
-
-  const handleDeleteMedication = async (medicationId) => {
-    if (!window.confirm("Are you sure you want to delete this medication?")) {
-      return;
+      
+    } else {
+      const errorText = await response.text();
+      console.error("❌ Failed to save medication:", errorText);
+      toast.error("Failed to save medication to database");
     }
 
-    try {
-      if (
-        !medicationId.startsWith("local-") &&
-        !medicationId.startsWith("med-")
-      ) {
-        try {
-          await api.delete(`/medications/${medicationId}`);
-          console.log("✅ Medication deleted from backend");
-        } catch (deleteError) {
-          console.error(
-            "❌ Backend delete failed, continuing locally:",
-            deleteError
-          );
-        }
-      }
+  } catch (err) {
+    console.error("❌ Error adding medication:", err);
+    toast.error("Technical problem. Please try again.");
+  }
+};
 
-      const updatedMedications = userMedications.filter(
-        (med) => med.id !== medicationId
-      );
+ const handleDeleteMedication = async (medicationId) => {
+  if (!window.confirm("Are you sure you want to delete this medication?")) {
+    return;
+  }
+
+  try {
+    
+    const MEDICATION_API_URL = process.env.NEXT_PUBLIC_MEDICATION_API_URL || "http://localhost:5077/api";
+    
+    const response = await fetch(`${MEDICATION_API_URL}/medications/${medicationId}`, {
+      method: "DELETE",
+      credentials: "include",
+    });
+
+    if (response.ok) {
+     
+      const updatedMedications = userMedications.filter(med => med.id !== medicationId);
       setUserMedications(updatedMedications);
 
       setMedicationTypes((prev) => ({
-        prescription: prev.prescription.filter(
-          (med) => med.id !== medicationId
-        ),
-        overTheCounter: prev.overTheCounter.filter(
-          (med) => med.id !== medicationId
-        ),
-        selfAdded: prev.selfAdded.filter((med) => med.id !== medicationId),
+        prescription: prev.prescription.filter(med => med.id !== medicationId),
+        overTheCounter: prev.overTheCounter.filter(med => med.id !== medicationId),
+        selfAdded: prev.selfAdded.filter(med => med.id !== medicationId),
       }));
 
-      // Update localStorage
-      localStorage.setItem(
-        `userMedications_${user.id}`,
-        JSON.stringify(updatedMedications)
-      );
-
-      alert("✅ Medication deleted successfully!");
-    } catch (error) {
-      console.error("❌ Error deleting medication:", error);
-      alert("❌ Failed to delete medication");
+      toast.success("Medication deleted successfully!");
+    } else {
+      console.error("❌ Failed to delete medication from database");
+      toast.error("Failed to delete medication");
     }
-  };
+  } catch (error) {
+    console.error("❌ Error deleting medication:", error);
+    toast.error("Error deleting medication");
+  }
+};
 
   const handleMedicationNameChange = (e) => {
     const { name, value } = e.target;

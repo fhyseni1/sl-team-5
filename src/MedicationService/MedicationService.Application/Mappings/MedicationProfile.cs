@@ -9,6 +9,9 @@ namespace MedicationService.Application.Mappings
         public MedicationProfile()
         {
             CreateMap<Medication, MedicationResponseDto>()
+               
+                .ForMember(dest => dest.DoctorId, opt => opt.MapFrom(src => src.DoctorId))
+                .ForMember(dest => dest.PrescribedBy, opt => opt.MapFrom(src => src.PrescribedBy))
                 .ForMember(dest => dest.ActiveSchedulesCount,
                     opt => opt.MapFrom(src => src.Schedules.Count(s => s.IsActive)))
                 .ForMember(dest => dest.UpcomingDosesCount,
@@ -23,7 +26,10 @@ namespace MedicationService.Application.Mappings
                 .ForMember(dest => dest.Schedules, opt => opt.Ignore())
                 .ForMember(dest => dest.Doses, opt => opt.Ignore())
                 .ForMember(dest => dest.DrugInteractions, opt => opt.Ignore())
-                .ForMember(dest => dest.Prescription, opt => opt.Ignore());
+                .ForMember(dest => dest.Prescriptions, opt => opt.Ignore())
+               
+                .ForMember(dest => dest.DoctorId, opt => opt.MapFrom(src => src.DoctorId))
+                .ForMember(dest => dest.PrescribedBy, opt => opt.MapFrom(src => src.PrescribedBy));
 
             CreateMap<MedicationUpdateDto, Medication>()
                 .ForMember(dest => dest.Id, opt => opt.Ignore())
@@ -33,8 +39,8 @@ namespace MedicationService.Application.Mappings
                 .ForMember(dest => dest.Schedules, opt => opt.Ignore())
                 .ForMember(dest => dest.Doses, opt => opt.Ignore())
                 .ForMember(dest => dest.DrugInteractions, opt => opt.Ignore())
-                .ForMember(dest => dest.Prescription, opt => opt.Ignore());
+                .ForMember(dest => dest.Prescriptions, opt => opt.Ignore());
+                
         }
     }
 }
-

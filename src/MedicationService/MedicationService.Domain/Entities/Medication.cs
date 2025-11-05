@@ -6,7 +6,9 @@ namespace MedicationService.Domain.Entities
     {
         public Guid Id { get; set; }
         public Guid UserId { get; set; }
-        public string Name { get; set; } = string.Empty;
+       public Guid? DoctorId { get; set; }
+      public string? PrescribedBy { get; set; }     
+         public string Name { get; set; } = string.Empty;
         public string GenericName { get; set; } = string.Empty;
         public string Manufacturer { get; set; } = string.Empty;
         public MedicationType Type { get; set; }
@@ -29,7 +31,7 @@ namespace MedicationService.Domain.Entities
         public virtual ICollection<MedicationSchedule> Schedules { get; set; } = new List<MedicationSchedule>();
         public virtual ICollection<MedicationDose> Doses { get; set; } = new List<MedicationDose>();
         public virtual ICollection<DrugInteraction> DrugInteractions { get; set; } = new List<DrugInteraction>();
-        public virtual Prescription? Prescription { get; set; }
+        public virtual ICollection<Prescription> Prescriptions { get; set; } = new List<Prescription>();
     }
 }
 

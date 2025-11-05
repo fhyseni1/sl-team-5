@@ -1,12 +1,14 @@
 ﻿using Grpc.Core;
 using MedicationService.Application.DTOs.Interactions;
 using MedicationService.Application.DTOs.Prescriptions;
+using MedicationService.Application.DTOs.Reminders;
 using MedicationService.Application.DTOs.Schedules;
 using MedicationService.Application.Interfaces;
 using MedicationService.Application.Services;
 using MedicationService.Domain.Entities;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using static MedicationService.Protos.Medication;
 
 namespace MedicationService.API.Controllers
 {
@@ -14,10 +16,12 @@ namespace MedicationService.API.Controllers
     [ApiController]
     public class SchedulesController : ControllerBase
     {
+        public IMedicationReminderService _medicationReminderService;
         public IMedicationScheduleService _medicationScheduleService;
         private readonly ILogger<SchedulesController> _logger;
-        public SchedulesController(IMedicationScheduleService medicationScheduleService, ILogger<SchedulesController> logger)
+        public SchedulesController(IMedicationScheduleService medicationScheduleService, ILogger<SchedulesController> logger, IMedicationReminderService medicationReminderService)
         {
+            _medicationReminderService = medicationReminderService;
             _medicationScheduleService = medicationScheduleService;
             _logger = logger;
         }
@@ -111,16 +115,32 @@ namespace MedicationService.API.Controllers
             try
             {
                 if (!ModelState.IsValid)
-                {
                     return BadRequest(ModelState);
-                }
-                var schedule = await _medicationScheduleService.CreateAsync(createDto);
-                return CreatedAtAction(nameof(GetById), new { id = schedule.Id }, schedule);
 
+                var schedule = await _medicationScheduleService.CreateAsync(createDto);
+
+                for (int dayOffset = 0; dayOffset < 7; dayOffset++)
+                {
+                    var scheduledTime = DateTime.UtcNow.Date
+               .AddDays(dayOffset)
+               .Add(schedule.TimeOfDay);
+                    var reminder = new ReminderCreateDto
+                    {
+                        MedicationId = schedule.MedicationId,
+                        ScheduleId = schedule.Id,
+                        ScheduledTime = scheduledTime,
+                        Message = $"Time to take {schedule.MedicationName ?? "your medication"}",
+                        NotificationChannel = "in-app"
+                    };
+    
+                    await _medicationReminderService.CreateAsync(reminder);
+                }
+
+                return CreatedAtAction(nameof(GetById), new { id = schedule.Id }, schedule);
             }
             catch (Exception ex)
             {
-                _logger.LogError($"{ex} Schedule couldnt be created");
+                _logger.LogError(ex, "Schedule couldn't be created");
                 return StatusCode(500, "Internal Server Error");
             }
         }

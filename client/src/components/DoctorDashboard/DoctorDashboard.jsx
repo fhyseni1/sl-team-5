@@ -109,6 +109,35 @@ const DosageUnit = {
   Units: 10,
 };
 
+// FrequencyType enum matching backend
+const FrequencyType = {
+  OnceDaily: 1,
+  TwiceDaily: 2,
+  ThreeTimesDaily: 3,
+  FourTimesDaily: 4,
+  EveryFewHours: 5,
+  AsNeeded: 6,
+  Weekly: 7,
+  Monthly: 8,
+  Custom: 9,
+};
+
+// Map string frequency values to enum
+const mapFrequencyToEnum = (frequencyString) => {
+  const frequencyMap = {
+    "Daily": FrequencyType.OnceDaily,
+    "Twice daily": FrequencyType.TwiceDaily,
+    "Three times daily": FrequencyType.ThreeTimesDaily,
+    "Four times daily": FrequencyType.FourTimesDaily,
+    "Every few hours": FrequencyType.EveryFewHours,
+    "As needed": FrequencyType.AsNeeded,
+    "Weekly": FrequencyType.Weekly,
+    "Monthly": FrequencyType.Monthly,
+    "Custom": FrequencyType.Custom,
+  };
+  return frequencyMap[frequencyString] || null;
+};
+
 const DoctorDashboard = () => {
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [showPatientSelection, setShowPatientSelection] = useState(false);
@@ -143,9 +172,15 @@ const DoctorDashboard = () => {
     dosageUnit: DosageUnit.Milligrams,
     instructions: "",
     frequency: "Daily",
+    customFrequencyHours: null,
+    daysOfWeek: "",
+    monthlyDay: null,
     duration: "",
     description: "",
     medicationType: MedicationType.Prescription,
+   pharmacyName: "Main Pharmacy",
+  remainingRefills: 3,
+  prescriptionNotes: ""
   });
 
   // === INITIAL LOAD ===
@@ -230,58 +265,7 @@ const DoctorDashboard = () => {
     }
   };
 
-  const loadMedications = async (userData) => {
-    try {
-      console.log("🔄 Loading medications for doctor:", userData.id);
-      console.log(
-        "👨‍⚕️ Doctor name:",
-        `Dr. ${userData.firstName} ${userData.lastName}`
-      );
 
-      // Get all medications from MedicationService
-      const allMeds = await medicationApi.get("/medications");
-      console.log("📦 All medications from API:", allMeds);
-
-      if (!allMeds || allMeds.length === 0) {
-        console.log("❌ No medications found in the API response");
-        setMedications([]);
-        return;
-      }
-
-      // Filter medications prescribed by current doctor
-      const doctorFullName = `Dr. ${userData.firstName} ${userData.lastName}`;
-      const filteredMeds = allMeds.filter((med) => {
-        const matchesDoctorId = med.doctorId === userData.id;
-        const matchesDoctorName = med.prescribedBy === doctorFullName;
-        const matches = matchesDoctorId || matchesDoctorName;
-
-        console.log(`💊 Medication ${med.id}:`, {
-          name: med.name,
-          doctorId: med.doctorId,
-          prescribedBy: med.prescribedBy,
-          matchesDoctorId,
-          matchesDoctorName,
-          matches,
-        });
-
-        return matches;
-      });
-
-      console.log("✅ Filtered medications for current doctor:", filteredMeds);
-      setMedications(filteredMeds);
-    } catch (error) {
-      console.error("❌ MedicationService error:", error);
-
-      // Show detailed error information
-      if (error.response) {
-        console.error("Response status:", error.response.status);
-        console.error("Response data:", error.response.data);
-      }
-
-      toast.error("Failed to load medications");
-      setMedications([]);
-    }
-  };
   const loadReports = async (userData) => {
     try {
       // Use ONLY the main endpoint - never the doctor-specific one
@@ -301,100 +285,188 @@ const DoctorDashboard = () => {
       setReports([]);
     }
   };
+const handleAddMedicationSubmit = async (e) => {
+  e.preventDefault();
+  if (!selectedPatient) {
+    toast.error("Please select a patient first");
+    return;
+  }
 
-  const handleAddMedicationSubmit = async (e) => {
-    e.preventDefault();
-    if (!selectedPatient) {
-      toast.error("Please select a patient first");
+  try {
+    console.log("🔄 Starting medication creation for doctor:", user.id);
+    console.log("👤 Selected patient:", selectedPatient);
+
+    if (!medicationForm.name || !medicationForm.dosage) {
+      toast.error("Please fill all required fields");
       return;
     }
 
+    // Validate frequency-specific fields
+    const frequencyEnum = mapFrequencyToEnum(medicationForm.frequency);
+    if (frequencyEnum === FrequencyType.EveryFewHours || frequencyEnum === FrequencyType.Custom) {
+      if (!medicationForm.customFrequencyHours || medicationForm.customFrequencyHours <= 0) {
+        toast.error("Please specify frequency in hours for this schedule type");
+        return;
+      }
+    }
+    if (frequencyEnum === FrequencyType.Weekly) {
+      if (!medicationForm.daysOfWeek) {
+        toast.error("Please select a day of the week for weekly schedule");
+        return;
+      }
+    }
+    if (frequencyEnum === FrequencyType.Monthly) {
+      if (!medicationForm.monthlyDay || medicationForm.monthlyDay < 1 || medicationForm.monthlyDay > 31) {
+        toast.error("Please specify a valid day of month (1-31) for monthly schedule");
+        return;
+      }
+    }
+
+    const medicationData = {
+      userId: selectedPatient.id,
+      doctorId: user.id, 
+      prescribedBy: `Dr. ${user.firstName} ${user.lastName}`, 
+      name: medicationForm.name.trim(),
+      genericName: (medicationForm.genericName || medicationForm.name).trim(),
+      manufacturer: "Unknown Manufacturer",
+      type: parseInt(medicationForm.medicationType),
+      dosage: parseFloat(medicationForm.dosage) || 0,
+      dosageUnit: parseInt(medicationForm.dosageUnit),
+      description: medicationForm.description || medicationForm.instructions,
+      instructions: medicationForm.instructions,
+      status: 1, // Active
+      startDate: new Date().toISOString(),
+      endDate: medicationForm.duration
+        ? new Date(Date.now() + parseInt(medicationForm.duration) * 86400000).toISOString()
+        : null,
+      // Add frequency fields for automatic schedule generation
+      frequency: frequencyEnum,
+      customFrequencyHours: medicationForm.customFrequencyHours || null,
+      daysOfWeek: medicationForm.daysOfWeek || null,
+      monthlyDay: medicationForm.monthlyDay || null,
+    };
+
+    console.log("📦 Sending medication data:", medicationData);
+
+    const createdMedication = await medicationApi.post("/medications", medicationData);
+    console.log("✅ Medication created:", createdMedication);
+
+    console.log("🔍 Checking if doctor fields were saved:", {
+      doctorIdInResponse: createdMedication.doctorId,
+      prescribedByInResponse: createdMedication.prescribedBy,
+      fullResponse: createdMedication
+    });
+
     try {
-      console.log("🔄 Starting medication addition...");
-      console.log("👤 Selected patient:", selectedPatient);
-      console.log("💊 Medication form data:", medicationForm);
-
-      const medicationData = {
-        userId: selectedPatient.id,
-        name: medicationForm.name,
-        genericName: medicationForm.genericName || medicationForm.name,
-        manufacturer: "Unknown Manufacturer",
-        type: parseInt(medicationForm.medicationType),
-        dosage: parseFloat(medicationForm.dosage) || 0,
-        dosageUnit: parseInt(medicationForm.dosageUnit),
-        description: medicationForm.description || medicationForm.instructions,
-        instructions: medicationForm.instructions,
+      const prescriptionData = {
+        medicationId: createdMedication.id,
+        prescriptionNumber: `RX-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`,
+        prescriberName: `Dr. ${user.firstName} ${user.lastName}`,
+        prescriberContact: "",
+        pharmacyName: medicationForm.pharmacyName || "Not specified",
+        pharmacyContact: "",
+        issueDate: new Date().toISOString(),
+        expiryDate: new Date(Date.now() + 30 * 86400000).toISOString(),
         status: 1,
-        startDate: new Date().toISOString(),
-        endDate: medicationForm.duration
-          ? new Date(
-              Date.now() + parseInt(medicationForm.duration) * 86400000
-            ).toISOString()
-          : null,
+        notes: medicationForm.prescriptionNotes || `Prescribed for ${selectedPatient.firstName} ${selectedPatient.lastName}`,
+        remainingRefills: parseInt(medicationForm.remainingRefills) || 0
       };
 
-      console.log("📦 Sending medication data to API:", medicationData);
+      console.log("📋 Sending prescription data:", prescriptionData);
+      const createdPrescription = await medicationApi.post("/prescriptions", prescriptionData);
+      console.log("✅ Prescription created:", createdPrescription);
+    } catch (prescriptionError) {
+      console.log("⚠️ Could not create prescription, but medication was saved:", prescriptionError);
+    }
 
-      const createdMedication = await medicationApi.post(
-        "/medications",
-        medicationData
-      );
+    await loadMedications(user);
+    
+    // Show success message with schedule information
+    const scheduleCount = createdMedication.scheduleIds?.length || 0;
+    const successMessage = scheduleCount > 0
+      ? `Medication "${medicationForm.name}" created with ${scheduleCount} schedule(s) for ${selectedPatient.firstName}!`
+      : `Medication "${medicationForm.name}" created for ${selectedPatient.firstName}!`;
+    
+    if (scheduleCount > 0) {
+      console.log(`✅ Created ${scheduleCount} schedule(s) for medication:`, createdMedication.scheduleIds);
+    }
+    
+    toast.success(successMessage);
 
-      console.log("✅ Medication created in backend:", createdMedication);
+  } catch (err) {
+    console.error("❌ Error creating medication:", err);
+   
+    if (err.response) {
+      try {
+        const errorData = await err.response.json();
+        console.error("Error details:", errorData);
+        toast.error(`Failed to add medication: ${errorData.message || 'Unknown error'}`);
+      } catch {
+        toast.error("Failed to add medication: Server error");
+      }
+    } else {
+      toast.error("Failed to add medication to database");
+    }
+  } finally {
+    setShowAddMedicationForm(false);
+    setMedicationForm({
+      name: "",
+      genericName: "",
+      dosage: "",
+      dosageUnit: 1,
+      instructions: "",
+      frequency: "Daily",
+      customFrequencyHours: null,
+      daysOfWeek: "",
+      monthlyDay: null,
+      duration: "",
+      description: "",
+      medicationType: 1,
+      pharmacyName: "",
+      remainingRefills: 0,
+      prescriptionNotes: ""
+    });
+    setSelectedPatient(null);
+  }
+};
+const loadMedications = async (userData) => {
+  try {
+    console.log("🔄 Loading medications for doctor:", userData.id);
 
-      // Create UI medication object with all necessary fields
-      const uiMed = {
-        ...createdMedication,
-        id: createdMedication.id || `temp-${Date.now()}`,
-        prescribedBy: `Dr. ${user.firstName} ${user.lastName}`,
-        doctorId: user.id,
-        patientName: `${selectedPatient.firstName} ${selectedPatient.lastName}`,
-        patientEmail: selectedPatient.email,
-        frequency: medicationForm.frequency,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
+    const allMeds = await medicationApi.get("/medications");
+    console.log("📦 ALL MEDICATIONS FROM DATABASE:", allMeds);
 
-      console.log("🎨 UI medication object:", uiMed);
+    if (!allMeds || allMeds.length === 0) {
+      console.log("❌ No medications found in database");
+      setMedications([]);
+      return;
+    }
 
-      // Add to local state
-      setMedications((prev) => [uiMed, ...prev]);
+    const doctorFullName = `Dr. ${userData.firstName} ${userData.lastName}`;
+    console.log("🔍 Looking for medications with:", {
+      doctorId: userData.id,
+      doctorFullName: doctorFullName
+    });
 
-      console.log(
-        "📊 Medications state after addition:",
-        medications.length + 1,
-        "medications"
-      );
+    const filteredMeds = allMeds.filter((med) => {
+      console.log("💊 Checking medication:", {
+        id: med.id,
+        name: med.name,
+        doctorId: med.doctorId,
+        prescribedBy: med.prescribedBy,
+        userId: med.userId
+      });
 
-      toast.success(
-        `Medication prescribed to ${selectedPatient.firstName} successfully!`
-      );
-    } catch (err) {
-      console.error("❌ MedicationService error:", err);
+      const matchesDoctorId = med.doctorId === userData.id;
+      const matchesDoctorName = med.prescribedBy === doctorFullName;
+      const matches = matchesDoctorId || matchesDoctorName;
 
-      // Show detailed error information
-      if (err.response) {
-        console.error("Error response status:", err.response.status);
-        console.error("Error response data:", err.response.data);
+      if (matches) {
+        console.log("✅ MATCH FOUND for doctor!");
       }
 
-      toast.error("Failed to add medication");
-    } finally {
-      setShowAddMedicationForm(false);
-      setMedicationForm({
-        name: "",
-        genericName: "",
-        dosage: "",
-        dosageUnit: 1,
-        instructions: "",
-        frequency: "Daily",
-        duration: "",
-        description: "",
-        medicationType: 1,
-      });
-      setSelectedPatient(null);
-    }
-  };
+      return matches;
+    });
 
   const openPatientAnalytics = (patient) => {
     setSelectedPatientForAnalytics(patient);
@@ -448,10 +520,9 @@ const DoctorDashboard = () => {
         recommendations: formData.recommendations?.trim() || "",
       };
 
-      // For editing, include the id in the URL, not the body
       let response;
       if (editingReport) {
-        // For updates, use the existing report ID in the URL
+        
         response = await fetch(
           `http://localhost:5029/api/appointmentreports/${editingReport.id}`,
           {
@@ -460,12 +531,12 @@ const DoctorDashboard = () => {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               ...reportData,
-              id: editingReport.id, // Include ID in body only for updates
+              id: editingReport.id, 
             }),
           }
         );
       } else {
-        // For new reports, don't include id field at all
+       
         response = await fetch("http://localhost:5029/api/appointmentreports", {
           method: "POST",
           credentials: "include",
@@ -499,7 +570,6 @@ const DoctorDashboard = () => {
     console.log("Editing report:", report);
     setEditingReport(report);
 
-    // Create a mock appointment for the modal
     setSelectedAppointment({
       id: report.appointmentId,
       userId: report.userId,
@@ -514,7 +584,6 @@ const DoctorDashboard = () => {
     setShowReportModal(true);
   };
 
-  // === TEMPORARY DELETE WORKAROUND ===
   const handleDeleteReport = async (reportId) => {
     try {
       if (!window.confirm("Are you sure you want to delete this report?"))
@@ -522,7 +591,6 @@ const DoctorDashboard = () => {
 
       console.log("🔄 Temporary delete workaround for report:", reportId);
 
-      // Try direct delete first
       const response = await fetch(
         `${USERHEALTH_API_URL}/appointmentreports/${reportId}`,
         {
@@ -1018,7 +1086,7 @@ const DoctorDashboard = () => {
                         {medication.frequency || "As needed"}
                       </span>
                     </div>
-
+                    
                     <div className="space-y-2">
                       <p className="text-slate-300 text-sm">
                         <span className="text-slate-400">Dosage:</span>{" "}
@@ -1264,7 +1332,32 @@ const DoctorDashboard = () => {
                     className="w-full p-3 sm:p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
                   />
                 </div>
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+  <input
+    name="pharmacyName"
+    placeholder="Pharmacy Name"
+    value={medicationForm.pharmacyName}
+    onChange={(e) => handleInputChange(e, setMedicationForm)}
+    className="w-full p-3 sm:p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
+  />
+  <input
+    name="remainingRefills"
+    placeholder="Refills"
+    type="number"
+    value={medicationForm.remainingRefills}
+    onChange={(e) => handleInputChange(e, setMedicationForm)}
+    className="w-full p-3 sm:p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
+  />
+</div>
 
+<textarea
+  name="prescriptionNotes"
+  placeholder="Prescription Notes"
+  value={medicationForm.prescriptionNotes}
+  onChange={(e) => handleInputChange(e, setMedicationForm)}
+  rows="2"
+  className="w-full p-3 sm:p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white"
+/>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <input
                     name="dosage"
@@ -1302,12 +1395,15 @@ const DoctorDashboard = () => {
                     onChange={(e) => handleInputChange(e, setMedicationForm)}
                     className="w-full p-3 sm:p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
                   >
-                    <option value="Daily">Daily</option>
+                    <option value="Daily">Once Daily</option>
+                    <option value="Twice daily">Twice Daily</option>
+                    <option value="Three times daily">Three Times Daily</option>
+                    <option value="Four times daily">Four Times Daily</option>
+                    <option value="Every few hours">Every Few Hours</option>
+                    <option value="As needed">As Needed</option>
                     <option value="Weekly">Weekly</option>
                     <option value="Monthly">Monthly</option>
-                    <option value="As needed">As needed</option>
-                    <option value="Twice daily">Twice daily</option>
-                    <option value="Three times daily">Three times daily</option>
+                    <option value="Custom">Custom</option>
                   </select>
                   <input
                     name="duration"
@@ -1318,6 +1414,68 @@ const DoctorDashboard = () => {
                     className="w-full p-3 sm:p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
                   />
                 </div>
+
+                {/* Conditional fields based on frequency type */}
+                {(medicationForm.frequency === "Every few hours" || medicationForm.frequency === "Custom") && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <input
+                      name="customFrequencyHours"
+                      placeholder="Frequency in hours (e.g., 6, 8, 12)"
+                      type="number"
+                      min="1"
+                      value={medicationForm.customFrequencyHours || ""}
+                      onChange={(e) => setMedicationForm({
+                        ...medicationForm,
+                        customFrequencyHours: e.target.value ? parseInt(e.target.value) : null
+                      })}
+                      className="w-full p-3 sm:p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
+                      required={medicationForm.frequency === "Every few hours" || medicationForm.frequency === "Custom"}
+                    />
+                  </div>
+                )}
+
+                {medicationForm.frequency === "Weekly" && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <select
+                      name="daysOfWeek"
+                      value={medicationForm.daysOfWeek}
+                      onChange={(e) => setMedicationForm({
+                        ...medicationForm,
+                        daysOfWeek: e.target.value
+                      })}
+                      className="w-full p-3 sm:p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
+                      required
+                    >
+                      <option value="">Select day</option>
+                      <option value="Monday">Monday</option>
+                      <option value="Tuesday">Tuesday</option>
+                      <option value="Wednesday">Wednesday</option>
+                      <option value="Thursday">Thursday</option>
+                      <option value="Friday">Friday</option>
+                      <option value="Saturday">Saturday</option>
+                      <option value="Sunday">Sunday</option>
+                    </select>
+                  </div>
+                )}
+
+                {medicationForm.frequency === "Monthly" && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <input
+                      name="monthlyDay"
+                      placeholder="Day of month (1-31)"
+                      type="number"
+                      min="1"
+                      max="31"
+                      value={medicationForm.monthlyDay || ""}
+                      onChange={(e) => setMedicationForm({
+                        ...medicationForm,
+                        monthlyDay: e.target.value ? parseInt(e.target.value) : null
+                      })}
+                      className="w-full p-3 sm:p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
+                      required
+                    />
+                  </div>
+                )}
 
                 <textarea
                   name="description"

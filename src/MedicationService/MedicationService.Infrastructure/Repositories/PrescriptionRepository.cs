@@ -19,14 +19,24 @@ namespace MedicationService.Infrastructure.Repositories
         {
             _context = context;
         }
-        public async Task<Prescription> AddAsync(Prescription entity)
-        {
-            entity.IssueDate = DateTime.UtcNow;
-            entity.ExpiryDate = DateTime.Now.AddDays(30);
-            _context.Prescriptions.Add(entity);
-            await _context.SaveChangesAsync();
-            return entity;
-        }
+      public async Task<Prescription> AddAsync(Prescription entity)
+{
+    
+    entity.IssueDate = entity.IssueDate.ToUniversalTime();
+    
+    if (entity.ExpiryDate.HasValue)
+    {
+        entity.ExpiryDate = entity.ExpiryDate.Value.ToUniversalTime();
+    }
+    else
+    {
+        entity.ExpiryDate = DateTime.UtcNow.AddDays(30); 
+    }
+    
+    _context.Prescriptions.Add(entity);
+    await _context.SaveChangesAsync();
+    return entity;
+}
 
         public async Task<int> CountAsync()
         {
@@ -85,13 +95,17 @@ namespace MedicationService.Infrastructure.Repositories
          .ToListAsync();
         }
 
-        public async Task UpdateAsync(Prescription entity)
-        {
-            if (entity.ExpiryDate == null)
-                entity.ExpiryDate = DateTime.UtcNow.AddDays(30);
-            _context.Prescriptions.Update(entity);
-            await _context.SaveChangesAsync();
-        }
+       public async Task UpdateAsync(Prescription entity)
+{
+   
+    if (entity.ExpiryDate == null)
+        entity.ExpiryDate = DateTime.UtcNow.AddDays(30);
+    else
+        entity.ExpiryDate = entity.ExpiryDate.Value.ToUniversalTime();
+        
+    _context.Prescriptions.Update(entity);
+    await _context.SaveChangesAsync();
+}
         public async Task<IEnumerable<Prescription>> GetExpiringSoonAsync(int days)
         {
             var now = DateTime.UtcNow;
