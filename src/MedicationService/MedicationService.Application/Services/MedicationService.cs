@@ -1,5 +1,6 @@
 using AutoMapper;
 using MedicationService.Application.DTOs.Medications;
+using MedicationService.Application.DTOs.Prescriptions;
 using MedicationService.Application.Interfaces;
 using MedicationService.Domain.Entities;
 using MedicationService.Domain.Enums;
@@ -13,19 +14,22 @@ namespace MedicationService.Application.Services
         private readonly IMedicationScheduleService _scheduleService;
         private readonly IScheduleGeneratorService _scheduleGenerator;
         private readonly IUnitOfWork _unitOfWork;
+        private readonly IPrescriptionService _prescriptionService;
 
         public MedicationService(
             IMedicationRepository repository, 
             IMapper mapper,
             IMedicationScheduleService scheduleService,
             IScheduleGeneratorService scheduleGenerator,
-            IUnitOfWork unitOfWork)
+            IUnitOfWork unitOfWork,
+            IPrescriptionService prescriptionService)
         {
             _repository = repository;
             _mapper = mapper;
             _scheduleService = scheduleService;
             _scheduleGenerator = scheduleGenerator;
             _unitOfWork = unitOfWork;
+            _prescriptionService = prescriptionService;
         }
 
         public async Task<MedicationResponseDto?> GetByIdAsync(Guid id)
@@ -90,14 +94,44 @@ namespace MedicationService.Application.Services
                 medication.CreatedAt = DateTime.UtcNow;
                 medication.UpdatedAt = DateTime.UtcNow;
 
-                var created = await _repository.AddAsync(medication);
+                medication.DoctorId = createDto.DoctorId;
+                medication.PrescribedBy = createDto.PrescribedBy;
+
+                var createdMedication = await _repository.AddAsync(medication);
+
+                if (createDto.DoctorId.HasValue && !string.IsNullOrEmpty(createDto.PrescribedBy))
+                {
+                    try
+                    {
+                        var prescriptionCreateDto = new PrescriptionCreateDto
+                        {
+                            MedicationId = createdMedication.Id,
+                            PrescriptionNumber = $"RX-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString().Substring(0, 8).ToUpper()}",
+                            PrescriberName = createDto.PrescribedBy,
+                            PrescriberContact = "",
+                            PharmacyName = "Main Pharmacy",
+                            PharmacyContact = "",
+                            IssueDate = DateTime.UtcNow,
+                            ExpiryDate = DateTime.UtcNow.AddDays(30),
+                            Notes = $"Auto-generated for medication: {createDto.Name}"
+                        };
+
+                        await _prescriptionService.CreateAsync(prescriptionCreateDto);
+                        Console.WriteLine($"✅ Auto-created prescription for medication: {createdMedication.Id}");
+                    }
+                    catch (Exception prescriptionEx)
+                    {
+                        Console.WriteLine($"⚠️ Failed to auto-create prescription: {prescriptionEx.Message}");
+                        
+                    }
+                }
 
                 var scheduleIds = new List<Guid>();
 
                 if (createDto.Frequency.HasValue)
                 {
                     var scheduleDtos = _scheduleGenerator.GenerateSchedules(
-                        created.Id,
+                        createdMedication.Id,
                         createDto.Frequency.Value,
                         createDto.CustomFrequencyHours,
                         createDto.DaysOfWeek,
@@ -112,7 +146,7 @@ namespace MedicationService.Application.Services
 
                 await _unitOfWork.CommitTransactionAsync();
 
-                var response = _mapper.Map<MedicationResponseDto>(created);
+                var response = _mapper.Map<MedicationResponseDto>(createdMedication);
                 response.ScheduleIds = scheduleIds;
                 return response;
             }
@@ -189,14 +223,12 @@ namespace MedicationService.Application.Services
         }
 
         public async Task<IEnumerable<MedicationResponseDto>> SearchMedicationsAsync(string searchTerm)
-            {
-                if (string.IsNullOrWhiteSpace(searchTerm))
-                    return Enumerable.Empty<MedicationResponseDto>();
+        {
+            if (string.IsNullOrWhiteSpace(searchTerm))
+                return Enumerable.Empty<MedicationResponseDto>();
 
-                var medications = await _repository.SearchByNameAsync(searchTerm);
-                return _mapper.Map<IEnumerable<MedicationResponseDto>>(medications);
-            }
-
+            var medications = await _repository.SearchByNameAsync(searchTerm);
+            return _mapper.Map<IEnumerable<MedicationResponseDto>>(medications);
+        }
     }
 }
-
