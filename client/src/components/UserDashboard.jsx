@@ -20,7 +20,6 @@ import {
   CheckCircle2,
   Sparkles,
   ArrowUpRight,
-  typeColor,
   Plus,
   X,
   Camera,
@@ -34,6 +33,7 @@ import { userService } from "../../services/userService";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import AppointmentCalendar from "../components/AppointmentCalendar";
+import RelationshipsManagement from "../components/RelationshipsManagement";
 
 const UserDashboard = () => {
   const [activeUsersCount, setActiveUsersCount] = useState(null);
@@ -317,21 +317,7 @@ const MedicationCard = ({ medication, onDelete, type }) => {
           <h4 className="text-white font-semibold text-lg">
             {medication.name}
           </h4>
-          <span
-            className={`px-2 py-1 rounded-full text-xs font-medium ${
-              isPrescription
-                ? "bg-purple-500/20 text-purple-400"
-                : typeColor === "blue"
-                ? "bg-blue-500/20 text-blue-400"
-                : typeColor === "purple"
-                ? "bg-purple-500/20 text-purple-400"
-                : typeColor === "amber"
-                ? "bg-amber-500/20 text-amber-400"
-                : typeColor === "green"
-                ? "bg-green-500/20 text-green-400"
-                : "bg-gray-500/20 text-gray-400"
-            }`}
-          >
+          <span className={`px-2 py-1 rounded-full text-xs font-medium ${badgeColor}`}>
             {isPrescription ? "Prescription" : getTypeText(medication.type)}
           </span>
         </div>
@@ -1106,6 +1092,11 @@ return (
             </div>
           )}
         </div>
+      </div>
+
+      {/* Family & Caregivers Section */}
+      <div className="mb-12">
+        <RelationshipsManagement currentUser={user} />
       </div>
 
       {/* Your Appointments Section */}
