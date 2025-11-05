@@ -12,8 +12,8 @@ using UserHealthService.Infrastructure.Data;
 namespace UserHealthService.Infrastructure.Migrations
 {
     [DbContext(typeof(UserHealthDbContext))]
-    [Migration("20251031172820_Initial")]
-    partial class Initial
+    [Migration("20251104200555_Addmigs")]
+    partial class Addmigs
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

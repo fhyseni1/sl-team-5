@@ -12,8 +12,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace MedicationService.Infrastructure.Migrations
 {
     [DbContext(typeof(MedicationDbContext))]
-    [Migration("20251016080658_InitialCreate")]
-    partial class InitialCreate
+    [Migration("20251104223337_AddDoctorAndPrescribedByToMedication")]
+    partial class AddDoctorAndPrescribedByToMedication
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -89,6 +89,9 @@ namespace MedicationService.Infrastructure.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
+                    b.Property<Guid?>("DoctorId")
+                        .HasColumnType("uuid");
+
                     b.Property<decimal>("Dosage")
                         .HasColumnType("numeric");
 
@@ -120,6 +123,10 @@ namespace MedicationService.Infrastructure.Migrations
 
                     b.Property<string>("Name")
                         .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("PrescribedBy")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
@@ -298,9 +305,6 @@ namespace MedicationService.Infrastructure.Migrations
                     b.Property<Guid>("MedicationId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("MedicationId1")
-                        .HasColumnType("uuid");
-
                     b.Property<string>("Notes")
                         .IsRequired()
                         .HasMaxLength(500)
@@ -331,6 +335,11 @@ namespace MedicationService.Infrastructure.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
+                    b.Property<int>("RemainingRefills")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasColumnType("varchar");
@@ -339,8 +348,6 @@ namespace MedicationService.Infrastructure.Migrations
 
                     b.HasIndex("MedicationId")
                         .IsUnique();
-
-                    b.HasIndex("MedicationId1");
 
                     b.ToTable("Prescriptions");
                 });
@@ -398,15 +405,9 @@ namespace MedicationService.Infrastructure.Migrations
 
             modelBuilder.Entity("MedicationService.Domain.Entities.Prescription", b =>
                 {
-                    b.HasOne("MedicationService.Domain.Entities.Medication", null)
+                    b.HasOne("MedicationService.Domain.Entities.Medication", "Medication")
                         .WithOne("Prescription")
                         .HasForeignKey("MedicationService.Domain.Entities.Prescription", "MedicationId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("MedicationService.Domain.Entities.Medication", "Medication")
-                        .WithMany()
-                        .HasForeignKey("MedicationId1")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 

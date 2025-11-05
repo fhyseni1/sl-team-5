@@ -38,7 +38,8 @@ namespace MedicationService.Infrastructure.Data
                 entity.Property(e => e.QRCode).HasMaxLength(50);
                 entity.Property(e => e.NDCCode).HasMaxLength(50);
                 entity.Property(e => e.ScannedImageUrl).HasMaxLength(200);
-
+ entity.Property(e => e.DoctorId).IsRequired(false);
+    entity.Property(e => e.PrescribedBy).HasMaxLength(100);
                 // Enum conversions for PostgreSQL
                 entity.Property(e => e.Type)
                     .HasConversion(new EnumToStringConverter<MedicationType>())
@@ -66,11 +67,11 @@ namespace MedicationService.Infrastructure.Data
                     .WithOne(e => e.Medication)
                     .HasForeignKey(e => e.MedicationId)
                     .OnDelete(DeleteBehavior.Cascade);
-                entity.HasOne(e => e.Prescription)
-                    .WithOne()
-                    .HasForeignKey<Prescription>(e => e.MedicationId)
-                    .OnDelete(DeleteBehavior.Cascade);
-            });
+              entity.HasMany(e => e.Prescriptions)
+    .WithOne(e => e.Medication)
+    .HasForeignKey(e => e.MedicationId)
+    .OnDelete(DeleteBehavior.Cascade);
+});
 
             // Configure DrugInteraction entity
             modelBuilder.Entity<DrugInteraction>(entity =>
@@ -129,7 +130,7 @@ namespace MedicationService.Infrastructure.Data
                     .HasColumnType("varchar");
             });
 
-            // Configure Prescription entity
+           
             modelBuilder.Entity<Prescription>(entity =>
             {
                 entity.HasKey(e => e.Id);
@@ -140,12 +141,18 @@ namespace MedicationService.Infrastructure.Data
                 entity.Property(e => e.PharmacyName).HasMaxLength(100);
                 entity.Property(e => e.PharmacyContact).HasMaxLength(100);
                 entity.Property(e => e.Notes).HasMaxLength(500);
+                entity.Property(e => e.RemainingRefills).HasDefaultValue(0);
 
                 // Enum conversion
                 entity.Property(e => e.Status)
                     .HasConversion(new EnumToStringConverter<PrescriptionStatus>())
                     .HasColumnType("varchar");
+
+                entity.HasOne(e => e.Medication)
+                    .WithMany(e => e.Prescriptions)  
+                    .HasForeignKey(e => e.MedicationId)
+                    .OnDelete(DeleteBehavior.Cascade);
             });
-        }
-    }
-}
+                    }
+                }
+            }

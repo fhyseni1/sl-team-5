@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace MedicationService.Infrastructure.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialCreate : Migration
+    public partial class Addmig : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -131,6 +131,7 @@ namespace MedicationService.Infrastructure.Migrations
                     ExpiryDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     Status = table.Column<string>(type: "varchar", nullable: false),
                     Notes = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
+                    RemainingRefills = table.Column<int>(type: "integer", nullable: false),
                     MedicationId1 = table.Column<Guid>(type: "uuid", nullable: false)
                 },
                 constraints: table =>
