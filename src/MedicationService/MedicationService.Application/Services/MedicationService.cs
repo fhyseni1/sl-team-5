@@ -4,8 +4,6 @@ using MedicationService.Application.DTOs.Prescriptions;
 using MedicationService.Application.Interfaces;
 using MedicationService.Domain.Entities;
 using MedicationService.Domain.Enums;
-using MedicationService.Infrastructure.Data;
-using Microsoft.EntityFrameworkCore;
 
 namespace MedicationService.Application.Services
 {

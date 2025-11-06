@@ -155,9 +155,9 @@ const AdminDashboard = () => {
           api.get("/appointments/rejected"),
           api.get("/users").then((res) => {
             const allUsers = res.data || [];
-            return allUsers.filter((user) => user.type === 4); // Doctors
+            return allUsers.filter((user) => user.type === 4);
           }),
-          api.get("/clinics").then((res) => res.data || []), // Fetch clinics
+          api.get("/clinics").then((res) => res.data || []),
         ]);
 
         const usersCount =
