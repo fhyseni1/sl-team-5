@@ -3,6 +3,7 @@
 import ChatInbox from "../components/ChatInbox";
 import NotificationCenter from "../components/NotificationCenter";
 import { MessageCircle } from "lucide-react";
+import { allergyService } from "../../services/allergyService";
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -69,7 +70,12 @@ const UserDashboard = () => {
     purpose: "",
     notes: "",
   });
-
+const [allergyWarning, setAllergyWarning] = useState({
+  show: false,
+  message: "",
+  conflicts: [],
+  medicationName: ""
+});
   const [medicationForm, setMedicationForm] = useState({
     name: "",
     dosage: "",
@@ -108,7 +114,6 @@ const UserDashboard = () => {
           type: userData.type,
         });
 
-        // Load allergies from user profile
         const savedProfile = localStorage.getItem(`userProfile_${userId}`);
         if (savedProfile) {
           const parsedProfile = JSON.parse(savedProfile);
@@ -166,7 +171,25 @@ const UserDashboard = () => {
   }
 }, []);
 
+useEffect(() => {
+  const fetchUserAllergies = async () => {
+    if (user?.id) {
+      try {
+        console.log("🟡 Fetching allergies from API for user:", user.id);
+        const allergies = await allergyService.getUserAllergies(user.id);
+        console.log("✅ Allergies from API:", allergies);
+        setUserAllergies(allergies);
+      } catch (error) {
+        console.error("❌ Error fetching allergies:", error);
+        setUserAllergies([]);
+      }
+    }
+  };
 
+  if (user?.id) {
+    fetchUserAllergies();
+  }
+}, [user?.id]);
 useEffect(() => {
   const fetchUserMedications = async () => {
     if (!user?.id) return;
@@ -389,57 +412,32 @@ const MedicationCard = ({ medication, onDelete, type }) => {
     );
   };
 
-  // Allergy warning check function
-  const checkForAllergyWarnings = (medicationName) => {
-    if (!medicationName || userAllergies.length === 0) {
-      return { hasWarning: false };
-    }
+    const checkForAllergyWarnings = (medicationName) => {
+      if (!medicationName || userAllergies.length === 0) {
+        return { hasWarning: false };
+      }
 
-    const commonAllergyKeywords = {
-      Penicillin: [
-        "penicillin",
-        "amoxicillin",
-        "ampicillin",
-        "oxacillin",
-        "amoxil",
-        "augmentin",
-      ],
-      Sulfa: [
-        "sulfa",
-        "sulfamethoxazole",
-        "sulfasalazine",
-        "bactrim",
-        "septra",
-      ],
-      Aspirin: ["aspirin", "salicylate", "asa"],
-      Ibuprofen: ["ibuprofen", "advil", "motrin", "nuprin"],
-      Codeine: ["codeine", "hydrocodone", "oxycodone", "vicodin", "percocet"],
-      Cephalosporins: ["cephalexin", "ceftriaxone", "cefuroxime", "cefdinir"],
-    };
+      const medNameLower = medicationName.toLowerCase().trim();
 
-    const userAllergyNames = userAllergies.map((allergy) =>
-      allergy.toLowerCase()
-    );
-    const medNameLower = medicationName.toLowerCase();
+      for (const allergy of userAllergies) {
+        const allergenName = typeof allergy === 'string' ? allergy : allergy.allergenName;
+        const allergyLower = allergenName.toLowerCase().trim();
+        
+        if (medNameLower === allergyLower) {
+          return { hasWarning: false };
+        }
 
-    for (const [allergyType, medications] of Object.entries(
-      commonAllergyKeywords
-    )) {
-      if (userAllergyNames.includes(allergyType.toLowerCase())) {
-        for (const medKeyword of medications) {
-          if (medNameLower.includes(medKeyword)) {
-            return {
-              hasWarning: true,
-              allergyType: allergyType,
-              medicationName: medicationName,
-            };
-          }
+        if (medNameLower.includes(allergyLower) && medNameLower !== allergyLower) {
+          return {
+            hasWarning: true,
+            allergyType: allergenName,
+            medicationName: medicationName,
+          };
         }
       }
-    }
 
-    return { hasWarning: false };
-  };
+      return { hasWarning: false };
+    };
 
   // Helper functions for medication display
   const getDosageUnitText = (unitCode) => {
@@ -808,25 +806,40 @@ const handleMedicationSubmit = async (e) => {
   }
 };
 
-  const handleMedicationNameChange = (e) => {
-    const { name, value } = e.target;
-    setMedicationForm((prev) => ({ ...prev, [name]: value }));
+const handleMedicationNameChange = async (e) => {
+  const { name, value } = e.target;
+  setMedicationForm((prev) => ({ ...prev, [name]: value }));
 
-    if (value.trim().length > 2) {
-      const warning = checkForAllergyWarnings(value);
-      if (warning.hasWarning) {
-        setShowAllergyWarning(true);
-        setAllergyWarningMedication(warning.allergyType);
+  setShowAllergyWarning(false);
+  setAcknowledgeWarning(false);
+
+  if (value.trim().length > 2 && user?.id) {
+    try {
+      console.log("🟡 Checking allergy conflicts for:", value);
+      
+      const result = await allergyService.checkAllergyConflicts(user.id, value);
+      console.log("🟡 API check result:", result);
+      
+      if (result.hasConflicts) {
+        console.log("🔴 ALARM TRIGGERED - Conflicts found");
+        setAllergyWarning({
+          show: true,
+          message: `⚠️ ALLERGY CONFLICT DETECTED!`,
+          conflicts: result.conflicts,
+          medicationName: value
+        });
       } else {
-        setShowAllergyWarning(false);
-        setAcknowledgeWarning(false);
+        console.log("✅ No conflicts found");
+        setAllergyWarning({ show: false, message: "", conflicts: [] });
       }
-    } else {
-      setShowAllergyWarning(false);
-      setAcknowledgeWarning(false);
+    } catch (error) {
+      console.error("❌ Error checking allergies:", error);
+      setAllergyWarning({ show: false, message: "", conflicts: [] });
     }
-  };
-
+  } else {
+    setAllergyWarning({ show: false, message: "", conflicts: [] });
+  }
+};
   const handleScanTherapy = () => {
     alert("📷 Barcode scanning feature coming soon!");
   };
@@ -932,13 +945,7 @@ return (
           <p className="text-3xl font-bold text-white mb-1">5</p>
           <p className="text-amber-400 font-semibold">Pending Reminders</p>
         </div>
-        <div className="bg-gradient-to-br from-violet-500/10 to-purple-500/10 backdrop-blur-xl rounded-2xl p-8 border border-violet-500/30 shadow-xl">
-          <Users className="w-12 h-12 text-violet-400 mx-auto mb-4" />
-          <p className="text-3xl font-bold text-white mb-1">
-            {activeUsersCount || "..."}
-          </p>
-          <p className="text-violet-400 font-semibold">Active Users</p>
-        </div>
+       
       </div>
 
       {/* Your Medications Section - LAYOUT I RI */}
@@ -1274,7 +1281,47 @@ return (
               <X className="w-6 h-6" />
             </button>
           </div>
+        {allergyWarning.show && (
+          <div className="mb-6 p-4 bg-red-500/20 border border-red-500/50 rounded-xl">
+            <div className="flex items-center gap-3 mb-3">
+              <AlertTriangle className="w-6 h-6 text-red-400" />
+              <span className="text-red-400 font-semibold text-lg">
+                {allergyWarning.message}
+              </span>
+            </div>
+            
+            <div className="space-y-2 mb-3">
+              {allergyWarning.conflicts.map((conflict, index) => (
+                <div key={index} className="bg-red-500/10 p-3 rounded-lg border border-red-500/30">
+                  <p className="text-red-300 text-sm">
+                    <strong>Allergy:</strong> {conflict.allergy.allergenName} 
+                    <span className={`ml-2 px-2 py-1 rounded-full text-xs ${
+                      conflict.allergy.severity === 'LifeThreatening' ? 'bg-red-500/20 text-red-400' :
+                      conflict.allergy.severity === 'Severe' ? 'bg-orange-500/20 text-orange-400' :
+                      'bg-yellow-500/20 text-yellow-400'
+                    }`}>
+                      {conflict.allergy.severityDisplay || conflict.allergy.severity}
+                    </span>
+                  </p>
+                  <p className="text-red-200 text-xs mt-1">{conflict.conflictReason}</p>
+                </div>
+              ))}
+            </div>
 
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="acknowledgeWarning"
+                checked={acknowledgeWarning}
+                onChange={(e) => setAcknowledgeWarning(e.target.checked)}
+                className="w-4 h-4 text-red-600 bg-slate-700 border-slate-600 rounded focus:ring-red-500"
+              />
+              <label htmlFor="acknowledgeWarning" className="text-red-300 text-sm">
+                I understand the risks and want to proceed with adding "{allergyWarning.medicationName}"
+              </label>
+            </div>
+          </div>
+        )}
           {showAllergyWarning && (
             <div className="mb-6 p-4 bg-red-500/20 border border-red-500/50 rounded-xl">
               <div className="flex items-center gap-3 mb-2">

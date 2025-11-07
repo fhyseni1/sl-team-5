@@ -5,6 +5,7 @@ import NotificationCenter from "../NotificationCenter";
 import { MessageCircle } from "lucide-react";
 import ReportCard from "./ReportCard";
 import ReportModal from "./ReportModal";
+import { allergyService } from "../../../services/allergyService";
 import {
   generateReportPDFTemplate,
   downloadHtmlAsPdf,
@@ -18,6 +19,7 @@ import {
   Calendar,
   Users,
   Eye,
+  AlertTriangle,
   Clock,
   CheckCircle2,
   XCircle,
@@ -142,6 +144,7 @@ const DoctorDashboard = () => {
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [showPatientSelection, setShowPatientSelection] = useState(false);
   const [user, setUser] = useState(null);
+  const [patientAllergies, setPatientAllergies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [patients, setPatients] = useState([]);
   const [showChatInbox, setShowChatInbox] = useState(false);
@@ -216,7 +219,13 @@ const DoctorDashboard = () => {
     };
     fetchData();
   }, [router]);
-
+useEffect(() => {
+  if (selectedPatient) {
+    fetchPatientAllergies(selectedPatient.id);
+  } else {
+    setPatientAllergies([]);
+  }
+}, [selectedPatient]);
   // === LOAD APPOINTMENTS (UserHealthService) ===
   const loadAppointments = async (userData, isDoctor) => {
     try {
@@ -455,6 +464,37 @@ const DoctorDashboard = () => {
       setMedications([]);
     }
   };
+const handleMedicationNameChangeForDoctor = async (e) => {
+  const { name, value } = e.target;
+  setMedicationForm((prev) => ({ ...prev, [name]: value }));
+
+  if (value.trim().length > 2 && selectedPatient) {
+    try {
+      console.log("🟡 Doctor checking allergy conflicts for patient:", selectedPatient.id, value);
+      const result = await allergyService.checkAllergyConflicts(selectedPatient.id, value);
+      
+      if (result.hasConflicts) {
+        console.log("🔴 Allergy conflict detected for patient");
+        toast.warning(`Allergy conflict detected for ${selectedPatient.firstName}!`, {
+          autoClose: 10000,
+        });
+      }
+    } catch (error) {
+      console.error("❌ Error checking patient allergies:", error);
+    }
+  }
+};
+const fetchPatientAllergies = async (patientId) => {
+  try {
+    console.log("🟡 Fetching patient allergies from API:", patientId);
+    const allergies = await allergyService.getUserAllergies(patientId);
+    console.log("✅ Patient allergies:", allergies);
+    setPatientAllergies(allergies);
+  } catch (error) {
+    console.error("❌ Error fetching patient allergies:", error);
+    setPatientAllergies([]);
+  }
+};
 
   const openPatientAnalytics = (patient) => {
     setSelectedPatientForAnalytics(patient);
@@ -1286,7 +1326,36 @@ const DoctorDashboard = () => {
                     <X className="w-5 h-5 sm:w-6 sm:h-6" />
                   </button>
                 </div>
-
+                {selectedPatient && patientAllergies.length > 0 && (
+                  <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <AlertTriangle className="w-5 h-5 text-amber-400" />
+                      <h4 className="font-semibold text-amber-400">Patient Allergies</h4>
+                    </div>
+                    <div className="space-y-2">
+                      {patientAllergies.map((allergy) => (
+                        <div key={allergy.id} className="bg-amber-500/5 p-2 rounded-lg">
+                          <p className="text-amber-300 text-sm">
+                            <strong>{allergy.allergenName}</strong>
+                            <span className={`ml-2 px-2 py-1 rounded-full text-xs ${
+                              allergy.severity === 'LifeThreatening' ? 'bg-red-500/20 text-red-400' :
+                              allergy.severity === 'Severe' ? 'bg-orange-500/20 text-orange-400' :
+                              'bg-yellow-500/20 text-yellow-400'
+                            }`}>
+                              {allergy.severityDisplay}
+                            </span>
+                          </p>
+                          {allergy.symptoms && (
+                            <p className="text-amber-200 text-xs">Symptoms: {allergy.symptoms}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-amber-300 text-xs mt-2">
+                      ⚠️ Please check for potential conflicts before prescribing medication
+                    </p>
+                  </div>
+                )}
                 <select
                   name="medicationType"
                   value={medicationForm.medicationType}

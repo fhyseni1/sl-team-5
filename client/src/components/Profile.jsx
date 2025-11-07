@@ -22,36 +22,47 @@ import {
   Heart
 } from "lucide-react";
 import { authService, api } from "../../services/authService";
-
+import { allergyService } from "../../services/allergyService"; 
+import { toast, ToastContainer } from "react-toastify"; 
+import "react-toastify/dist/ReactToastify.css";
 const Profile = () => {
   const [user, setUser] = useState(null);
-  const [profile, setProfile] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
+    const [userAllergies, setUserAllergies] = useState([]);
+
+const [profile, setProfile] = useState({
+  firstName: "",
+  lastName: "",
+  email: "",
+  phone: "",
+  dateOfBirth: "",
+  allergies: [], 
+  conditions: [],
+  emergencyContact: {
+    name: "",
     phone: "",
-    dateOfBirth: "",
-    allergies: [],
-    conditions: [],
-    emergencyContact: {
-      name: "",
-      phone: "",
-      relationship: ""
-    },
-    address: {
-      street: "",
-      city: "",
-      state: "",
-      zipCode: "",
-      country: ""
-    },
-    notifications: {
-      medication: true,
-      appointments: true,
-      refills: true
-    }
-  });
-  const [newAllergy, setNewAllergy] = useState("");
+    relationship: ""
+  },
+  address: {
+    street: "",
+    city: "",
+    state: "",
+    zipCode: "",
+    country: ""
+  },
+  notifications: {
+    medication: true,
+    appointments: true,
+    refills: true
+  }
+});
+
+const [newAllergy, setNewAllergy] = useState({
+  allergenName: "",
+  severity: "Mild",
+  symptoms: "",
+  diagnosedDate: "",
+  diagnosedBy: ""
+});
   const [newCondition, setNewCondition] = useState("");
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -62,85 +73,68 @@ const Profile = () => {
     loadUserData();
   }, []);
 
-  const loadUserData = async () => {
+const loadUserData = async () => {
+  try {
+    setLoading(true);
+    
+    const userData = await authService.getMe();
+    
+    if (!userData || !userData.id) {
+      throw new Error("User data not available");
+    }
+
+    console.log("Loading profile for user:", userData.id);
+    setUser(userData);
+
+    setProfile(prev => ({
+      ...prev,
+      firstName: userData.firstName || "",
+      lastName: userData.lastName || "",
+      email: userData.email || "",
+      phone: userData.phoneNumber || "",
+      dateOfBirth: userData.dateOfBirth || ""
+    }));
+
     try {
-      setLoading(true);
+      console.log("🟡 Fetching allergies from API for user:", userData.id);
+      const allergies = await allergyService.getUserAllergies(userData.id);
+      console.log("✅ Allergies from API:", allergies);
       
-      // Merr të dhënat e vërteta të user-it nga authService
-      const userData = await authService.getMe();
-      
-      if (!userData || !userData.id) {
-        throw new Error("User data not available");
-      }
-
-      console.log("Loading profile for user:", userData.id, userData);
-      setUser(userData);
-
-      // Vendos të dhënat bazë nga user-i
+      setUserAllergies(allergies);
       setProfile(prev => ({
         ...prev,
-        firstName: userData.firstName || "",
-        lastName: userData.lastName || "",
-        email: userData.email || "",
-        phone: userData.phoneNumber || "",
-        dateOfBirth: userData.dateOfBirth || ""
+        allergies: allergies
       }));
+    } catch (allergyError) {
+      console.error("Error loading allergies:", allergyError);
+     
+      setUserAllergies([]);
+      setProfile(prev => ({
+        ...prev,
+        allergies: []
+      }));
+    }
 
-      // Load saved profile data from localStorage PËR USER SPECIFIK
-      const savedProfile = localStorage.getItem(`userProfile_${userData.id}`);
+  } catch (error) {
+    console.error("Error loading user data:", error);
+   
+    try {
+      const savedProfile = localStorage.getItem(`userProfile_${userData?.id}`);
       if (savedProfile) {
         const parsedProfile = JSON.parse(savedProfile);
+        setUserAllergies(parsedProfile.allergies || []);
         setProfile(prev => ({
           ...prev,
           ...parsedProfile
         }));
-        console.log("Loaded profile from localStorage for user:", userData.id);
-      } else {
-        console.log("No saved profile found for user:", userData.id);
       }
-
-    } catch (error) {
-      console.error("Error loading user data:", error);
-      
-      // Nëse authService.getMe() failon, provo fallback
-      try {
-        // Fallback: kontrollo nëse ka të dhëna mock për testim
-        const mockUserData = {
-          id: "1",
-          firstName: "UBT",
-          lastName: "User",
-          email: "ubt@example.com",
-          phoneNumber: "(555) 123-4567",
-          dateOfBirth: "1990-01-01"
-        };
-        
-        setUser(mockUserData);
-        setProfile(prev => ({
-          ...prev,
-          firstName: mockUserData.firstName || "",
-          lastName: mockUserData.lastName || "",
-          email: mockUserData.email || "",
-          phone: mockUserData.phoneNumber || "",
-          dateOfBirth: mockUserData.dateOfBirth || ""
-        }));
-
-        // Load nga localStorage për user-in mock
-        const savedProfile = localStorage.getItem(`userProfile_${mockUserData.id}`);
-        if (savedProfile) {
-          const parsedProfile = JSON.parse(savedProfile);
-          setProfile(prev => ({
-            ...prev,
-            ...parsedProfile
-          }));
-        }
-      } catch (fallbackError) {
-        console.error("Fallback also failed:", fallbackError);
-        alert("Failed to load user data");
-      }
-    } finally {
-      setLoading(false);
+    } catch (fallbackError) {
+      console.error("Fallback also failed:", fallbackError);
     }
-  };
+  } finally {
+    setLoading(false);
+  }
+};
 
   const saveAllChanges = async () => {
     try {
@@ -149,14 +143,8 @@ const Profile = () => {
       if (!user || !user.id) {
         throw new Error("User ID not available");
       }
-
-      // Ruaj të dhënat lokalisht PËR USER SPECIFIK
       localStorage.setItem(`userProfile_${user.id}`, JSON.stringify(profile));
-      
       console.log("Profile saved for user:", user.id, profile);
-      
-      // Nëse ke backend, këtu do të bëhej API call për të ruajtur në database
-      // await api.put(`/profile/${user.id}`, profile);
       
       setIsEditing(false);
       alert("✅ All changes saved successfully!");
@@ -168,52 +156,107 @@ const Profile = () => {
     }
   };
 
-  const addAllergy = () => {
-    if (newAllergy.trim()) {
-      const updatedProfile = {
-        ...profile,
-        allergies: [...profile.allergies, newAllergy.trim()]
-      };
-      setProfile(updatedProfile);
-      setNewAllergy("");
+const addAllergy = async () => {
+  if (newAllergy.allergenName?.trim() && user?.id) {
+    try {
       
-      // Auto-save when adding allergies
-      if (user?.id) {
-        localStorage.setItem(`userProfile_${user.id}`, JSON.stringify(updatedProfile));
+      let diagnosedDate = null;
+      if (newAllergy.diagnosedDate) {
+       
+        diagnosedDate = new Date(newAllergy.diagnosedDate + 'T00:00:00Z').toISOString();
       }
-    }
-  };
 
-  const removeAllergy = (index) => {
-    const updatedProfile = {
-      ...profile,
-      allergies: profile.allergies.filter((_, i) => i !== index)
-    };
-    setProfile(updatedProfile);
-    
-    // Auto-save when removing allergies
-    if (user?.id) {
-      localStorage.setItem(`userProfile_${user.id}`, JSON.stringify(updatedProfile));
-    }
-  };
+      const allergyData = {
+        userId: user.id,
+        allergenName: newAllergy.allergenName.trim(),
+        description: newAllergy.symptoms?.trim() || "",
+        severity: mapSeverityToEnum(newAllergy.severity || "Mild"),
+        symptoms: newAllergy.symptoms?.trim() || "",
+        treatment: "",
+        diagnosedDate: diagnosedDate, 
+        diagnosedBy: newAllergy.diagnosedBy?.trim() || ""
+      };
 
-  const addCondition = () => {
-    if (newCondition.trim()) {
-      setProfile({
-        ...profile,
-        conditions: [...profile.conditions, newCondition.trim()]
+      console.log("🟡 Sending allergy data to backend:", allergyData);
+      const createdAllergy = await allergyService.addAllergy(allergyData);
+      console.log("✅ Allergy added successfully:", createdAllergy);
+
+      const updatedAllergies = [...userAllergies, createdAllergy];
+      setUserAllergies(updatedAllergies);
+      setProfile(prev => ({
+        ...prev,
+        allergies: updatedAllergies
+      }));
+
+      setNewAllergy({
+        allergenName: "",
+        severity: "Mild",
+        symptoms: "",
+        diagnosedDate: "",
+        diagnosedBy: ""
       });
-      setNewCondition("");
+
+      toast.success(`Allergy "${allergyData.allergenName}" added successfully!`);
+      
+    } catch (error) {
+      console.error("❌ Error adding allergy:", error);
+      toast.error(`Failed to add allergy: ${error.message}`);
     }
-  };
+  } else {
+    toast.error("Please enter an allergy name");
+  }
+};
 
-  const removeCondition = (index) => {
-    setProfile({
-      ...profile,
-      conditions: profile.conditions.filter((_, i) => i !== index)
-    });
+const mapSeverityToEnum = (severity) => {
+  const severityMap = {
+    "Mild": 1,
+    "Moderate": 2,
+    "Severe": 3,
+    "LifeThreatening": 4
   };
+  return severityMap[severity] || 1;
+};
 
+const removeAllergy = async (allergyId) => {
+  try {
+    console.log("🟡 Deleting allergy:", allergyId);
+    const success = await allergyService.deleteAllergy(allergyId);
+    
+    if (success) {
+     
+      const updatedAllergies = userAllergies.filter(allergy => allergy.id !== allergyId);
+      setUserAllergies(updatedAllergies);
+      setProfile(prev => ({
+        ...prev,
+        allergies: updatedAllergies
+      }));
+
+      toast.success("Allergy deleted successfully!");
+    } else {
+      toast.error("Failed to delete allergy");
+    }
+  } catch (error) {
+    console.error("❌ Error deleting allergy:", error);
+    toast.error("Error deleting allergy");
+  }
+};
+
+const addCondition = () => {
+  if (newCondition.trim()) {
+    setProfile(prev => ({
+      ...prev,
+      conditions: [...prev.conditions, newCondition.trim()]
+    }));
+    setNewCondition("");
+  }
+};
+
+const removeCondition = (index) => {
+  setProfile(prev => ({
+    ...prev,
+    conditions: prev.conditions.filter((_, i) => i !== index)
+  }));
+};
   const updateNotificationSetting = (key, value) => {
     setProfile({
       ...profile,
@@ -251,12 +294,16 @@ const Profile = () => {
     }
   };
 
-  const handleKeyPress = (e, action) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      action();
+const handleKeyPress = (e, action) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    if (action === addAllergy && newAllergy.allergenName?.trim()) {
+      addAllergy();
+    } else if (action === addCondition && newCondition.trim()) {
+      addCondition();
     }
-  };
+  }
+};
 
   // Funksion për të shfaqur ID-në e user-it për debug
   const getUserIdDisplay = () => {
@@ -290,6 +337,18 @@ const Profile = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 relative">
+       <ToastContainer
+      position="top-right"
+      autoClose={5000}
+      hideProgressBar={false}
+      newestOnTop
+      closeOnClick
+      rtl={false}
+      pauseOnFocusLoss
+      draggable
+      pauseOnHover
+      theme="dark"
+    />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-blue-900/20 via-transparent to-emerald-900/20"></div>
 
       <header className="bg-slate-900/80 backdrop-blur-xl border-b border-slate-700/50 sticky top-0 z-50">
@@ -458,61 +517,169 @@ const Profile = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          {/* Allergies Card */}
-          <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl p-8 border border-slate-700/50">
-            <div className="flex items-center gap-3 mb-6">
-              <AlertTriangle className="w-7 h-7 text-amber-400" />
-              <h2 className="text-2xl font-bold text-white">Allergies</h2>
-            </div>
-            <p className="text-slate-400 mb-4">
-              List any allergies for medication safety checks
-            </p>
-
-            {isEditing && (
-              <div className="flex gap-2 mb-4">
-                <input
-                  type="text"
-                  value={newAllergy}
-                  onChange={(e) => setNewAllergy(e.target.value)}
-                  onKeyPress={(e) => handleKeyPress(e, addAllergy)}
-                  placeholder="e.g., Penicillin"
-                  className="flex-1 p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                <button
-                  onClick={addAllergy}
-                  className="px-4 py-4 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors"
-                >
-                  <Plus className="w-5 h-5" />
-                </button>
+                    {/* Allergies Card */}
+            <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl p-8 border border-slate-700/50">
+              <div className="flex items-center gap-3 mb-6">
+                <AlertTriangle className="w-7 h-7 text-amber-400" />
+                <h2 className="text-2xl font-bold text-white">Allergies</h2>
               </div>
-            )}
-
-            {profile.allergies.length === 0 ? (
-              <p className="text-slate-400 text-center py-8 bg-slate-700/30 rounded-xl">
-                No allergies added
+              <p className="text-slate-400 mb-4">
+                List any allergies for medication safety checks
               </p>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {profile.allergies.map((allergy, index) => (
-                  <div
-                    key={index}
-                    className="bg-red-500/20 text-red-400 px-4 py-3 rounded-xl flex items-center gap-2 border border-red-500/30"
-                  >
-                    <AlertTriangle className="w-4 h-4" />
-                    <span>{allergy}</span>
-                    {isEditing && (
-                      <button
-                        onClick={() => removeAllergy(index)}
-                        className="ml-2 hover:text-red-300 transition-colors"
+
+              {isEditing && (
+                <div className="space-y-4 mb-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">
+                        Allergy Name *
+                      </label>
+                      <input
+                        type="text"
+                        value={newAllergy.allergenName || ""}
+                        onChange={(e) => setNewAllergy(prev => ({...prev, allergenName: e.target.value}))}
+                        placeholder="e.g., Penicillin, Sulfa, Aspirin"
+                        className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">
+                        Severity
+                      </label>
+                      <select
+                        value={newAllergy.severity || "Mild"}
+                        onChange={(e) => setNewAllergy(prev => ({...prev, severity: e.target.value}))}
+                        className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       >
-                        <X className="w-4 h-4" />
-                      </button>
-                    )}
+                        <option value="Mild">Mild</option>
+                        <option value="Moderate">Moderate</option>
+                        <option value="Severe">Severe</option>
+                        <option value="LifeThreatening">Life Threatening</option>
+                      </select>
+                    </div>
                   </div>
-                ))}
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      Symptoms
+                    </label>
+                    <input
+                      type="text"
+                      value={newAllergy.symptoms || ""}
+                      onChange={(e) => setNewAllergy(prev => ({...prev, symptoms: e.target.value}))}
+                      placeholder="e.g., Rash, Difficulty breathing, Swelling"
+                      className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">
+                        Diagnosed Date
+                      </label>
+                      <input
+                        type="date"
+                        value={newAllergy.diagnosedDate || ""}
+                        onChange={(e) => setNewAllergy(prev => ({...prev, diagnosedDate: e.target.value}))}
+                        className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">
+                        Diagnosed By
+                      </label>
+                      <input
+                        type="text"
+                        value={newAllergy.diagnosedBy || ""}
+                        onChange={(e) => setNewAllergy(prev => ({...prev, diagnosedBy: e.target.value}))}
+                        placeholder="e.g., Dr. Smith"
+                        className="w-full p-4 bg-slate-700/80 border border-slate-600 rounded-xl text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button
+                      onClick={addAllergy}
+                      disabled={!newAllergy.allergenName?.trim()}
+                      className="flex items-center gap-2 px-4 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add Allergy
+                    </button>
+                    
+                    <button
+                      onClick={() => setNewAllergy({})}
+                      className="px-4 py-3 bg-slate-600 text-white rounded-xl hover:bg-slate-700 transition-colors"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {profile.allergies.length === 0 ? (
+                <p className="text-slate-400 text-center py-8 bg-slate-700/30 rounded-xl">
+                  No allergies added
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {profile.allergies.map((allergy, index) => (
+              <div
+                key={allergy.id || index}
+                className="bg-red-500/10 border border-red-500/20 rounded-xl p-4"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <AlertTriangle className="w-5 h-5 text-red-400" />
+                      <h4 className="font-semibold text-white text-lg">
+                        {allergy.allergenName}
+                      </h4>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        allergy.severity === 'LifeThreatening' ? 'bg-red-500/20 text-red-400' :
+                        allergy.severity === 'Severe' ? 'bg-orange-500/20 text-orange-400' :
+                        allergy.severity === 'Moderate' ? 'bg-yellow-500/20 text-yellow-400' :
+                        'bg-blue-500/20 text-blue-400'
+                      }`}>
+                        {allergy.severity || 'Mild'}
+                      </span>
+                    </div>
+                    
+                    {allergy.symptoms && (
+                      <p className="text-slate-300 text-sm mb-2">
+                        <strong>Symptoms:</strong> {allergy.symptoms}
+                      </p>
+                    )}
+                    
+                    <div className="flex items-center gap-4 text-slate-400 text-sm">
+                      {allergy.diagnosedDate && (
+                        <span>
+                          <Calendar className="w-3 h-3 inline mr-1" />
+                          {new Date(allergy.diagnosedDate).toLocaleDateString()}
+                        </span>
+                      )}
+                      {allergy.diagnosedBy && (
+                        <span>Diagnosed by: {allergy.diagnosedBy}</span>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {isEditing && (
+                    <button
+                      onClick={() => removeAllergy(allergy.id)} 
+                      className="ml-4 p-2 hover:bg-red-500/20 rounded-lg transition-colors"
+                      title="Remove allergy"
+                    >
+                      <X className="w-4 h-4 text-red-400" />
+                    </button>
+                  )}
+                </div>
               </div>
-            )}
-          </div>
+            ))}
+                </div>
+              )}
+            </div>
 
           {/* Medical Conditions Card */}
           <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl p-8 border border-slate-700/50">
