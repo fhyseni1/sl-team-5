@@ -484,7 +484,9 @@ const RelationshipsManagement = ({ currentUser }) => {
               </div>
 
               {/* Form Actions */}
-              <div className="flex items-center gap-3 pt-4">
+              <div className="flex items-center gap-3 pt-4"
+                 style={{ top: '10%', paddingBottom: '400px' }} 
+>
                 <button
                   type="button"
                   onClick={() => {

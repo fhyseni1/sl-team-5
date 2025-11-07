@@ -63,7 +63,6 @@ namespace UserHealthService.Application.Services
             var existingAllergy = await _allergyRepository.GetByIdAsync(id);
             if (existingAllergy == null) return null;
 
-            // Manual mapping for update
             existingAllergy.AllergenName = updateDto.AllergenName;
             existingAllergy.Description = updateDto.Description;
             existingAllergy.Severity = updateDto.Severity;
@@ -83,26 +82,60 @@ namespace UserHealthService.Application.Services
             return await _allergyRepository.DeleteAsync(id);
         }
 
-        public async Task<object> CheckAllergyConflictsAsync(Guid userId, string medicationName)
+            public async Task<object> CheckAllergyConflictsAsync(Guid userId, string medicationName)
         {
             var userAllergies = await _allergyRepository.GetByUserIdAsync(userId);
+            var commonAllergyConflicts = new Dictionary<string, List<string>>
+            {
+                { "Penicillin", new List<string> { "penicillin", "amoxicillin", "ampicillin", "amoxil", "augmentin" } },
+                { "Sulfa", new List<string> { "sulfa", "sulfamethoxazole", "sulfasalazine", "bactrim", "septra" } },
+                { "Aspirin", new List<string> { "aspirin", "salicylate", "asa", "ibuprofen", "naproxen" } },
+                { "Ibuprofen", new List<string> { "ibuprofen", "advil", "motrin", "nuprin", "naproxen" } },
+                { "Codeine", new List<string> { "codeine", "hydrocodone", "oxycodone", "vicodin", "percocet" } },
+                { "Cephalosporins", new List<string> { "cephalexin", "ceftriaxone", "cefuroxime", "cefdinir" } },
+                { "NSAIDs", new List<string> { "ibuprofen", "naproxen", "diclofenac", "celecoxib", "indomethacin" } }
+            };
+
+            var potentialConflicts = new List<object>();
+            var medicationNameLower = medicationName.ToLowerInvariant();
+
+            foreach (var allergy in userAllergies)
+            {
             
-            var potentialConflicts = userAllergies
-                .Where(a => medicationName.Contains(a.AllergenName, StringComparison.OrdinalIgnoreCase) ||
-                           a.AllergenName.Contains(medicationName, StringComparison.OrdinalIgnoreCase))
-                .Select(a => new
+                if (medicationNameLower.Contains(allergy.AllergenName.ToLowerInvariant()) ||
+                    allergy.AllergenName.ToLowerInvariant().Contains(medicationNameLower))
                 {
-                    Allergy = MapToResponseDto(a),
-                    ConflictReason = $"Medication '{medicationName}' may contain or relate to allergen '{a.AllergenName}'"
-                })
-                .ToList();
+                    potentialConflicts.Add(new
+                    {
+                        Allergy = MapToResponseDto(allergy),
+                        ConflictReason = $"Medication name contains allergen '{allergy.AllergenName}'",
+                        Severity = "High"
+                    });
+                    continue;
+                }
+
+                if (commonAllergyConflicts.ContainsKey(allergy.AllergenName))
+                {
+                    var relatedMeds = commonAllergyConflicts[allergy.AllergenName];
+                    if (relatedMeds.Any(med => medicationNameLower.Contains(med)))
+                    {
+                        potentialConflicts.Add(new
+                        {
+                            Allergy = MapToResponseDto(allergy),
+                            ConflictReason = $"Medication is related to known allergen '{allergy.AllergenName}'",
+                            Severity = "High"
+                        });
+                    }
+                }
+            }
 
             return new
             {
                 HasConflicts = potentialConflicts.Any(),
                 Conflicts = potentialConflicts,
                 UserId = userId,
-                MedicationName = medicationName
+                MedicationName = medicationName,
+                CheckedAt = DateTime.UtcNow
             };
         }
 
