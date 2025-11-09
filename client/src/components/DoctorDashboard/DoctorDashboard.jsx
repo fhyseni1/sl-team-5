@@ -309,6 +309,8 @@ useEffect(() => {
         return;
       }
 
+      const mappedFrequency = mapFrequencyToEnum(medicationForm.frequency);
+
       const medicationData = {
         userId: selectedPatient.id,
         doctorId: user.id,
@@ -328,6 +330,23 @@ useEffect(() => {
               Date.now() + parseInt(medicationForm.duration) * 86400000
             ).toISOString()
           : null,
+        frequency: mappedFrequency,
+        customFrequencyHours:
+          mappedFrequency === FrequencyType.EveryFewHours ||
+          mappedFrequency === FrequencyType.Custom
+            ? parseInt(medicationForm.customFrequencyHours || "0", 10) || null
+            : null,
+        daysOfWeek:
+          mappedFrequency === FrequencyType.Weekly
+            ? medicationForm.daysOfWeek || "Monday"
+            : mappedFrequency === FrequencyType.Custom
+            ? medicationForm.daysOfWeek || ""
+            : null,
+        monthlyDay:
+          mappedFrequency === FrequencyType.Monthly &&
+          medicationForm.monthlyDay
+            ? parseInt(medicationForm.monthlyDay, 10)
+            : null,
       };
 
       console.log("📦 Sending medication data:", medicationData);
