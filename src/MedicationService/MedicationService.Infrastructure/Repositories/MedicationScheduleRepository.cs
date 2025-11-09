@@ -103,8 +103,13 @@ namespace MedicationService.Infrastructure.Repositories
         .ToListAsync();
             var upcoming = schedules.Where(s =>
             {
-                var scheduledDateTime = startTime.Date + s.TimeOfDay;
-                return scheduledDateTime >= startTime && scheduledDateTime <= endTime;
+                var candidate = startTime.Date.Add(s.TimeOfDay);
+                if (candidate < startTime)
+                {
+                    candidate = candidate.AddDays(1);
+                }
+
+                return candidate >= startTime && candidate <= endTime;
             });
             return upcoming;
         }
