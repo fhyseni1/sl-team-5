@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System;
+using System.Net.Http.Headers;
 using System.Text;
 using UserHealthService.Application.DTOs.Clinics;
 using UserHealthService.Application.DTOs.Doctors;
@@ -64,7 +65,21 @@ builder.Services.AddScoped<IPDFReportService, PDFReportService>();
 builder.Services.AddScoped<IAppointmentReportRepository, AppointmentReportRepository>();
 builder.Services.AddScoped<IAppointmentReportService, AppointmentReportService>();
 builder.Services.AddScoped<IMedicationReminderJob, MedicationReminderJob>();
+builder.Services.AddScoped<MedicationReminderJob>();
 builder.Services.AddScoped<IAppointmentService, AppointmentService>();
+
+builder.Services.AddHttpClient("MedicationService", (sp, client) =>
+{
+    var configuration = sp.GetRequiredService<IConfiguration>();
+    var baseUrl = configuration["MedicationService:Url"];
+    if (!string.IsNullOrWhiteSpace(baseUrl))
+    {
+        client.BaseAddress = new Uri(baseUrl);
+    }
+
+    client.DefaultRequestHeaders.Accept.Clear();
+    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+});
 
 
 builder.Services.AddAutoMapper(
